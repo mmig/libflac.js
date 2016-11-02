@@ -61119,6 +61119,17 @@ return {
         }
         return 0;
     },
+    
+    // FLAC__StreamDecoder* init_libflac_decoder(unsigned sample_rate, unsigned channels, unsigned bps, unsigned compression_level, unsigned total_samples);
+    init_libflac_decoder: function(sample_rate, channels, bps, compression_level, total_samples){
+        var ok = true;
+        var decoder = Module.ccall('FLAC__stream_decoder_new', 'number', [ ], [ ]);
+        if (ok){
+            return decoder;
+        }
+        return 0;
+    },
+    
     init_encoder_stream: function(encoder, write_callback_fn, client_data){
         client_data = client_data|0;
         var callback_fn_ptr = Runtime.addFunction(function(p_encoder, buffer, bytes, samples, current_frame, p_client_data){
@@ -61136,6 +61147,24 @@ return {
         // return true;
         return init_status;
     },
+
+    init_decoder_stream: function(decoder, read_callback_fn, error_callback_fn, client_data){
+        client_data = client_data|0;
+        var callback_fn_ptr = Runtime.addFunction(function(p_decoder, buffer, bytes, p_client_data){
+            read_callback_fn(p_decoder, buffer, bytes, p_client_data);
+        });
+        var error_callback_fn_ptr = Runtime.addFunction(function(p_decoder, err, p_client_data){
+            error_callback_fn(p_decoder, err, p_client_data);
+        });
+        var write_callback_fn_ptr = Runtime.addFunction(function(){
+            write_callback_fn();
+        });
+        
+		var init_status = Module.ccall('FLAC__stream_decoder_init_stream', 'number', ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'], [decoder, callback_fn_ptr, 0, 0, 0, 0, write_callback_fn_ptr, 0, error_callback_fn_ptr, client_data]);
+
+        return init_status;
+    },
+    
     encode_buffer_pcm_as_flac: function(encoder, buffer, channels, no_items){
         // get the length of the data in bytes
         var numBytes = buffer.length * buffer.BYTES_PER_ELEMENT;
@@ -61150,9 +61179,32 @@ return {
         // return Module.ccall('FLAC__stream_encoder_process_interleaved', 'number', ['number', 'number', 'number'], [encoder, heapBytes.byteOffset, buffer.length]);
         return Module.ccall('FLAC__stream_encoder_process_interleaved', 'number', ['number', 'number', 'number'], [encoder, heapBytes.byteOffset, no_items]);
     },
+    
+    decode_buffer_flac_process: function(buffer_ptr, data, bytes_ptr){
+        // TODO: how does this work?
+        var numBytes = data.length * data.BYTES_PER_ELEMENT;
+        
+        var ptr = Module._malloc(numBytes);
+        //var heapBytes= new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
+        //heapBytes.set(new Uint8Array(data.buffer));
+        //console.log('heapBytes offset', heapBytes.byteOffset);
+        //writeArrayToMemory(data, ptr);
+        //writeArrayToMemory(data, buffer_ptr);
+
+
+    },
+    
+    decode_buffer_flac_as_pcm: function(decoder){
+        console.log('decode_buffer_flac_as_pcm');
+        // return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
+        return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
+    },
     FLAC__stream_encoder_init_file: Module.cwrap('FLAC__stream_encoder_init_file', 'number', [ 'number', 'number', 'number', 'number' ]),
     FLAC__stream_encoder_finish: Module.cwrap('FLAC__stream_encoder_finish', 'number', [ 'number' ]),
-    FLAC__stream_encoder_delete: Module.cwrap('FLAC__stream_encoder_delete', 'number', [ 'number' ])
+    FLAC__stream_decoder_finish: Module.cwrap('FLAC__stream_decoder_finish', 'number', [ 'number' ]),
+    FLAC__stream_decoder_reset: Module.cwrap('FLAC__stream_decoder_reset', 'number', [ 'number' ]),
+    FLAC__stream_encoder_delete: Module.cwrap('FLAC__stream_encoder_delete', 'number', [ 'number' ]),
+    FLAC__stream_decoder_delete: Module.cwrap('FLAC__stream_decoder_delete', 'number', [ 'number' ])
 
 };
 })();

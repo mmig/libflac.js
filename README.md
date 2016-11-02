@@ -34,6 +34,8 @@ Start build process by executing the `Makefile`.
 Usage
 ------
 
+Encoding
+
 For a larger example on how to encode audio data from the 
 microphone see the [Speech to FLAC][speech-to-flac] example.
 
@@ -106,6 +108,61 @@ console.log("flac finish: " + flac_ok);
 //     merge "encoded pieces" in encBuffer into one single Uint8Array...
 
 ```
+
+Decoding
+
+var flac_decoder,
+BUFSIZE = 4096,
+CHANNELS = 1,
+SAMPLERATE = 44100,
+COMPRESSION = 5,
+BPS = 16,
+flac_ok = 1,
+current_chunk,
+num_chunks = 0;
+
+function read_callback_fn(p_decoder, buffer, bytes, p_client_data){
+    console.log('decode read callback', num_chunks);
+    Flac.decode_buffer_flac_process(buffer, current_chunk, bytes);     
+    num_chunks++;
+
+    return;
+}
+
+function write_callback_fn(){
+    console.log('decode write callback');
+}
+
+function error_callback_fn(decoder, err, client_data){
+    console.log('decode error callback', err);
+    Flac.FLAC__stream_decoder_finish(decoder);
+}
+
+// init decoder
+flac_decoder = Flac.init_libflac_decoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0);
+////
+if (flac_decoder != 0){
+    var status_decoder = Flac.init_decoder_stream(flac_decoder, read_callback_fn, error_callback_fn);
+    flac_ok &= (status_decoder == 0);
+    
+    console.log("flac decode init     : " + flac_ok);//DEBUG
+    console.log("status decoder: " + status_decoder);//DEBUG
+    
+    INIT = true;
+} else {
+    console.error("Error initializing the decoder.");
+}
+
+// decode a chunk of flac data
+current_chunk = chunk; // must save it to be used in the callback read function (see read_callback_fn)
+
+var flac_return = Flac.decode_buffer_flac_as_pcm(flac_decoder);
+if (flac_return != true){
+    console.log("Error: decode_buffer_flac_as_pcm returned false. " + flac_return);
+}
+
+// finish Decoding
+flac_ok &= Flac.FLAC__stream_decoder_finish(flac_decoder);
 
 
 
