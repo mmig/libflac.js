@@ -109,8 +109,11 @@ console.log("flac finish: " + flac_ok);
 
 ```
 
+
 Decoding
 
+Small usage example:
+```javascript
 var flac_decoder,
 BUFSIZE = 4096,
 CHANNELS = 1,
@@ -163,7 +166,7 @@ if (flac_return != true){
 
 // finish Decoding
 flac_ok &= Flac.FLAC__stream_decoder_finish(flac_decoder);
-
+```
 
 
 Authors
