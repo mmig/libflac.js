@@ -61149,20 +61149,91 @@ return {
     },
 
     init_decoder_stream: function(decoder, read_callback_fn, error_callback_fn, client_data){
-        client_data = client_data|0;
-        var callback_fn_ptr = Runtime.addFunction(function(p_decoder, buffer, bytes, p_client_data){
-            read_callback_fn(p_decoder, buffer, bytes, p_client_data);
-        });
-        var error_callback_fn_ptr = Runtime.addFunction(function(p_decoder, err, p_client_data){
-            error_callback_fn(p_decoder, err, p_client_data);
-        });
-        var write_callback_fn_ptr = Runtime.addFunction(function(){
-            write_callback_fn();
-        });
-        
-		var init_status = Module.ccall('FLAC__stream_decoder_init_stream', 'number', ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'], [decoder, callback_fn_ptr, 0, 0, 0, 0, write_callback_fn_ptr, 0, error_callback_fn_ptr, client_data]);
 
-        return init_status;
+    	client_data = client_data|0;
+
+    	//TODO move these out of this function?
+    	// FLAC__STREAM_DECODER_READ_STATUS_CONTINUE     The read was OK and decoding can continue.
+    	// FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM   The read was attempted while at the end of the stream. Note that the client must only return this value when the read callback was called when already at the end of the stream. Otherwise, if the read itself moves to the end of the stream, the client should still return the data and FLAC__STREAM_DECODER_READ_STATUS_CONTINUE, and then on the next read callback it should return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM with a byte count of 0.
+    	// FLAC__STREAM_DECODER_READ_STATUS_ABORT       An unrecoverable error occurred. The decoder will return from the process call.
+    	var FLAC__STREAM_DECODER_READ_STATUS_CONTINUE = 0;
+    	var FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM = 1;
+    	var FLAC__STREAM_DECODER_READ_STATUS_ABORT = 2;
+
+
+    	//(const FLAC__StreamDecoder *decoder, FLAC__byte buffer[], size_t *bytes, void *client_data)
+    	var read_callback_fn_ptr = Runtime.addFunction(function(p_decoder, buffer, bytes, p_client_data){
+    		//FLAC__StreamDecoderReadCallback, see https://xiph.org/flac/api/group__flac__stream__decoder.html#ga7a5f593b9bc2d163884348b48c4285fd
+
+    		var len = Module.getValue(bytes, 'i32');//FIXME which type has bytes (size_t)? 'i16'?
+
+    		if(len === 0){
+    			return FLAC__STREAM_DECODER_READ_STATUS_ABORT;//FIXME need to use number or declare const-value!!
+    		}
+
+    		//callback must return object with: {buffer: ArrayBuffer, readDataLength: number, error: boolean}
+    		var readResult = read_callback_fn(len, p_client_data);
+    		//in case of END_OF_STREAM or an error, readResult.readDataLength must be returned with 0
+
+    		var readLen = readResult.readDataLength;
+    		Module.setValue(bytes, readLen, 'i32');//FIXME which type has bytes (size_t)? 'i16'?
+
+    		if(readResult.error){
+    			return FLAC__STREAM_DECODER_READ_STATUS_ABORT;//FIXME need to use number or declare const-value!!
+    		}
+
+    		if(readLen === 0){
+    			return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;//FIXME need to use number or declare const-value!!
+    		}
+
+    		var readBuf = readResult.buffer;
+    		Module.HEAPU8.set(readBuf, buffer);//FIXME is this correct for transfering the read data to the buffer?
+
+    		return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;//FIXME need to use number or declare const-value!!
+    	});
+
+    	var error_callback_fn_ptr = Runtime.addFunction(function(p_decoder, err, p_client_data){
+
+    		//err:
+    		// FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC         An error in the stream caused the decoder to lose synchronization.
+    		// FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER       The decoder encountered a corrupted frame header.
+    		// FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH   The frame's data did not match the CRC in the footer.
+    		// FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM   The decoder encountered reserved fields in use in the stream.
+    		var msg;
+    		switch(err){
+    		case 0:
+    			msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC';
+    			break;
+    		case 1:
+    			msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER';
+    			break;
+    		case 2:
+    			msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH';
+    			break;
+    		case 3:
+    			msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM';
+    			break;
+    		default:
+    			msg = 'FLAC__STREAM_DECODER_ERROR__UNKNOWN';//this should never happen
+    		}
+
+    		//TODO convert err? add/remove string representation for err code?
+    		error_callback_fn(err, msg, p_client_data);
+    	});
+
+    	//(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 *const buffer[], void *client_data)
+    	var write_callback_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer, p_client_data){
+    		//TODO create typed array and store frames/buffer into it, then give feed it into the callback write_callback_fn
+    		write_callback_fn();//p_frame, p_buffer, p_client_data);
+
+    		//TODO return:
+    		// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE   The write was OK and decoding can continue.
+    		// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     An unrecoverable error occurred. The decoder will return from the process call.
+    	});
+
+    	var init_status = Module.ccall('FLAC__stream_decoder_init_stream', 'number', ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'], [decoder, read_callback_fn_ptr, 0, 0, 0, 0, write_callback_fn_ptr, 0, error_callback_fn_ptr, client_data]);
+
+    	return init_status;
     },
     
     encode_buffer_pcm_as_flac: function(encoder, buffer, channels, no_items){
