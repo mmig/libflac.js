@@ -179,9 +179,18 @@ if (flac_decoder != 0){
 // decode a chunk of flac data
 current_chunk = chunk; // must save it to be used in the callback read function (see read_callback_fn)
 
-var flac_return = Flac.decode_buffer_flac_as_pcm(flac_decoder);
-if (flac_return != true){
+var continue  = true, state;
+while(continue){
+  flac_return = Flac.decode_buffer_flac_as_pcm(flac_decoder);
+  if (flac_return != true){
     console.log("Error: decode_buffer_flac_as_pcm returned false. " + flac_return);
+    continue = false;
+  } else {
+   state = Flac.stream_decoder_get_state(flac_decoder);//TODO impl. & export this function
+   if(state === Flac.STREAM_DECODER_END_OF_STREAM){//TODO declare & export the decoder state-constants
+      continue = false;//should also stop, for some other states, e.g. aborted
+   }
+  }
 }
 
 // finish Decoding
