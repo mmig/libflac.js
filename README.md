@@ -124,12 +124,32 @@ flac_ok = 1,
 current_chunk,
 num_chunks = 0;
 
-function read_callback_fn(p_decoder, buffer, bytes, p_client_data){
-    console.log('decode read callback', num_chunks);
-    Flac.decode_buffer_flac_process(buffer, current_chunk, bytes);     
-    num_chunks++;
+var isTested = false;
+function read_callback_fn(bufferSize){
 
-    return;
+  if(isTested/* is at end of input stream, i.e. nothing to read any more */){
+    return {buffer: null, readDataLength: 0, error: false};
+  }
+
+  isTested = true;
+
+  var _buffer = new ArrayBuffer(bufferSize);
+  var numberOfReadBytes;
+  try{
+    //read data from some source into _buffer
+    new DataView(_buffer).setUint8(0, 101);//TEST set some value at start
+    new DataView(_buffer).setUint8(bufferSize-3, 85);//TEST set some value near the end
+
+
+    // ...and store number of read bytes into var numberOfReadBytes (i.e. length of read data with regard to an UINT8-view on the ArrayBuffer):
+    numberOfReadBytes = bufferSize-2;//TEST set the read-data-length to the last written value, see above
+
+  } catch(err){
+    console.error(err);//DEBUG
+    return {buffer: null, readDataLength: 0, error: true};
+  }
+
+  return {buffer: _buffer, readDataLength: numberOfReadBytes, error: false};
 }
 
 function write_callback_fn(){
