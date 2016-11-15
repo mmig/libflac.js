@@ -61176,6 +61176,7 @@ return {
     		//in case of END_OF_STREAM or an error, readResult.readDataLength must be returned with 0
 
     		var readLen = readResult.readDataLength;
+            console.log('setting readResult bytes value to', readLen);
     		Module.setValue(bytes, readLen, 'i32');//FIXME which type has bytes (size_t)? 'i16'?
 
     		if(readResult.error){
@@ -61187,7 +61188,20 @@ return {
     		}
 
     		var readBuf = readResult.buffer;
-    		Module.HEAPU8.set(readBuf, buffer);//FIXME is this correct for transfering the read data to the buffer?
+            console.log('setting readResult buffer to', readBuf);
+            
+            /*
+            var data = new Uint8Array(readBuf);
+            var dataBytes =  data.length * data.BYTES_PER_ELEMENT;
+            var dataPtr = Module._malloc(dataBytes);
+            
+            var dataHeap = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataBytes);
+            dataHeap.set(data);
+            */
+            
+            var dataHeap = new Uint8Array(Module.HEAPU8.buffer, buffer, readLen);
+            dataHeap.set(new Uint8Array(readBuf));
+    		//Module.HEAPU8.set(readBuf, buffer);//FIXME is this correct for transfering the read data to the buffer?
 
     		return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;//FIXME need to use number or declare const-value!!
     	});
@@ -61224,7 +61238,8 @@ return {
     	//(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 *const buffer[], void *client_data)
     	var write_callback_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer, p_client_data){
     		//TODO create typed array and store frames/buffer into it, then give feed it into the callback write_callback_fn
-    		write_callback_fn();//p_frame, p_buffer, p_client_data);
+    		var buffer = Module.getValue(p_buffer,'i32');
+            write_callback_fn(buffer);//p_frame, p_buffer, p_client_data);
 
     		//TODO return:
     		// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE   The write was OK and decoding can continue.
