@@ -124,16 +124,22 @@ flac_ok = 1,
 current_chunk,
 num_chunks = 0;
 
-function read_callback_fn(p_decoder, buffer, bytes, p_client_data){
-    console.log('decode read callback', num_chunks);
-    Flac.decode_buffer_flac_process(buffer, current_chunk, bytes);     
-    num_chunks++;
 
-    return;
+function read_callback_fn(bufferSize){
+    console.log('decode read callback, buffer bytes max=', bufferSize);
+    
+    //current_chunk contains a UInt8Array of the data to be stored
+    var _buffer = current_chunk.buffer;
+    var numberOfReadBytes = _buffer.byteLength;
+    console.log('decode read callback, buffer bytes actual=', numberOfReadBytes);
+    console.log('decode read callback, current chunk buffer=', current_chunk);
+
+    return {buffer: _buffer, readDataLength: numberOfReadBytes, error: false};
 }
 
-function write_callback_fn(){
-    console.log('decode write callback');
+function write_callback_fn(buffer){
+    // TODO buffer is the decoded audio data, UInt32Array or what?
+    console.log('decode write callback', buffer);
 }
 
 function error_callback_fn(decoder, err, client_data){
@@ -156,13 +162,17 @@ if (flac_decoder != 0){
     console.error("Error initializing the decoder.");
 }
 
-// decode a chunk of flac data
-current_chunk = chunk; // must save it to be used in the callback read function (see read_callback_fn)
 
-var flac_return = Flac.decode_buffer_flac_as_pcm(flac_decoder);
+// decode a chunk of flac data
+
+// current_chunk will be updated as more data comes in.  For now we'll set it to a sample chunk of FLAC data
+current_chunk = new Uint8Array([255,248,201,8,0,149,0,0,0,33,189]); // must save it to be used in the callback read function (see read_callback_fn)
+
+flac_return = Flac.decode_buffer_flac_as_pcm(flac_decoder);
 if (flac_return != true){
-    console.log("Error: decode_buffer_flac_as_pcm returned false. " + flac_return);
+
 }
+
 
 // finish Decoding
 flac_ok &= Flac.FLAC__stream_decoder_finish(flac_decoder);
