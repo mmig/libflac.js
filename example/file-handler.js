@@ -1,18 +1,20 @@
 
 document.getElementById('files').addEventListener('change', handleFileSelect, false);
 
-document.getElementById('files_button').addEventListener('click', handle_process_button_click, false);
+//document.getElementById('files_button').addEventListener('click', handle_process_button_click, false);
 
 // Setup the dnd listeners.
 var dropZone = document.getElementById('drop_zone');
 dropZone.addEventListener('dragover', handleDragOver, false);
 dropZone.addEventListener('drop', handleFileSelect, false);
 
+var check_download;//boolean
+
 //----------- FUNCTIONS -----------------
 	
 function handleFileSelect(evt) {
+	
     check_download = document.getElementById('check_download').checked;
-    check_googleasr = document.getElementById('check_googleasr').checked;
 
     evt.stopPropagation();
     evt.preventDefault();
@@ -38,21 +40,44 @@ function handleFileSelect(evt) {
         var reader = new FileReader();
         
         reader.file_output = output;
+        reader.file_name = f.name;
 
         reader.onload = function(e) {
             arrayBuffer = new Uint8Array(this.result);
-            // // var wav_parameters = handle_buffer_operations(arrayBuffer);
-            // var wav_parameters = wav_file_processing_encode_wav_buffer(arrayBuffer);
+//            // var wav_parameters = handle_buffer_operations(arrayBuffer);
+//            var wav_parameters = wav_file_processing_encode_wav_buffer(arrayBuffer);
+//
+//            if (typeof wav_parameters !== "undefined" && wav_parameters !== null){
+//                this.file_output.push('</br>total samples: ', wav_parameters.total_samples, '</br>sample rate: ', wav_parameters.sample_rate, '</br>channels: ', wav_parameters.channels, '</br>bps: ', wav_parameters.bps);
+//            }
+            
 
-            // if (typeof wav_parameters !== "undefined" && wav_parameters !== null){
-                // reader.file_output.push('</br>total samples: ', wav_parameters.total_samples, '</br>sample rate: ', wav_parameters.sample_rate, '</br>channels: ', wav_parameters.channels, '</br>bps: ', wav_parameters.bps);
-            // }
-            reader.file_output.push('</li>');
-            // document.getElementById('list').innerHTML += '<ul>' + reader.file_output.join('') + '</ul>';
-            document.getElementById('list').innerHTML = '<ul>' + reader.file_output.join('') + '</ul>';
+        	var decData = [];
+            var isOk = decodeFlac(arrayBuffer, decData);
+            console.log('decoded data array: ', decData);
+            this.file_output.push('</br>return code: ', isOk);
+            
+            this.file_output.push('</li>');
+            // document.getElementById('list').innerHTML += '<ul>' + this.file_output.join('') + '</ul>';
+            document.getElementById('list').innerHTML = '<ul>' + this.file_output.join('') + '</ul>';
+            
+            if(check_download){
+            	
+            	//using data-util.js utility function(s)
+            	var blob = exportFile(decData);
+            	
+            	var reExt = /\.flac$/i;
+            	var fileName = this.file_name.replace(reExt, '.wav');
+            	if(!/\.wav$/.test(fileName)){
+            		fileName += '.wav';
+            	}
+
+            	//using data-util.js utility function(s)
+            	forceDownload(blob, fileName);
+            }
         }
         
-        reader.readAsArrayBuffer(f);      
+        reader.readAsArrayBuffer(f);
     }
     // document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
 }

@@ -61194,22 +61194,14 @@ return {
     		}
 
     		var readBuf = readResult.buffer;
-            console.log('setting readResult buffer to', readBuf);
-            
-            /*
-            var data = new Uint8Array(readBuf);
-            var dataBytes =  data.length * data.BYTES_PER_ELEMENT;
-            var dataPtr = Module._malloc(dataBytes);
-            
-            var dataHeap = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataBytes);
-            dataHeap.set(data);
-            */
+            // console.log('setting readResult buffer to', readBuf);
+			
+			// console.log(HEAPU8.subarray(buffer, buffer+readLen));
             
             var dataHeap = new Uint8Array(Module.HEAPU8.buffer, buffer, readLen);
             dataHeap.set(new Uint8Array(readBuf));
 			
-			
-    		// Module.HEAPU8.set(readBuf, buffer);//FIXME is this correct for transfering the read data to the buffer?
+			// console.log(HEAPU8.subarray(buffer, buffer+readLen));
 
     		return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;//FIXME need to use number or declare const-value!!
     	});
@@ -61244,7 +61236,7 @@ return {
     	});
 		
 		//HELPER: read frame data
-		var _readFrame(p_frame){
+		var _readFrame = function(p_frame){
 		
 			/*
 			typedef struct {
@@ -61289,29 +61281,42 @@ return {
 			//TODO read subframe
 			//TODO read footer
 			
+			return {
+				blocksize: blocksize,
+				sampleRate: sample_rate,
+				channels: channels,
+				bitsPerSample: bits_per_sample,
+				number: number,
+				crc: crc
+			};
 		}
 
     	//(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 *const buffer[], void *client_data)
     	var write_callback_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer, p_client_data){
-    		//TODO create typed array and store frames/buffer into it, then give feed it into the callback write_callback_fn
     		
+			// var dec = Module.getValue(p_decoder,'i32');
+			// var clientData = Module.getValue(p_client_data,'i32');
+			
 			var buffer = Module.getValue(p_buffer,'i32');
 			
-			var frame = Module.getValue(p_frame,'i32');
-			var dec = Module.getValue(p_decoder,'i32');
+			var frameInfo = _readFrame(p_frame);
 			
-			console.log(HEAPU8.subarray(buffer, buffer+frame));
+			console.log(frameInfo);//DEBUG
 			
-			//TEST: copied from encoding...
+			//FIXME this works for mono / single channel only...
+			var _buffer = HEAPU8.subarray(buffer, buffer + frameInfo.blocksize);
+			
+			// console.log(_buffer);
+			
+			//FIXME should we copy the data?
 			// var arraybuf = new ArrayBuffer(buffer);
-            // var retdata = new Uint8Array(bytes);
-            // retdata.set(HEAPU8.subarray(buffer, buffer + bytes));
+            // var retdata = new Uint8Array(frameInfo.blocksize);
+            // retdata.set(_buffer);
 			
-            write_callback_fn(buffer);//p_frame, p_buffer, p_client_data);
-
-    		//TODO return:
-    		// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE   The write was OK and decoding can continue.
-    		// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     An unrecoverable error occurred. The decoder will return from the process call.
+            write_callback_fn(_buffer, frameInfo);//, clientData);
+    		
+    		// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE	The write was OK and decoding can continue.
+    		// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
 			
 			return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
     	});
@@ -61354,6 +61359,11 @@ return {
         console.log('decode_buffer_flac_as_pcm');
         // return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
         return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
+    },
+	decode_stream_flac_as_pcm: function(decoder){
+        console.log('decode_buffer_flac_as_pcm');
+        // return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
+        return Module.ccall('FLAC__stream_decoder_process_until_end_of_stream', 'number', ['number'], [decoder]);
     },
     FLAC__stream_encoder_init_file: Module.cwrap('FLAC__stream_encoder_init_file', 'number', [ 'number', 'number', 'number', 'number' ]),
     FLAC__stream_encoder_finish: Module.cwrap('FLAC__stream_encoder_finish', 'number', [ 'number' ]),
