@@ -36,16 +36,17 @@ function exportUI8ArrayBuffer(recBuffers, recLength){
 /**
  *  creates blob element from libflac-decoder output
  */
-function exportFile(recBuffers, sampleRate){
+function exportFile(recBuffers, sampleRate, channels){
 	//get length
 	var recLength = 0;
+	//FIXME handle non-mono (ie.e. channels > 1) correctly!!!
 	for(var i=recBuffers.length - 1; i >= 0; --i){
 		recLength += recBuffers[i].byteLength;
 	}
 	
 	//convert buffers into one single buffer
 	var samples = exportUI8ArrayBuffer(recBuffers, recLength);
-	var dataView = encodeWAV(samples, sampleRate, 1/*mono*/);
+	var dataView = encodeWAV(samples, sampleRate, channels);
 	var the_blob = new Blob([dataView], {type: 'audio/wav'});
 	return the_blob;
 }

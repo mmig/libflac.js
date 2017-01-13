@@ -53,9 +53,16 @@ function handleFileSelect(evt) {
             
 
         	var decData = [];
-            var isOk = decodeFlac(arrayBuffer, decData);
+            var result = decodeFlac(arrayBuffer, decData);
             console.log('decoded data array: ', decData);
-            this.file_output.push('</br>return code: ', isOk);
+
+            var metaData = result.metaData;
+            if(metaData) for(var n in metaData){
+                this.file_output.push('</br>', n, ': ', metaData[n]);	
+            }
+            
+            this.file_output.push('</br></br>return code: ', isOk);
+            
             
             this.file_output.push('</li>');
             // document.getElementById('list').innerHTML += '<ul>' + this.file_output.join('') + '</ul>';
@@ -64,7 +71,7 @@ function handleFileSelect(evt) {
             if(check_download){
             	
             	//using data-util.js utility function(s)
-            	var blob = exportFile(decData);
+            	var blob = exportFile(decData, metaData.sampleRate, metaData.channels);
             	
             	var reExt = /\.flac$/i;
             	var fileName = this.file_name.replace(reExt, '.wav');
