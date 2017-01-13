@@ -2,18 +2,19 @@
 function decodeFlac(binData, decData){
 	
 	var flac_decoder,
-	BUFSIZE = 4096,
-	CHANNELS = 1,
-	SAMPLERATE = 44100,
-	COMPRESSION = 5,
-	BPS = 16,
-	flac_ok = 1,
-	current_chunk,
-	num_chunks = 0;
+		BUFSIZE = 4096,
+		CHANNELS = 1,
+		SAMPLERATE = 44100,
+		COMPRESSION = 5,
+		BPS = 16,
+		flac_ok = 1,
+		current_chunk,
+		num_chunks = 0,
+		meta_data;
 	
 	
-	var TEST_MAX = 100;
-	var TEST_COUNT = 0;
+	var TEST_MAX = 100;//FIXME TEST: for safety check for testing -> avoid infinite loop by breaking at max. repeats
+	var TEST_COUNT = 0;//FIXME TEST
 	
 	var currentDataOffset = 0;
 	var size = binData.buffer.byteLength;
@@ -26,15 +27,6 @@ function decodeFlac(binData, decData){
 	    if(++TEST_COUNT > TEST_MAX){
 			return {buffer: null, readDataLength: 0, error: false};
 		}
-	    
-	    //TODO check if is at end of input stream, i.e. nothing to read any more, then:
-	//    return {buffer: null, readDataLength: 0, error: false};
-	    
-	    //current_chunk contains a UInt8Array of the data to be stored
-//	    var _buffer = current_chunk.buffer;
-//	    var numberOfReadBytes = _buffer.byteLength;
-//	    console.log('decode read callback, buffer bytes actual=', numberOfReadBytes);
-//	    console.log('decode read callback, current chunk buffer=', current_chunk);
 	    
 	    var start = currentDataOffset;
 	    var end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
@@ -55,9 +47,15 @@ function decodeFlac(binData, decData){
 	}
 	
 	function write_callback_fn(buffer){
-	    // TODO buffer is the decoded audio data, UInt32Array or what?
+	    // TODO buffer is the decoded audio data, Uint8Array
 //	    console.log('decode write callback', buffer);
 		decData.push(buffer);
+	}
+	
+	function metadata_callback_fn(data){
+		console.info('meta data: ', data);
+		
+		meta_data = data;
 	}
 	
 	function error_callback_fn(decoder, err, client_data){
@@ -69,7 +67,7 @@ function decodeFlac(binData, decData){
 	flac_decoder = Flac.init_libflac_decoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0);
 	////
 	if (flac_decoder != 0){
-	    var status_decoder = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn);
+	    var status_decoder = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn);
 	    flac_ok &= (status_decoder == 0);
 	    
 	    console.log("flac decode init     : " + flac_ok);//DEBUG
@@ -95,5 +93,5 @@ function decodeFlac(binData, decData){
 	// finish Decoding
 	flac_ok &= Flac.FLAC__stream_decoder_finish(flac_decoder);
 	
-	return flac_ok;
+	return {metaData: meta_data, status: flac_ok};
 }
