@@ -61148,7 +61148,7 @@ return {
         return init_status;
     },
 
-    init_decoder_stream: function(decoder, read_callback_fn, write_callback_fn, error_callback_fn, client_data){
+    init_decoder_stream: function(decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, client_data){
 
     	client_data = client_data|0;
 
@@ -61235,6 +61235,50 @@ return {
     		error_callback_fn(err, msg, p_client_data);
     	});
 		
+		
+		//HELPER: read stream info meta-data
+		var _readStreamInfo = function(p_streaminfo){//-> FLAC__StreamMetadata.type (FLAC__MetadataType) === FLAC__METADATA_TYPE_STREAMINFO (0)
+			
+			/*
+			typedef struct {
+				unsigned min_blocksize, max_blocksize;
+				unsigned min_framesize, max_framesize;
+				unsigned sample_rate;
+				unsigned channels;
+				unsigned bits_per_sample;
+				FLAC__uint64 total_samples;
+				FLAC__byte md5sum[16];
+			} FLAC__StreamMetadata_StreamInfo;
+			*/
+			
+			var min_blocksize = Module.getValue(p_streaminfo,'i16');//2 bytes
+			var max_blocksize = Module.getValue(p_streaminfo+2,'i16');//2 bytes
+			
+			var min_framesize = Module.getValue(p_streaminfo+4,'i16');//2 bytes
+			var max_framesize = Module.getValue(p_streaminfo+8,'i16');//2 bytes
+			
+			var sample_rate = Module.getValue(p_streaminfo+16,'i32');//4 bytes
+			var channels = Module.getValue(p_streaminfo+20,'i32');//4 bytes
+			
+			var bits_per_sample = Module.getValue(p_streaminfo+24,'i32');//4 bytes
+			
+			var total_samples = Module.getValue(p_streaminfo+28,'i64');//8 bytes //FIXME i64 ??
+			
+			var md5sum = 0;//32 bytes TODO
+			
+			return {
+				min_blocksize: min_blocksize,
+				max_blocksize: max_blocksize,
+				min_framesize: min_framesize,
+				max_framesize: max_framesize,
+				sampleRate: sample_rate,
+				channels: channels,
+				bitsPerSample: bits_per_sample,
+				total_samples: total_samples,
+				md5sum: md5sum
+			};
+		};
+		
 		//HELPER: read frame data
 		var _readFrame = function(p_frame){
 		
@@ -61290,6 +61334,52 @@ return {
 				crc: crc
 			};
 		}
+		
+		//(const FLAC__StreamDecoder *decoder, const FLAC__StreamMetadata *metadata, void *client_data)
+    	var metadata_callback_fn_ptr = !metadata_callback_fn? 0 : Runtime.addFunction(function(p_decoder, p_metadata, p_client_data){
+			
+			/*
+			 typedef struct {
+				FLAC__MetadataType type;
+				FLAC__bool is_last;
+				unsigned length;
+				union {
+					FLAC__StreamMetadata_StreamInfo stream_info;
+					FLAC__StreamMetadata_Padding padding;
+					FLAC__StreamMetadata_Application application;
+					FLAC__StreamMetadata_SeekTable seek_table;
+					FLAC__StreamMetadata_VorbisComment vorbis_comment;
+					FLAC__StreamMetadata_CueSheet cue_sheet;
+					FLAC__StreamMetadata_Picture picture;
+					FLAC__StreamMetadata_Unknown unknown;
+				} data;
+			} FLAC__StreamMetadata;
+			*/
+			
+			/*
+			FLAC__METADATA_TYPE_STREAMINFO 		STREAMINFO block
+			FLAC__METADATA_TYPE_PADDING 		PADDING block
+			FLAC__METADATA_TYPE_APPLICATION 	APPLICATION block
+			FLAC__METADATA_TYPE_SEEKTABLE 		SEEKTABLE block
+			FLAC__METADATA_TYPE_VORBIS_COMMENT 	VORBISCOMMENT block (a.k.a. FLAC tags)
+			FLAC__METADATA_TYPE_CUESHEET 		CUESHEET block
+			FLAC__METADATA_TYPE_PICTURE 		PICTURE block
+			FLAC__METADATA_TYPE_UNDEFINED 		marker to denote beginning of undefined type range; this number will increase as new metadata types are added
+			FLAC__MAX_METADATA_TYPE 			No type will ever be greater than this. There is not enough room in the protocol block. 
+			*/
+			
+			var type = Module.getValue(p_metadata,'i32');//4 bytes
+			var is_last = Module.getValue(p_metadata+4,'i16');//2 bytes
+			var length = Module.getValue(p_metadata+6,'i32');//4 bytes
+			
+			var meta_data;
+			//TODO handle other meta data too
+			if(type === 0){//FLAC__METADATA_TYPE_STREAMINFO
+				meta_data = _readStreamInfo(p_metadata+16);//10);
+				
+				metadata_callback_fn(meta_data);
+			}
+		});
 
     	//(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 *const buffer[], void *client_data)
     	var write_callback_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer, p_client_data){
@@ -61303,25 +61393,129 @@ return {
 			
 			console.log(frameInfo);//DEBUG
 			
+			var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
+			
+			var increase = 2;//FIXME (see below fix_write_buffer)
+			
 			//FIXME this works for mono / single channel only...
-			var _buffer = HEAPU8.subarray(buffer, buffer + frameInfo.blocksize);
+			var heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
+			//var _buffer = new Uint8Array(heapView);
 			
-			// console.log(_buffer);
+			//FIXME
+			var _buffer = __fix_write_buffer(heapView);
+			if(_buffer.length < block_size){
+				while(_buffer.length < block_size && buffer + block_size * increase < HEAPU8.length){
+					increase += 2;
+					heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
+					_buffer = __fix_write_buffer(heapView);
+				}
+			}
 			
-			//FIXME should we copy the data?
-			// var arraybuf = new ArrayBuffer(buffer);
-            // var retdata = new Uint8Array(frameInfo.blocksize);
-            // retdata.set(_buffer);
-			
-            write_callback_fn(_buffer, frameInfo);//, clientData);
+            write_callback_fn(_buffer.subarray(0, block_size), frameInfo);//, clientData);
     		
     		// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE	The write was OK and decoding can continue.
     		// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
 			
 			return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
     	});
+		
+		var __fix_write_buffer = function(buffer){
+			//FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated"
+			//		HACK for now: remove 2 of the values, for each of these triplets
+			var count = 0;
+			var inc;
+			var isPrint;
+			for(var i=0, size = buffer.length; i < size; ++i){
+				
+				if(buffer[i] === 0 || buffer[i] === 255){
+					
+					inc = 0;
+					isPrint = true;
+					
+					if(i + 1 < size && buffer[i] === buffer[i+1]){
+						
+						++inc;
+						
+						if(i + 2 < size){
+							if(buffer[i] === buffer[i+2]){
+								++inc;
+							} else {
+								//if only 2 occurrences: ignore value
+								isPrint = false;
+							}
+						}
+					}//else: if single value: do print (an do not jump)
+					
 
-    	var init_status = Module.ccall('FLAC__stream_decoder_init_stream', 'number', ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'], [decoder, read_callback_fn_ptr, 0, 0, 0, 0, write_callback_fn_ptr, 0, error_callback_fn_ptr, client_data]);
+					if(isPrint){
+						++count
+					}
+					
+					i += inc;
+					
+				} else {
+					++count;
+				}
+			}
+			
+			var newBuffer = new Uint8Array(count);
+			var dv = new DataView(newBuffer.buffer);
+			for(var i=0, j=0, size = buffer.length; i < size; ++i, ++j){
+
+				if(buffer[i] === 0 || buffer[i] === 255){
+					
+					inc = 0;
+					isPrint = true;
+					
+					if(i + 1 < size && buffer[i] === buffer[i+1]){
+						
+						++inc;
+						
+						if(i + 2 < size){
+							if(buffer[i] === buffer[i+2]){
+								++inc;
+							} else {
+								//if only 2 occurrences: ignore value
+								isPrint = false;
+							}
+						}
+					}//else: if single value: do print (an do not jump)
+					
+
+					if(isPrint){
+						dv.setUint8(j, buffer[i]);
+					} else {
+						--j;
+					}
+					
+					i += inc;
+					
+				} else {
+					dv.setUint8(j, buffer[i]);
+				}
+				
+				
+			}
+			
+			return newBuffer;
+		}
+
+    	var init_status = Module.ccall(
+			'FLAC__stream_decoder_init_stream', 'number', [
+				'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'
+			], [
+				decoder,
+				read_callback_fn_ptr, 
+				0,// 	FLAC__StreamDecoderSeekCallback
+				0,// 	FLAC__StreamDecoderTellCallback
+				0,//	FLAC__StreamDecoderLengthCallback
+				0,//	FLAC__StreamDecoderEofCallback
+				write_callback_fn_ptr,
+				metadata_callback_fn_ptr,
+				error_callback_fn_ptr,
+				client_data
+			]
+		);
 
     	return init_status;
     },
