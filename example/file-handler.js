@@ -61,6 +61,7 @@ function handleFileSelect(evt) {
                 this.file_output.push('</br>', n, ': ', metaData[n]);	
             }
             
+            var isOk = result.status;
             this.file_output.push('</br></br>return code: ', isOk);
             
             
