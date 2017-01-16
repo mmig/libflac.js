@@ -1,22 +1,32 @@
-<html>
-<head>
-
-	
+<!-- doctype html -->
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>flac to wav conversion</title>
+    
 	<script src="libflac.js" type="text/javascript"></script>
-	<script src="encode-func.js" type="text/javascript"></script>
+	<script src="decode-func.js" type="text/javascript"></script>
 	<script src="data-util.js" type="text/javascript"></script>
+    
+  </head>
+  <body>
+    <div>
+        <h1>FLAC to WAV conversion</h1>
+        <p>Convert a FLAC file to WAV format.<br>
+        Either use the drop zone or the file selection button.<br>
+        By checking the "Download" box you can select, whether the WAV-file should be downloaded.<br></p>
+    </div>
 
-</head>
-<body>
 
-<div id="drop_zone" style="border: 1px red solid;height: 250px;">Drop WAV-files here</div>
-<input type="file" id="files" name="files[]" multiple />
-<input type="checkbox" id="check_download" checked>Download
+	<div id="drop_zone" style="border: 1px red solid;height: 250px;">Drop FLAC-files here</div>
+	<input type="file" id="files" name="files[]" multiple />
+	<input type="checkbox" id="check_download" checked>Download
 
-<!--input type="button" id="files_button" value="process file"-->
-<output id="list"></output>
+	<!--input type="button" id="files_button" value="process file"-->
+	<output id="list"></output>
 
-<script src="file-handler.js" type="text/javascript"></script>
+	<script src="file-handler.js" type="text/javascript"></script>
 
 </body>
 

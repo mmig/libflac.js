@@ -34,21 +34,38 @@ function exportUI8ArrayBuffer(recBuffers, recLength){
 }
 
 /**
- *  creates blob element from libflac-decoder output
+ *  creates blob element PCM audio data incl. WAV header
  */
-function exportFile(recBuffers, sampleRate, channels){
+function exportWavFile(recBuffers, sampleRate, channels){
+	//get length
+	var recLength = getLength(recBuffers);
+	//convert buffers into one single buffer
+	var samples = exportUI8ArrayBuffer(recBuffers, recLength);
+	var dataView = encodeWAV(samples, sampleRate, channels);
+	var the_blob = new Blob([dataView], {type: 'audio/wav'});
+	return the_blob;
+}
+
+/**
+ *  creates blob element from libflac-encoder output
+ */
+function exportFlacFile(recBuffers){
+	var recLength = getLength(recBuffers);
+	//convert buffers into one single buffer
+	var samples = exportUI8ArrayBuffer(recBuffers, recLength);
+	var the_blob = new Blob([samples]);
+	return the_blob;
+}
+
+function getLength(recBuffers){
+
 	//get length
 	var recLength = 0;
 	//FIXME handle non-mono (ie.e. channels > 1) correctly!!!
 	for(var i=recBuffers.length - 1; i >= 0; --i){
 		recLength += recBuffers[i].byteLength;
 	}
-	
-	//convert buffers into one single buffer
-	var samples = exportUI8ArrayBuffer(recBuffers, recLength);
-	var dataView = encodeWAV(samples, sampleRate, channels);
-	var the_blob = new Blob([dataView], {type: 'audio/wav'});
-	return the_blob;
+	return recLength;
 }
 
 function encodeWAV(samples, sampleRate, channels){
@@ -98,6 +115,69 @@ function writeData(output, offset, input){
 	for (var i = 0; i < input.length; ++i, ++offset){
 		output.setUint8(offset, input[i], true);
 	}
+}
+
+
+/**
+ *  checks if the given ui8_data (ui8array) is of a wav-file
+ */
+function wav_file_processing_check_wav_format(ui8_data){
+	// check stuff -- is file a compatible wav-file?
+	if ((ui8_data.length < 44) ||
+		(String.fromCharCode.apply(null, ui8_data.subarray(0,4)) != "RIFF") ||
+		(String.fromCharCode.apply(null, ui8_data.subarray(8, 16)) != "WAVEfmt ") ||
+		(String.fromCharCode.apply(null, ui8_data.subarray(36, 40)) != "data"))
+	{
+		console.log("ERROR: wrong format for wav-file.");
+		return false;
+	}
+	return true;
+}
+
+/**
+ *  reads the paramaters of a wav-file - stored in a ui8array
+ */
+function wav_file_processing_read_parameters(ui8_data){
+	var sample_rate=0,
+		channels=0,
+		bps=0,
+		total_samples=0,
+		block_align;
+
+	// get WAV/PCM parameters from data / file
+	sample_rate = (((((ui8_data[27] << 8) | ui8_data[26]) << 8) | ui8_data[25]) << 8) | ui8_data[24];
+	channels = ui8_data[22];
+	bps = ui8_data[34];
+	block_align = ui8_data[32];
+	total_samples = ((((((ui8_data[43] << 8) | ui8_data[42]) << 8) | ui8_data[41]) << 8) | ui8_data[40]) / block_align;
+	
+	return {
+		sample_rate: sample_rate,
+		channels: channels,
+		bps: bps,
+		total_samples: total_samples,
+		block_align: block_align
+	}
+}
+
+/**
+ *  converts the PCM data of the wav file (each sample stored as 16 bit value) into 
+ *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
+ */
+function wav_file_processing_convert_16bitdata_to32bitdata(arraybuffer){
+	// convert the PCM-Data to the appropriate format for the libflac library methods (32-bit array of samples)
+	// creates a new array (32-bit) and stores the 16-bit data of the wav-file as 32-bit data
+	var ab_i16 = new DataView(arraybuffer, 44);
+	var buf_length = ab_i16.byteLength;
+	var buf32_length = buf_length / 2;
+	var buffer_i32 = new Uint32Array(buf32_length);
+	var view = new DataView(buffer_i32.buffer);
+	var index = 0;
+	for (var j = 0; j < buf_length; j+=2){
+		view.setInt32(index, (ab_i16.getInt16(j, true)), true);
+		index += 4;
+	}
+	return buffer_i32;
 }
 
 /**

@@ -72,7 +72,7 @@ function handleFileSelect(evt) {
             if(check_download){
             	
             	//using data-util.js utility function(s)
-            	var blob = exportFile(decData, metaData.sampleRate, metaData.channels);
+            	var blob = exportWavFile(decData, metaData.sampleRate, metaData.channels);
             	
             	var reExt = /\.flac$/i;
             	var fileName = this.file_name.replace(reExt, '.wav');
