@@ -81,12 +81,34 @@ function decodeFlac(binData, decData){
 	
 	// decode a chunk of flac data
 	
-	// current_chunk will be updated as more data comes in.  For now we'll set it to a sample chunk of FLAC data
-//	current_chunk = new Uint8Array([255,248,201,8,0,149,0,0,0,33,189]); // must save it to be used in the callback read function (see read_callback_fn)
-	
-	flac_return = Flac.decode_stream_flac_as_pcm(flac_decoder);
-	if (flac_return != true){
-	
+	var isDecodePartial = true;
+	if(!isDecodePartial){
+		//variant 1: decode stream at once / completely
+		
+		flac_return = Flac.decode_stream_flac_as_pcm(flac_decoder);
+		if (flac_return != true){
+			console.error('encountered error during decoding data');
+		}
+		
+	} else {
+		//variant 2: decode data chunks
+		
+		flac_return = Flac.decode_buffer_flac_as_pcm(flac_decoder);
+		//need to check decoder state: state == 4: end of stream ( > 4: error)
+		var state = Flac.stream_decoder_get_state(flac_decoder);
+		
+		//request to decode data chunks until end-of-stream is reached:
+		while(state <= 3 && flac_return != false){
+			
+			//safety check for testing: avoid infinite loop by breaking at max. repeats
+		    if(++TEST_COUNT > TEST_MAX){
+		    	console.error('reached safetly limit for loop!');
+				break;
+			}
+		    
+			flac_return = Flac.decode_buffer_flac_as_pcm(flac_decoder);
+			state = Flac.stream_decoder_get_state(flac_decoder);
+		}
 	}
 	
 	
