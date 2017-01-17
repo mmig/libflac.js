@@ -1,118 +1,133 @@
+/**
+ * initialize event handlers (GUI) for HTML elements
+ * 
+ * @param onFileLoaded {Function} handler for (binary) file data, i.e. encoding/decoding file contents
+ */
+function initHandlers(onFileLoaded){
 
-document.getElementById('files').addEventListener('change', handleFileSelect, false);
-
-//document.getElementById('files_button').addEventListener('click', handle_process_button_click, false);
-
-// Setup the dnd listeners.
-var dropZone = document.getElementById('drop_zone');
-dropZone.addEventListener('dragover', handleDragOver, false);
-dropZone.addEventListener('drop', handleFileSelect, false);
-
-var check_download;//boolean
-
-//----------- FUNCTIONS -----------------
+	//create handler for loaded data/file
+	var fileListHandler = createFileListHandler(onFileLoaded);
 	
-function handleFileSelect(evt) {
+	//setup file-input
+	document.getElementById('files').addEventListener('change', fileListHandler, false);
 	
-    check_download = document.getElementById('check_download').checked;
+	//setup process button
+	var btnEl = document.getElementById('files_button');
+	if(btnEl){
+		btnEl.addEventListener('click', handle_process_button_click, false);
+	}
+	
+	//setup drag&drop.
+	var dropZone = document.getElementById('drop_zone');
+	dropZone.addEventListener('dragover', handleDragOver, false);
+	dropZone.addEventListener('drop', fileListHandler, false);
+	
+	//----------- FUNCTIONS -----------------
+	
+	
+	function createFileListHandler(onFileLoaded){
+	
+		return function handleFileSelect(evt) {
+		
+			evt.stopPropagation();
+			evt.preventDefault();
+		
+			var files;
+		
+			// covers the dropZone and file select-element
+			if (evt.dataTransfer){
+				// drop element
+				files = evt.dataTransfer.files; // FileList object.
+			} else {
+				// file select
+				files = evt.target.files; // FileList object
+			}
+		
+			// files is a FileList of File objects. List some properties.
+			document.getElementById('list').innerHTML = '<ul id="file_list_info"></ul>';
+			var fileListInfoEl = document.getElementById('file_list_info');
+			var appendInfo = function(target){
+				
+				var sb = [];
+				for(var i=1, size = arguments.length; i < size; ++i){
+					sb.push(arguments[i]);
+				}
+	
+				var html = target.innerHTML.replace(/<\/ul>\s*$/igm, '');
+				target.innerHTML = html + sb.join('') +  '</ul>';
+			}
+			
+			for (var i = 0, f; f = files[i]; i++) {
+				
+				var fileInfoId = 'file_info_'+i;
+				appendInfo(fileListInfoEl, '<li>','<strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
+						f.size, ' bytes, last modified: ',
+						f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a',
+						'<span id="', fileInfoId, '"></span></li>');
+		
+				var reader = new FileReader();
+				
+				reader.file_name = f.name;
+				reader.file_info_id = fileInfoId;
+		
+				reader.onload = function(evt) {
+					
+					evt.fileInfoId = this.file_info_id;
+					evt.fileName = this.file_name;
+					
+					onFileLoaded.apply(this, arguments);
+				}
+		
+				reader.readAsArrayBuffer(f);
+			}
+		}
+	}
+	
+	function handleDragOver(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+		evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+	}
+	
+	//fire event on file-chooser to resend same file
+	function handle_process_button_click(evt){
+		var event; // The custom event that will be created
+	
+		if (document.createEvent) {
+			event = document.createEvent("HTMLEvents");
+			event.initEvent("change", true, true);
+		} else {
+			event = document.createEventObject();
+			event.eventType = "change";
+		}
+	
+		event.eventName = "change";
+	
+		if (document.createEvent) {
+			document.getElementById('files').dispatchEvent(event);
+		} else {
+			document.getElementById('files').fireEvent("on" + event.eventType, event);
+		}
+	}
 
-    evt.stopPropagation();
-    evt.preventDefault();
-
-    var files;
-    
-    // covers the dropZone and file select-element
-    if (evt.dataTransfer){
-        // drop element
-        files = evt.dataTransfer.files; // FileList object.
-    } else {
-        // file select
-        files = evt.target.files; // FileList object
-    }
-
-    // files is a FileList of File objects. List some properties.
-    var output = [];
-    for (var i = 0, f; f = files[i]; i++) {
-        output.push('<li>','<strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
-                      f.size, ' bytes, last modified: ',
-                      f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a');
-
-        var reader = new FileReader();
-        
-        reader.file_output = output;
-        reader.file_name = f.name;
-
-        reader.onload = function(e) {
-            arrayBuffer = new Uint8Array(this.result);
-//            // var wav_parameters = handle_buffer_operations(arrayBuffer);
-//            var wav_parameters = wav_file_processing_encode_wav_buffer(arrayBuffer);
-//
-//            if (typeof wav_parameters !== "undefined" && wav_parameters !== null){
-//                this.file_output.push('</br>total samples: ', wav_parameters.total_samples, '</br>sample rate: ', wav_parameters.sample_rate, '</br>channels: ', wav_parameters.channels, '</br>bps: ', wav_parameters.bps);
-//            }
-            
-
-        	var decData = [];
-            var result = decodeFlac(arrayBuffer, decData);
-            console.log('decoded data array: ', decData);
-
-            var metaData = result.metaData;
-            if(metaData) for(var n in metaData){
-                this.file_output.push('</br>', n, ': ', metaData[n]);	
-            }
-            
-            var isOk = result.status;
-            this.file_output.push('</br></br>return code: ', isOk);
-            
-            
-            this.file_output.push('</li>');
-            // document.getElementById('list').innerHTML += '<ul>' + this.file_output.join('') + '</ul>';
-            document.getElementById('list').innerHTML = '<ul>' + this.file_output.join('') + '</ul>';
-            
-            if(check_download){
-            	
-            	//using data-util.js utility function(s)
-            	var blob = exportWavFile(decData, metaData.sampleRate, metaData.channels);
-            	
-            	var reExt = /\.flac$/i;
-            	var fileName = this.file_name.replace(reExt, '.wav');
-            	if(!/\.wav$/.test(fileName)){
-            		fileName += '.wav';
-            	}
-
-            	//using data-util.js utility function(s)
-            	forceDownload(blob, fileName);
-            }
-        }
-        
-        reader.readAsArrayBuffer(f);
-    }
-    // document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
 }
 
-function handleDragOver(evt) {
-    evt.stopPropagation();
-    evt.preventDefault();
-    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+function isDownload(){
+	return document.getElementById('check_download').checked;
 }
 
-// fire event on file-chooser to resend same file
-function handle_process_button_click(evt){
-    var event; // The custom event that will be created
+function getFileName(srcName, targetExt){
+	
+	var isFlac = /flac/i.test(targetExt);
+	var source = isFlac? 'wav' : 'flac';
+	var target = isFlac? 'flac' : 'wav';
 
-    if (document.createEvent) {
-        event = document.createEvent("HTMLEvents");
-        event.initEvent("change", true, true);
-    } else {
-        event = document.createEventObject();
-        event.eventType = "change";
-    }
-
-    event.eventName = "change";
-
-    if (document.createEvent) {
-        document.getElementById('files').dispatchEvent(event);
-    } else {
-        document.getElementById('files').fireEvent("on" + event.eventType, event);
-    }
+	var reSrc = new RegExp('\.'+source+'$', 'i');
+	var reTarget = new RegExp('\.'+target+'$', 'i');
+	var fileName = srcName.replace(reSrc, '.'+target);
+	if(!reTarget.test(fileName)){
+		fileName += '.'+target;
+	}
+	
+	return fileName;
 }
