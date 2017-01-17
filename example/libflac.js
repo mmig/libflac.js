@@ -61548,15 +61548,36 @@ return {
 
 
     },
-    
+    /**
+	 * Decodes a single frame.
+	 * To check decoding progress, use stream_decoder_get_state().
+	 * @returns {Boolean} FALSE if an error occured
+	 */
     decode_buffer_flac_as_pcm: function(decoder){
         console.log('decode_buffer_flac_as_pcm');
-        // return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
         return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
     },
+	/**
+	 * 0	FLAC__STREAM_DECODER_SEARCH_FOR_METADATA:		The decoder is ready to search for metadata
+	 * 1	FLAC__STREAM_DECODER_READ_METADATA:				The decoder is ready to or is in the process of reading metadata
+	 * 2	FLAC__STREAM_DECODER_SEARCH_FOR_FRAME_SYNC:		The decoder is ready to or is in the process of searching for the frame sync code
+	 * 3	FLAC__STREAM_DECODER_READ_FRAME:				The decoder is ready to or is in the process of reading a frame
+	 * 4	FLAC__STREAM_DECODER_END_OF_STREAM:				The decoder has reached the end of the stream
+	 * 5	FLAC__STREAM_DECODER_OGG_ERROR:					An error occurred in the underlying Ogg layer
+	 * 6	FLAC__STREAM_DECODER_SEEK_ERROR:				An error occurred while seeking. The decoder must be flushed with FLAC__stream_decoder_flush() or reset with FLAC__stream_decoder_reset() before decoding can continue
+	 * 7	FLAC__STREAM_DECODER_ABORTED:					The decoder was aborted by the read callback
+	 * 8	FLAC__STREAM_DECODER_MEMORY_ALLOCATION_ERROR:	An error occurred allocating memory. The decoder is in an invalid state and can no longer be used
+	 * 9	FLAC__STREAM_DECODER_UNINITIALIZED:				The decoder is in the uninitialized state; one of the FLAC__stream_decoder_init_*() functions must be called before samples can be processed.
+	 */
+	stream_decoder_get_state(decoder){
+        return Module.ccall('FLAC__stream_decoder_get_state', 'number', ['number'], [decoder]);
+    },
+	/**
+	 * Decodes data until end of stream.
+	 * @returns {Boolean} FALSE if an error occured
+	 */
 	decode_stream_flac_as_pcm: function(decoder){
-        console.log('decode_buffer_flac_as_pcm');
-        // return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
+        console.log('decode_stream_flac_as_pcm');
         return Module.ccall('FLAC__stream_decoder_process_until_end_of_stream', 'number', ['number'], [decoder]);
     },
     FLAC__stream_encoder_init_file: Module.cwrap('FLAC__stream_encoder_init_file', 'number', [ 'number', 'number', 'number', 'number' ]),
