@@ -1,6 +1,6 @@
 EMCC:=emcc
 EMCC_DEF_OPT_LEVEL:=-O0 -g4
-EMCC_MIN_OPT_LEVEL:=-O3 --closure 2
+EMCC_MIN_OPT_LEVEL:=-O3 --closure 1
 EMCC_OPTS:=-s LINKABLE=1 -s RESERVED_FUNCTION_POINTERS=20 -s EXPORTED_FUNCTIONS='["_FLAC__stream_encoder_process_interleaved","_FLAC__stream_decoder_delete","_FLAC__stream_decoder_finish","_FLAC__stream_decoder_get_state","_FLAC__stream_decoder_init_stream","_FLAC__stream_decoder_new","_FLAC__stream_decoder_process_single","_FLAC__stream_decoder_process_until_end_of_stream","_FLAC__stream_decoder_reset","_FLAC__stream_encoder_delete","_FLAC__stream_encoder_finish","_FLAC__stream_encoder_init_file","_FLAC__stream_encoder_init_stream","_FLAC__stream_encoder_new","_FLAC__stream_encoder_set_bits_per_sample","_FLAC__stream_encoder_set_channels","_FLAC__stream_encoder_set_compression_level","_FLAC__stream_encoder_set_sample_rate","_FLAC__stream_encoder_set_total_samples_estimate","_FLAC__stream_encoder_set_verify"]'
 EMCONFIGURE:=emconfigure
 EMMAKE:=emmake
