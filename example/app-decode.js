@@ -16,6 +16,10 @@ function onFlacLoad(evt) {
 	var decData = [];
 	var result = decodeFlac(arrayBuffer, decData);
 	console.log('decoded data array: ', decData);
+	
+	if(result.error){
+		fileInfo.push('</br><span style="color: red;">', result.error, '</span>');
+	}
 
 	var metaData = result.metaData;
 	if(metaData) for(var n in metaData){
@@ -28,7 +32,7 @@ function onFlacLoad(evt) {
 	var fileInfoEl = document.getElementById(evt.fileInfoId);
 	fileInfoEl.innerHTML = fileInfo.join('') ;
 	
-	if(isDownload()){
+	if(!result.error && isDownload()){
 
 		//using data-util.js utility function(s)
 		var blob = exportWavFile(decData, metaData.sampleRate, metaData.channels);
