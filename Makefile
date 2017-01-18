@@ -15,7 +15,7 @@ POSTFILE=libflac_post.js
 FLAC_VERSION:=1.3.0
 FLAC:=flac-$(FLAC_VERSION)
 
-all: dist/libflac.js dist/libflac.opt.js dist/libflac.min.js
+all: dist/libflac.js dist/libflac.min.js
 
 dist/libflac.js: $(FLAC) $(PREFILE) $(POSTFILE)
 	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/*.o) -o $@
