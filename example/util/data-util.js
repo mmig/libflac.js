@@ -1,5 +1,6 @@
 
-/* --- FILE-BUFFER-OPERATIONS */
+/* --- FILE-BUFFER-OPERATIONS --- */
+
 /**
  *  creates one buffer out of an array of arraybuffers
  *  needs the exact amount of bytes used by the array of arraybuffers
@@ -49,8 +50,11 @@ function exportWavFile(recBuffers, sampleRate, channels){
 /**
  *  creates blob element from libflac-encoder output
  */
-function exportFlacFile(recBuffers){
+function exportFlacFile(recBuffers, metaData){
 	var recLength = getLength(recBuffers);
+	if(metaData){
+		addFLACMetaData(recBuffers, metaData);
+	}
 	//convert buffers into one single buffer
 	var samples = exportUI8ArrayBuffer(recBuffers, recLength);
 	var the_blob = new Blob([samples]);
@@ -61,13 +65,22 @@ function getLength(recBuffers){
 
 	//get length
 	var recLength = 0;
-	//FIXME handle non-mono (ie.e. channels > 1) correctly!!!
+	//FIXME handle non-mono (i.e. channels > 1) correctly!!!
 	for(var i=recBuffers.length - 1; i >= 0; --i){
 		recLength += recBuffers[i].byteLength;
 	}
 	return recLength;
 }
 
+/**
+ * write PCM data to a WAV file, incl. header
+ * 
+ * @param samples {Uint8Array} the PCM audio data
+ * @param sampleRate {Number} the sample rate for the audio data
+ * @param channels {Number} the number of channels that the audio data contains
+ * 
+ * @returns {DataView} the WAV data incl. header
+ */
 function encodeWAV(samples, sampleRate, channels){
 	
 	var buffer = new ArrayBuffer(44 + samples.length);
@@ -105,6 +118,77 @@ function encodeWAV(samples, sampleRate, channels){
 	return view;
 }
 
+/**
+ * data (missing) meta-data to STREAMINFO meta-data block of the FLAC data
+ * 
+ * @param chunks {Array<Uint8Array} data chunks of encoded FLAC audio, where the first one is the one produced after encoder was initialized and feed the first/multiple audio frame(s)
+ * @param metadata {FlacStreamInfo} the FLAC stream-info (meta-data)
+ */
+function addFLACMetaData(chunks, metadata){
+
+	var offset = 4;
+	var data = chunks[0];//1st data chunk should contain FLAC identifier "fLaC"
+	if(data.length < 4 || String.fromCharCode.apply(null, data.subarray(0,4)) != "fLaC"){
+		console.error('Unknown data format: cannot add additional FLAC meta data to header');
+		return;
+	}
+	
+	//first chunk only contains the flac identifier string?
+	if(data.length == 4){
+		data = chunks[1];//get 2nd data chunk which should contain STREAMINFO meta-data block (and probably more)
+		offset = 0;	
+	}
+	
+	var view = new DataView(data.buffer);
+	
+	//NOTE by default, the encoder writes a 2nd meta-data block (type VORBIS_COMMENT) with encoder/version info -> do not set "is last" to TRUE for first one
+//	// write "is last meta data block" & type STREAMINFO type (0) as little endian combined uint1 & uint7 -> uint8:
+//	var isLast = 1;//1 bit
+//	var streamInfoType = 0;//7 bit
+//	view.setUint8(0 + offset, isLast << 7 | streamInfoType, true);//8 bit
+
+	// block-header: STREAMINFO type, block length -> already set
+
+	// block-content: min_blocksize, min_blocksize -> already set
+	
+	// write min_framesize as little endian uint24:
+	view.setUint8( 8 + offset, metadata.min_framesize >> 16, true);//24 bit
+	view.setUint8( 9 + offset, metadata.min_framesize >> 8, true);//24 bit
+	view.setUint8(10 + offset, metadata.min_framesize, true);//24 bit
+	
+	// write max_framesize as little endian uint24:
+	view.setUint8(11 + offset, metadata.max_framesize >> 16, true);//24 bit
+	view.setUint8(12 + offset, metadata.max_framesize >> 8, true);//24 bit
+	view.setUint8(13 + offset, metadata.max_framesize, true);//24 bit
+
+	// block-content: sampleRate, channels, bitsPerSample -> already set
+	
+	// write total_samples as little endian uint36:
+	//TODO set last 4 bits to half of the value in index 17
+	view.setUint8(18 + offset, metadata.total_samples >> 24, true);//36 bit
+	view.setUint8(19 + offset, metadata.total_samples >> 16, true);//36 bit
+	view.setUint8(20 + offset, metadata.total_samples >> 8, true);//36 bit
+	view.setUint8(21, metadata.total_samples, true);//36 bit
+
+	writeMd5(view, 22 + offset, metadata.md5sum);//16 * 8 bit
+}
+
+/**
+ * 
+ * @param view {DataView}
+ * 				the buffer into which the MD5 checksum will be written
+ * @param offset {Number}
+ * 				the byte offset in the buffer, at which the checksum will be written
+ * @param str {String} the MD5 checksum as HEX formatted string with length 32 (i.e. each HEX number has length 2)
+ */
+function writeMd5(view, offset, str) {
+	var index;
+	for(var i = 0; i < str.length/2; ++i) {
+		index =  i * 2;
+		view.setUint8(i + offset, parseInt(str.substring(index, index + 2), 16));
+	}
+}
+
 function writeString(view, offset, string) {
 	for (var i = 0; i < string.length; i++) {
 		view.setUint8(offset + i, string.charCodeAt(i));
@@ -122,7 +206,7 @@ function writeData(output, offset, input){
  *  checks if the given ui8_data (ui8array) is of a wav-file
  */
 function wav_file_processing_check_wav_format(ui8_data){
-	// check stuff -- is file a compatible wav-file?
+	// check: is file a compatible wav-file?
 	if ((ui8_data.length < 44) ||
 		(String.fromCharCode.apply(null, ui8_data.subarray(0,4)) != "RIFF") ||
 		(String.fromCharCode.apply(null, ui8_data.subarray(8, 16)) != "WAVEfmt ") ||
@@ -131,6 +215,29 @@ function wav_file_processing_check_wav_format(ui8_data){
 		console.log("ERROR: wrong format for wav-file.");
 		return false;
 	}
+	return true;
+}
+
+/**
+ *  checks if the given ui8_data (ui8array) is of a flac-file
+ */
+function wav_file_processing_check_flac_format(ui8_data){
+	
+	// check: is file a compatible flac-file?
+	if ((ui8_data.length < 42) ||
+		(String.fromCharCode.apply(null, ui8_data.subarray(0,4)) != "fLaC")
+	){
+		console.log("ERROR: wrong format for flac-file.");
+		return false;
+	}
+	
+	var view = new DataView(ui8_data.buffer);
+	//check last 7 bits of 4th byte for meta-data BLOCK type: must be STREAMINFO (0)
+	if ((view.getUint8(4) & 0x7f) != 0){
+		console.log("ERROR: wrong format for flac-file.");
+		return false;	
+	}
+	
 	return true;
 }
 
