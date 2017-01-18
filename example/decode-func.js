@@ -63,6 +63,11 @@ function decodeFlac(binData, decData){
 	    Flac.FLAC__stream_decoder_finish(decoder);
 	}
 	
+	// check: is file a compatible flac-file?
+	if (wav_file_processing_check_flac_format(binData) == false){
+		return {error: 'Wrong FLAC file format', status: 0};
+	}
+	
 	// init decoder
 	flac_decoder = Flac.init_libflac_decoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0);
 	////
