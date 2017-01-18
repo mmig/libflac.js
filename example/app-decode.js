@@ -22,12 +22,19 @@ function onFlacLoad(evt) {
 	}
 
 	var metaData = result.metaData;
-	if(metaData) for(var n in metaData){
-		fileInfo.push('</br>', n, ': ', metaData[n]);	
+	if(metaData){
+		fileInfo.push('</br><strong>Input FLAC info:</strong><table border="0">');
+		for(var n in metaData){
+			fileInfo.push(
+				'<tr><td><em style="color: #555;">', n, ' </em></td><td> <code>',
+				metaData[n], '</code></td></tr>'
+			);
+		}
+		fileInfo.push('</table>');
 	}
 
 	var isOk = result.status;
-	fileInfo.push('</br></br>processing finished with return code: ', isOk);
+	fileInfo.push('</br>processing finished with return code: ', isOk, (isOk == 1? ' (OK)' : ' (with errors)'));
 
 	var fileInfoEl = document.getElementById(evt.fileInfoId);
 	fileInfoEl.innerHTML = fileInfo.join('') ;
