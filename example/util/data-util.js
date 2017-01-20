@@ -221,7 +221,7 @@ function wav_file_processing_check_wav_format(ui8_data){
 /**
  *  checks if the given ui8_data (ui8array) is of a flac-file
  */
-function wav_file_processing_check_flac_format(ui8_data){
+function flac_file_processing_check_flac_format(ui8_data){
 	
 	// check: is file a compatible flac-file?
 	if ((ui8_data.length < 42) ||
