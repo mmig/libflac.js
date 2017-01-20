@@ -89,12 +89,13 @@ For libflac version 1.3.2, the sources / configuration requires some changes, be
    SUBDIRS = doc include m4 man src examples test build obj #microbench
    ```
  * in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
-	 ```c
-	 #elif defined __GNUC__
-		uint32_t lo, hi;
-		asm volatile (".byte 0x0f, 0x01, 0xd0" : "=a"(lo), "=d"(hi) : "c" (0));
-		return lo;
-	 ```
+   
+   ```
+   #elif defined __GNUC__
+       uint32_t lo, hi;
+       asm volatile (".byte 0x0f, 0x01, 0xd0" : "=a"(lo), "=d"(hi) : "c" (0));
+       return lo;
+    ```
 
 After these changes, continue compilation with
 ```
