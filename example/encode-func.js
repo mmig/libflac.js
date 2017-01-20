@@ -1,5 +1,5 @@
 
-function encodeFlac(binData, recBuffers){
+function encodeFlac(binData, recBuffers, isVerify){
 
 	var ui8_data = new Uint8Array(binData);
 	var sample_rate=0,
@@ -43,7 +43,7 @@ function encodeFlac(binData, recBuffers){
 	var tot_samples = 0;
 	var compression_level = 5;
 	var flac_ok = 1;
-	var is_verify = false;
+	var is_verify = isVerify;
 
 	var flac_encoder = Flac.init_libflac_encoder(wav_parameters.sample_rate, wav_parameters.channels, wav_parameters.bps, compression_level, tot_samples, is_verify);
 	if (flac_encoder != 0){
@@ -60,7 +60,7 @@ function encodeFlac(binData, recBuffers){
 	// creates a new array (32-bit) and stores the 16-bit data of the wav-file as 32-bit data
 	var buffer_i32 = wav_file_processing_convert_16bitdata_to32bitdata(ui8_data.buffer);
 
-	var flac_return = Flac.encode_buffer_pcm_as_flac(flac_encoder, buffer_i32, buffer_i32.length);
+	var flac_return = Flac.encode_buffer_pcm_as_flac(flac_encoder, buffer_i32, buffer_i32.length / wav_parameters.channels);
 
 	if (flac_return != true){
 		console.log("Error: encode_buffer_pcm_as_flac returned false. " + flac_return);
