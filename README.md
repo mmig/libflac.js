@@ -16,7 +16,7 @@ JavaScript file `libflac.js`, along with a minified version.
 # Building
 ------
 
-Building libflac.js requires that [emscripten] is installed and configured.
+Building libflac.js requires that [emscripten][emscripten] is installed and configured.
 
 See the [documentation][emscripten-doc] and the [main site][emscripten-main] for 
 an introduction, tutorials etc.
@@ -43,7 +43,7 @@ __*EXPERIMENTAL*__
 
  * __Prerequisites:__ 
    * VisualStudio 10
-   * Emscripten plugin [vs-tool] (automatically installed, if Emscripten Installer was used)
+   * Emscripten plugin [vs-tool][vs-tool] (automatically installed, if Emscripten Installer was used)
    * OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)
 
 Open the solution file `FLAC.sln` and select the project `libFLAC_static`.
@@ -122,6 +122,9 @@ node extract_EXPORTED_FUNCTIONS.js
 ------
 
 ## Encoding
+
+Generally, `libflac.js` supports a subset of the [libflac encoding interface][flac-doc-encoder] for encoding audio data to FLAC (no full support yet!). 
+_The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
 
 See [example/encode.html][enc_example] for a small example,
 on how to encode a `WAV` file. 
@@ -203,8 +206,10 @@ Flac.FLAC__stream_encoder_delete(flac_encoder);
 //     merge "encoded pieces" in encBuffer into one single Uint8Array...
 ```
 
-
 ## Decoding
+
+Generally, `libflac.js` supports a subset of the [libflac decoding interface][flac-doc-decoder] for decoding audio data from FLAC (no full support yet!). 
+_The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
 
 See [example/decode.html][dec_example] for a small example,
 on how to decode a `FLAC` file.
@@ -367,7 +372,7 @@ See `CONTRIBUTORS` for list of contributors.
 
 Acknowledgments
 ------
-This project was inspired by Krennmair's [libmp3lame-js] project.
+This project was inspired by Krennmair's [libmp3lame-js] project for [JS mp3][libmp3lame-js] encoding.
 
 
 License
@@ -382,6 +387,8 @@ and published under the MIT license (see file LICENSE).
 [vs-tool]: https://kripken.github.io/emscripten-site/docs/getting_started/getting_started_with_emscripten_and_vs2010.html
 [libmp3lame-js]: https://github.com/akrennmair/libmp3lame-js
 [flac]: https://xiph.org/flac/index.html
+[flac-doc-decoder]: https://xiph.org/flac/api/group__flac__stream__decoder.html
+[flac-doc-encoder]: https://xiph.org/flac/api/group__flac__stream__encoder.html
 [speech-to-flac]: https://github.com/mmig/speech-to-flac
 [enc_example]: tree/master/example/encode.html
 [dec_example]: tree/master/example/decode.html
