@@ -2,6 +2,8 @@
 
 var READSIZE = 4096;
 
+var MAX_CALLBACKS = 20;//this is limited/specified by compile option RESERVED_FUNCTION_POINTERS
+
 
 /**
  * HELPER read/extract stream info meta-data from frame header / meta-data
@@ -130,6 +132,23 @@ function _readFrameHdr(p_frame){
 	};
 }
 
+/**
+ * HELPER count list elements in an "dictionary" (map) object.
+ * 
+ * @param dict {Object} the dictionary that contains arrays (must not contain custom String properties)
+ * @returns {Number} the count of elements in the lists/arrays (i.e. sum of array-lengths)
+ */
+function get_count(dict){
+	var count = 0;
+	for(var n in dict){
+		if(dict.hasOwnProperty(n) && dict[n] && typeof dict[n].length === 'number'){
+			count += dict[n].length;
+		}
+	}
+	return count;
+}
+
+// export / public:
 return {
 	_module: Module,
 	_enc_cb: {},
@@ -153,15 +172,19 @@ return {
 			this._dec_cb[dec_ptr] = void(0);
 		}
 	},
+	getFreeCallbackSlots: function(){
+		return MAX_CALLBACKS - get_count(this._dec_cb) - get_count(this._enc_cb);
+	},
 	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number' ]),
 	FLAC__stream_encoder_set_compression_level: Module.cwrap('FLAC__stream_encoder_set_compression_level', 'number', [ 'number', 'number' ]),
 	/* ... */
 
 	// FLAC__StreamEncoder* init_libflac(unsigned sample_rate, unsigned channels, unsigned bps, unsigned compression_level, unsigned total_samples);
-	init_libflac: function(sample_rate, channels, bps, compression_level, total_samples){
+	init_libflac_encoder: function(sample_rate, channels, bps, compression_level, total_samples, is_verify){
+		is_verify = typeof is_verify === 'undefined'? 1 : is_verify + 0;
 		var ok = true;
 		var encoder = Module.ccall('FLAC__stream_encoder_new', 'number', [ ], [ ]);
-		ok &= Module.ccall('FLAC__stream_encoder_set_verify', 'number', ['number', 'number'], [ encoder, true ]);
+		ok &= Module.ccall('FLAC__stream_encoder_set_verify', 'number', ['number', 'number'], [ encoder, is_verify ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_compression_level', 'number', ['number', 'number'], [ encoder, compression_level ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_channels', 'number', ['number', 'number'], [ encoder, channels ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_bits_per_sample', 'number', ['number', 'number'], [ encoder, bps ]);
@@ -174,9 +197,11 @@ return {
 	},
 
 	// FLAC__StreamDecoder* init_libflac_decoder(unsigned sample_rate, unsigned channels, unsigned bps, unsigned compression_level, unsigned total_samples);
-	init_libflac_decoder: function(sample_rate, channels, bps, compression_level, total_samples){
+	init_libflac_decoder: function(sample_rate, channels, bps, compression_level, total_samples, is_verify){
+		is_verify = typeof is_verify === 'undefined'? 1 : is_verify + 0;
 		var ok = true;
 		var decoder = Module.ccall('FLAC__stream_decoder_new', 'number', [ ], [ ]);
+		ok &= Module.ccall('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number'], [ decoder, is_verify ]);
 		if (ok){
 			return decoder;
 		}
@@ -407,7 +432,46 @@ return {
 			return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
 		});
 
-		var error_callback_fn_ptr = Runtime.addFunction(function(p_decoder, err, p_client_data){
+		//(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 *const buffer[], void *client_data)
+		var write_callback_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer, p_client_data){
+
+			// var dec = Module.getValue(p_decoder,'i32');
+			// var clientData = Module.getValue(p_client_data,'i32');
+
+			var buffer = Module.getValue(p_buffer,'i32');
+
+			var frameInfo = _readFrameHdr(p_frame);
+
+			console.log(frameInfo);//DEBUG
+
+			var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
+
+			var increase = 2;//FIXME (see below fix_write_buffer)
+
+			//FIXME this works for mono / single channel only...
+			var heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
+			//var _buffer = new Uint8Array(heapView);
+
+			//FIXME
+			var _buffer = __fix_write_buffer(heapView);
+			if(_buffer.length < block_size){
+				while(_buffer.length < block_size && buffer + block_size * increase < HEAPU8.length){
+					increase += 2;
+					heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
+					_buffer = __fix_write_buffer(heapView);
+				}
+			}
+
+			write_callback_fn(_buffer.subarray(0, block_size), frameInfo);//, clientData);
+
+			// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE	The write was OK and decoding can continue.
+			// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
+
+			return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
+		});
+		
+		//(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderErrorStatus status, void *client_data)
+		var error_callback_fn_ptr = !error_callback_fn? 0 : Runtime.addFunction(function(p_decoder, err, p_client_data){
 
 			//err:
 			// FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC         An error in the stream caused the decoder to lose synchronization.
@@ -482,53 +546,16 @@ return {
 			}
 		});
 
-		//(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 *const buffer[], void *client_data)
-		var write_callback_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer, p_client_data){
-
-			// var dec = Module.getValue(p_decoder,'i32');
-			// var clientData = Module.getValue(p_client_data,'i32');
-
-			var buffer = Module.getValue(p_buffer,'i32');
-
-			var frameInfo = _readFrameHdr(p_frame);
-
-			console.log(frameInfo);//DEBUG
-
-			var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
-
-			var increase = 2;//FIXME (see below fix_write_buffer)
-
-			//FIXME this works for mono / single channel only...
-			var heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
-			//var _buffer = new Uint8Array(heapView);
-
-			//FIXME
-			var _buffer = __fix_write_buffer(heapView);
-			if(_buffer.length < block_size){
-				while(_buffer.length < block_size && buffer + block_size * increase < HEAPU8.length){
-					increase += 2;
-					heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
-					_buffer = __fix_write_buffer(heapView);
-				}
-			}
-
-			write_callback_fn(_buffer.subarray(0, block_size), frameInfo);//, clientData);
-
-			// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE	The write was OK and decoding can continue.
-			// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
-
-			return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
-		});
-
 		//store created callback pointers (for clean-up in finish()/delete())
 		//NOTE the number of callbacks that can be registered is limited
 		//     as a result, this limits the number of encoder/decoder instances that can run at the same time
 		//     the limit is set by the compile-option
 		//       -s RESERVED_FUNCTION_POINTERS=<n>
-		//     currently this is set to 20 (each encoder requires 1-2 slots, each decoder requires 3-4 slots)
+		//     currently this is set to 20 (each encoder requires 1-2 slots, each decoder requires 2-4 slots)
 		//     (the slots are freed up, when an encoder/decoder is finished() or deleted())
-		this._dec_cb[decoder] = [read_callback_fn_ptr, error_callback_fn_ptr, write_callback_fn_ptr];
+		this._dec_cb[decoder] = [read_callback_fn_ptr, write_callback_fn_ptr];
 		if(metadata_callback_fn) this._dec_cb[decoder].push(metadata_callback_fn_ptr);
+		if(error_callback_fn) this._dec_cb[decoder].push(error_callback_fn_ptr);
 
 		var init_status = Module.ccall(
 				'FLAC__stream_decoder_init_stream', 'number',
@@ -550,7 +577,7 @@ return {
 		return init_status;
 	},
 
-	encode_buffer_pcm_as_flac: function(encoder, buffer, channels, no_items){
+	encode_buffer_pcm_as_flac: function(encoder, buffer, num_of_samples){
 		// get the length of the data in bytes
 		var numBytes = buffer.length * buffer.BYTES_PER_ELEMENT;
 		// console.log("DEBUG numBytes: " + numBytes);
@@ -561,8 +588,12 @@ return {
 		// console.log("DEBUG heapBytes: " + heapBytes);
 		// copy data into heapBytes
 		heapBytes.set(new Uint8Array(buffer.buffer));
-		// return Module.ccall('FLAC__stream_encoder_process_interleaved', 'number', ['number', 'number', 'number'], [encoder, heapBytes.byteOffset, buffer.length]);
-		return Module.ccall('FLAC__stream_encoder_process_interleaved', 'number', ['number', 'number', 'number'], [encoder, heapBytes.byteOffset, no_items]);
+		var status = Module.ccall('FLAC__stream_encoder_process_interleaved', 'number',
+				['number', 'number', 'number'],
+				[encoder, heapBytes.byteOffset, num_of_samples]
+		);
+		Module._free(ptr);
+		return status;
 	},
 
 	/**
@@ -573,6 +604,24 @@ return {
 	decode_buffer_flac_as_pcm: function(decoder){
 		//console.log('decode_buffer_flac_as_pcm');
 		return Module.ccall('FLAC__stream_decoder_process_single', 'number', ['number'], [decoder]);
+	},
+
+	/**
+	 * Decodes data until end of stream.
+	 * @returns {Boolean} FALSE if an error occurred
+	 */
+	decode_stream_flac_as_pcm: function(decoder){
+		//console.log('decode_stream_flac_as_pcm');
+		return Module.ccall('FLAC__stream_decoder_process_until_end_of_stream', 'number', ['number'], [decoder]);
+	},
+	
+	/**
+	 * Decodes data until end of stream.
+	 * @returns {Boolean} FALSE if an error occurred
+	 */
+	decode_metadata_flac: function(decoder){
+		//console.log('decode_stream_flac_as_pcm');
+		return Module.ccall('FLAC__stream_decoder_process_until_end_of_metadata', 'number', ['number'], [decoder]);
 	},
 
 	/**
@@ -587,19 +636,27 @@ return {
 	 * 8	FLAC__STREAM_DECODER_MEMORY_ALLOCATION_ERROR:	An error occurred allocating memory. The decoder is in an invalid state and can no longer be used
 	 * 9	FLAC__STREAM_DECODER_UNINITIALIZED:				The decoder is in the uninitialized state; one of the FLAC__stream_decoder_init_*() functions must be called before samples can be processed.
 	 */
-	stream_decoder_get_state: function(decoder){
-		return Module.ccall('FLAC__stream_decoder_get_state', 'number', ['number'], [decoder]);
-	},
-
+	FLAC__stream_decoder_get_state: Module.cwrap('FLAC__stream_decoder_get_state', 'number', ['number']),
+	
 	/**
-	 * Decodes data until end of stream.
-	 * @returns {Boolean} FALSE if an error occurred
+	 * 0	FLAC__STREAM_ENCODER_OK								The encoder is in the normal OK state and samples can be processed.
+	 * 1	FLAC__STREAM_ENCODER_UNINITIALIZED					The encoder is in the uninitialized state; one of the FLAC__stream_encoder_init_*() functions must be called before samples can be processed.
+	 * 2	FLAC__STREAM_ENCODER_OGG_ERROR						An error occurred in the underlying Ogg layer.
+	 * 3	FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR			An error occurred in the underlying verify stream decoder; check FLAC__stream_encoder_get_verify_decoder_state().
+	 * 4	FLAC__STREAM_ENCODER_VERIFY_MISMATCH_IN_AUDIO_DATA	The verify decoder detected a mismatch between the original audio signal and the decoded audio signal.
+	 * 5	FLAC__STREAM_ENCODER_CLIENT_ERROR					One of the callbacks returned a fatal error.
+	 * 6	FLAC__STREAM_ENCODER_IO_ERROR						An I/O error occurred while opening/reading/writing a file. Check errno.
+	 * 7	FLAC__STREAM_ENCODER_FRAMING_ERROR					An error occurred while writing the stream; usually, the write_callback returned an error.
+	 * 8	FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR		Memory allocation failed. 
 	 */
-	decode_stream_flac_as_pcm: function(decoder){
-		//console.log('decode_stream_flac_as_pcm');
-		return Module.ccall('FLAC__stream_decoder_process_until_end_of_stream', 'number', ['number'], [decoder]);
-	},
+	FLAC__stream_encoder_get_state:  Module.cwrap('FLAC__stream_encoder_get_state', 'number', ['number']),
+	
+	FLAC__stream_decoder_get_md5_checking: Module.cwrap('FLAC__stream_decoder_get_md5_checking', 'number', ['number']),
+	
+//	/** @returns {Boolean} FALSE if the decoder is already initialized, else TRUE. */
+//	FLAC__stream_decoder_set_md5_checking: Module.cwrap('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number']),
 
+	
 	FLAC__stream_encoder_init_file: Module.cwrap('FLAC__stream_encoder_init_file', 'number', [ 'number', 'number', 'number', 'number' ]),
 	FLAC__stream_encoder_finish: function(encoder){
 		var res = Module.ccall('FLAC__stream_encoder_finish', 'number', [ 'number' ], [encoder]);
