@@ -34,7 +34,7 @@ dist/libflac-vs.min.js: $(FLAC) $(PREFILE) $(POSTFILE)
 emccvs: dist/libflac-vs.js dist/libflac-vs.min.js
 
 emmake: $(FLAC)
-	cd $@ && \
+	cd $(FLAC) && \
 	$(EMMAKE) make
 
 $(FLAC): $(FLAC).tar.xz
