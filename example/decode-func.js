@@ -1,5 +1,5 @@
 
-function decodeFlac(binData, decData){
+function decodeFlac(binData, decData, isVerify){
 	
 	var flac_decoder,
 		BUFSIZE = 4096,
@@ -12,12 +12,15 @@ function decodeFlac(binData, decData){
 		meta_data;
 	
 	
-	var TEST_MAX = 100;//FIXME TEST: for safety check for testing -> avoid infinite loop by breaking at max. repeats
+	var TEST_MAX = 10000;//FIXME TEST: for safety check for testing -> avoid infinite loop by breaking at max. repeats
 	var TEST_COUNT = 0;//FIXME TEST
 	
 	var currentDataOffset = 0;
 	var size = binData.buffer.byteLength;
 	
+	VERIFY = isVerify || false;
+	
+	/** @memberOf decode */
 	function read_callback_fn(bufferSize){
 		
 	    console.log('decode read callback, buffer bytes max=', bufferSize);
@@ -45,17 +48,20 @@ function decodeFlac(binData, decData){
 	    return {buffer: _buffer, readDataLength: numberOfReadBytes, error: false};
 	}
 	
+	/** @memberOf decode */
 	function write_callback_fn(buffer){
 	    // buffer is the decoded audio data, Uint8Array
 //	    console.log('decode write callback', buffer);
 		decData.push(buffer);
 	}
 	
+	/** @memberOf decode */
 	function metadata_callback_fn(data){
 		console.info('meta data: ', data);
 		meta_data = data;
 	}
 	
+	/** @memberOf decode */
 	function error_callback_fn(decoder, err, client_data){
 	    console.log('decode error callback', err);
 	}
