@@ -4,6 +4,10 @@
 /**
  *  creates one buffer out of an array of arraybuffers
  *  needs the exact amount of bytes used by the array of arraybuffers
+ *  
+ *  @param channelBuffer {Array<Uint8Array>}
+ *  @param recordingLength {Number} byte-length for target/returned Uint8Array
+ *  @returns {Uint8Array} the concatenated data for the list of buffered Uint8Array data
  */
 function mergeBuffers(channelBuffer, recordingLength){
 	var result = new Uint8Array(recordingLength);
@@ -18,31 +22,78 @@ function mergeBuffers(channelBuffer, recordingLength){
 }
 
 /**
- *  returns the output data - stored as an array of arraybuffers - as a
- *  single ui8array/arraybuffer.
+ * 
+ * @param recBuffers {Array<Array<Uint8Array>>}
+ * 			the array of buffered audio data, where each entry contains an array for the channels, i.e.
+ * 			recBuffers[0]: [channel_1_data, channel_2_data, ..., channel_n_data]
+ * 			recBuffers[1]: [channel_1_data, channel_2_data, ..., channel_n_data]
+ * 			...
+ * 			recBuffers[length-1]: [channel_1_data, channel_2_data, ..., channel_n_data]
+ * 
+ * @param channels {Number} count of channels
+ * @param bitsPerSample {Number} bits per sample, i.e.: bitsPerSample/8 == bytes-per-sample
+ * @returns {Uint8Array} audio data where channels are interleaved
  */
-function exportUI8ArrayBuffer(recBuffers, recLength){
-	//get raw-data length:
-	var totalBufferSize = recLength;
+function interleave(recBuffers, channels, bitsPerSample){
 
-	//get & reset current buffer content
-	var buffers = recBuffers.splice(0, recBuffers.length);
-
-	//convert buffers into one single buffer
-	var samples = mergeBuffers( buffers, totalBufferSize);
+	//calculate total length for interleaved data
+	var dataLength = 0;
+	for(var i=0; i < channels; ++i){
+		dataLength += getLengthFor(recBuffers, i);
+	}
 	
-	return samples;
+	var result = new Uint8Array(dataLength);
+
+	var byteLen = bitsPerSample / 8;
+	var buff = null,
+		buffLen = 0,
+		index = 0,
+		inputIndex = 0,
+		ch_i = 0,
+		b_i = 0;
+
+	for(var arrNum = 0, arrCount = recBuffers.length; arrNum < arrCount; ++arrNum){
+		
+		//for each buffer (i.e. array of Uint8Arrays):
+		buff = recBuffers[arrNum];
+		buffLen = buff[0].length;
+		inputIndex = 0;
+		
+		//interate over buffer
+		while(inputIndex < buffLen){
+			
+			//write channel data
+			for(ch_i=0; ch_i < channels; ++ch_i){
+				//write sample-length
+				for(b_i=0; b_i < byteLen; ++b_i){
+					//write data & update target-index
+					result[index++] = buff[ch_i][inputIndex + b_i];
+				}
+			}
+			//update source-index
+			inputIndex+=byteLen;
+		}
+	}
+	return result;
 }
 
 /**
- *  creates blob element PCM audio data incl. WAV header
+ * creates blob element PCM audio data incl. WAV header
+ * 
+ * @param recBuffers {Array<Array<Uint8Array>>}
+ * 			the array of buffered audio data, where each entry contains an array for the channels, i.e.
+ * 			recBuffers[0]: [channel_1_data, channel_2_data, ..., channel_n_data]
+ * 			recBuffers[1]: [channel_1_data, channel_2_data, ..., channel_n_data]
+ * 			...
+ * 			recBuffers[length-1]: [channel_1_data, channel_2_data, ..., channel_n_data]
+ * 
+ * @returns {Blob} blob with MIME type audio/wav
  */
-function exportWavFile(recBuffers, sampleRate, channels){
-	//get length
-	var recLength = getLength(recBuffers);
+function exportWavFile(recBuffers, sampleRate, channels, bitsPerSample){
+	
 	//convert buffers into one single buffer
-	var samples = exportUI8ArrayBuffer(recBuffers, recLength);
-	var dataView = encodeWAV(samples, sampleRate, channels);
+	var samples = interleave(recBuffers, channels, bitsPerSample);
+	var dataView = encodeWAV(samples, sampleRate, channels, bitsPerSample);
 	var the_blob = new Blob([dataView], {type: 'audio/wav'});
 	return the_blob;
 }
@@ -56,18 +107,41 @@ function exportFlacFile(recBuffers, metaData){
 		addFLACMetaData(recBuffers, metaData);
 	}
 	//convert buffers into one single buffer
-	var samples = exportUI8ArrayBuffer(recBuffers, recLength);
+	var samples = mergeBuffers(recBuffers, recLength);
 	var the_blob = new Blob([samples]);
 	return the_blob;
 }
 
+/**
+ * 
+ * @param recBuffers {Array<TypedArray>}
+ * @returns {Number}
+ * 			the byte-length
+ */
 function getLength(recBuffers){
 
 	//get length
 	var recLength = 0;
-	//FIXME handle non-mono (i.e. channels > 1) correctly!!!
 	for(var i=recBuffers.length - 1; i >= 0; --i){
 		recLength += recBuffers[i].byteLength;
+	}
+	return recLength;
+}
+
+/**
+ * 
+ * @param recBuffers {Array<Array<TypedArray>>}
+ * @param index {Number}
+ * 			selects the Array<TypedArray> within the outer Array, for which the byte-length should be calculated 
+ * @returns {Number}
+ * 			the byte-length
+ */
+function getLengthFor(recBuffers, index){
+
+	//get length
+	var recLength = 0;
+	for(var i=recBuffers.length - 1; i >= 0; --i){
+		recLength += recBuffers[i][index].byteLength;
 	}
 	return recLength;
 }
@@ -81,15 +155,18 @@ function getLength(recBuffers){
  * 
  * @returns {DataView} the WAV data incl. header
  */
-function encodeWAV(samples, sampleRate, channels){
+function encodeWAV(samples, sampleRate, channels, bitsPerSample){
+
+	var bytePerSample = bitsPerSample / 8;
+	var length = samples.length * samples.BYTES_PER_ELEMENT;
 	
-	var buffer = new ArrayBuffer(44 + samples.length);
+	var buffer = new ArrayBuffer(44 + length);
 	var view = new DataView(buffer);
 
 	/* RIFF identifier */
 	writeString(view, 0, 'RIFF');
 	/* file length */
-	view.setUint32(4, 32 + samples.length * 2, true);
+	view.setUint32(4, 32 + length, true);
 	/* RIFF type */
 	writeString(view, 8, 'WAVE');
 	/* format chunk identifier */
@@ -103,15 +180,15 @@ function encodeWAV(samples, sampleRate, channels){
 	/* sample rate */
 	view.setUint32(24, sampleRate, true);
 	/* byte rate (sample rate * block align) */
-	view.setUint32(28, sampleRate * channels * 2, true);
+	view.setUint32(28, sampleRate * channels * bytePerSample, true);
 	/* block align (channel count * bytes per sample) */
-	view.setUint16(32, channels * 2, true);
+	view.setUint16(32, channels * bytePerSample, true);
 	/* bits per sample */
-	view.setUint16(34, 16, true);
+	view.setUint16(34, bitsPerSample, true);
 	/* data chunk identifier */
 	writeString(view, 36, 'data');
 	/* data chunk length */
-	view.setUint32(40, samples.length * 2, true);
+	view.setUint32(40, length, true);
 
 	writeData(view, 44, samples)
 
