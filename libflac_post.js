@@ -1,10 +1,5 @@
 //libflac function wrappers
 
-var READSIZE = 4096;
-
-var MAX_CALLBACKS = 20;//this is limited/specified by compile option RESERVED_FUNCTION_POINTERS
-
-
 /**
  * HELPER read/extract stream info meta-data from frame header / meta-data
  * @param p_streaminfo {POINTER}
@@ -148,32 +143,385 @@ function get_count(dict){
 	return count;
 }
 
+// FLAC__STREAM_DECODER_READ_STATUS_CONTINUE     	The read was OK and decoding can continue.
+// FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM   The read was attempted while at the end of the stream. Note that the client must only return this value when the read callback was called when already at the end of the stream. Otherwise, if the read itself moves to the end of the stream, the client should still return the data and FLAC__STREAM_DECODER_READ_STATUS_CONTINUE, and then on the next read callback it should return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM with a byte count of 0.
+// FLAC__STREAM_DECODER_READ_STATUS_ABORT       	An unrecoverable error occurred. The decoder will return from the process call.
+var FLAC__STREAM_DECODER_READ_STATUS_CONTINUE = 0;
+var FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM = 1;
+var FLAC__STREAM_DECODER_READ_STATUS_ABORT = 2;
+
+// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE   The write was OK and decoding can continue.
+// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
+var FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE = 0;
+var FLAC__STREAM_DECODER_WRITE_STATUS_ABORT = 1;
+
+//FLAC__STREAM_DECODER_INIT_STATUS_OK						Initialization was successful.
+//FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER 	The library was not compiled with support for the given container format.
+//FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS 			A required callback was not supplied.
+//FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR 	An error occurred allocating memory.
+//FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE 		fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
+//FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED 		FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
+FLAC__STREAM_DECODER_INIT_STATUS_OK	= 0;
+FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER	= 1;
+FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS	= 2;
+FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR = 3;
+FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE = 4;
+FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED = 5;
+
+//FLAC__STREAM_ENCODER_INIT_STATUS_OK									Initialization was successful.
+//FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR						General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
+//FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER				The library was not compiled with support for the given container format.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS					A required callback was not supplied.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS			The encoder has an invalid setting for number of channels.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE				The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE					The encoder has an invalid setting for the input sample rate.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE					The encoder has an invalid setting for the block size.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER				The encoder has an invalid setting for the maximum LPC order.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION			The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
+//FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER	The specified block size is less than the maximum LPC order.
+//FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE						The encoder is bound to the Subset but other settings violate it.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA						The metadata input to the encoder is invalid, in one of the following ways:
+//																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
+//																	      One of the metadata blocks contains an undefined type
+//																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
+//																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
+//																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
+//FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED					FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
+FLAC__STREAM_ENCODER_INIT_STATUS_OK = 0;
+FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR = 1;
+FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER = 2;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS = 3;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS = 4;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE = 5;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE = 6;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE = 7;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER = 8;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION = 9;
+FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER = 10;
+FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE = 11;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA = 12;
+FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED = 13;
+
+//FLAC__STREAM_ENCODER_WRITE_STATUS_OK 				The write was OK and encoding can continue.
+//FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR		An unrecoverable error occurred. The encoder will return from the process call
+FLAC__STREAM_ENCODER_WRITE_STATUS_OK = 0;
+FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR = 1;
+
+
+/**
+ * HELPER workaround / fix for returned write-buffer for decoding FLAC    	 * 
+ * @param buffer {Uint8Array}
+ * @returns {Uint8Array}
+ */
+var __fix_write_buffer = function(buffer){
+	//FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated"
+	//		HACK for now: remove 2 of the values, for each of these triplets
+	var count = 0;
+	var inc;
+	var isPrint;
+	for(var i=0, size = buffer.length; i < size; ++i){
+
+		if(buffer[i] === 0 || buffer[i] === 255){
+
+			inc = 0;
+			isPrint = true;
+
+			if(i + 1 < size && buffer[i] === buffer[i+1]){
+
+				++inc;
+
+				if(i + 2 < size){
+					if(buffer[i] === buffer[i+2]){
+						++inc;
+					} else {
+						//if only 2 occurrences: ignore value
+						isPrint = false;
+					}
+				}
+			}//else: if single value: do print (an do not jump)
+
+
+			if(isPrint){
+				++count;
+			}
+
+			i += inc;
+
+		} else {
+			++count;
+		}
+	}
+
+	var newBuffer = new Uint8Array(count);
+	var dv = new DataView(newBuffer.buffer);
+	for(var i=0, j=0, size = buffer.length; i < size; ++i, ++j){
+
+		if(buffer[i] === 0 || buffer[i] === 255){
+
+			inc = 0;
+			isPrint = true;
+
+			if(i + 1 < size && buffer[i] === buffer[i+1]){
+
+				++inc;
+
+				if(i + 2 < size){
+					if(buffer[i] === buffer[i+2]){
+						++inc;
+					} else {
+						//if only 2 occurrences: ignore value
+						isPrint = false;
+					}
+				}
+			}//else: if single value: do print (an do not jump)
+
+
+			if(isPrint){
+				dv.setUint8(j, buffer[i]);
+			} else {
+				--j;
+			}
+
+			i += inc;
+
+		} else {
+			dv.setUint8(j, buffer[i]);
+		}
+
+
+	}
+
+	return newBuffer;
+};
+
+/**
+ * Map for encoder/decoder callback functions
+ * 
+ * <pre>[ID] -> {function_type: FUNCTION}</pre>
+ *  
+ * @type {[id: number]: {[callback_type: string]: function}}
+ */
+var coders = {};
+
+/**
+ * Get a registered callback for the encoder / decoder instance
+ * 
+ * @param p_coder {Number}
+ * 			the encoder/decoder pointer (ID)
+ * @param func_type {String}
+ * 			the callback type, one of
+ * 				"write" | "read" | "error" | "metadata"
+ * @returns {Function} the callback (or VOID if there is no callback registered)
+ */
+function getCallback(p_coder, func_type){
+	if(coders[p_coder]){
+		return coders[p_coder][func_type];
+	}
+}
+
+/**
+ * Register a callback for an encoder / decoder instance (will / should be deleted, when finish()/delete())
+ * 
+ * @param p_coder {Number}
+ * 			the encoder/decoder pointer (ID)
+ * @param func_type {String}
+ * 			the callback type, one of
+ * 				"write" | "read" | "error" | "metadata"
+ * @param callback {Function}
+ * 			the callback function
+ */
+function setCallback(p_coder, func_type, callback){
+	if(!coders[p_coder]){
+		coders[p_coder] = {};
+	}
+	coders[p_coder][func_type] = callback;
+}
+
+//(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data)
+// -> FLAC__StreamEncoderWriteStatus
+var enc_write_fn_ptr = Runtime.addFunction(function(p_encoder, buffer, bytes, samples, current_frame, p_client_data){
+	var arraybuf = new ArrayBuffer(buffer);
+	var retdata = new Uint8Array(bytes);
+	retdata.set(HEAPU8.subarray(buffer, buffer + bytes));
+	var write_callback_fn = getCallback(p_encoder, 'write');
+	try{
+		write_callback_fn(retdata, bytes, samples, current_frame, p_client_data);
+	} catch(err) {
+		console.error(err);
+		return FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR;
+	}
+	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK
+});
+
+//(const FLAC__StreamDecoder *decoder, FLAC__byte buffer[], size_t *bytes, void *client_data)
+// -> FLAC__StreamDecoderReadStatus
+var dec_read_fn_ptr = Runtime.addFunction(function(p_decoder, buffer, bytes, p_client_data){
+	//FLAC__StreamDecoderReadCallback, see https://xiph.org/flac/api/group__flac__stream__decoder.html#ga7a5f593b9bc2d163884348b48c4285fd
+
+	var len = Module.getValue(bytes, 'i32');
+
+	if(len === 0){
+		return FLAC__STREAM_DECODER_READ_STATUS_ABORT;
+	}
+	
+	var read_callback_fn = getCallback(p_decoder, 'read');
+
+	//callback must return object with: {buffer: ArrayBuffer, readDataLength: number, error: boolean}
+	var readResult = read_callback_fn(len, p_client_data);
+	//in case of END_OF_STREAM or an error, readResult.readDataLength must be returned with 0
+
+	var readLen = readResult.readDataLength;
+	Module.setValue(bytes, readLen, 'i32');
+
+	if(readResult.error){
+		return FLAC__STREAM_DECODER_READ_STATUS_ABORT;
+	}
+
+	if(readLen === 0){
+		return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
+	}
+
+	var readBuf = readResult.buffer;
+
+	var dataHeap = new Uint8Array(Module.HEAPU8.buffer, buffer, readLen);
+	dataHeap.set(new Uint8Array(readBuf));
+
+	return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
+});
+
+//(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 *const buffer[], void *client_data)
+// -> FLAC__StreamDecoderWriteStatus
+var dec_write_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer, p_client_data){
+
+	// var dec = Module.getValue(p_decoder,'i32');
+	// var clientData = Module.getValue(p_client_data,'i32');
+
+	var buffer = Module.getValue(p_buffer,'i32');
+
+	var frameInfo = _readFrameHdr(p_frame);
+
+//	console.log(frameInfo);//DEBUG
+
+	var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
+
+	var increase = 2;//FIXME (see below fix_write_buffer)
+
+	//FIXME this works for mono / single channel only...
+	var heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
+	//var _buffer = new Uint8Array(heapView);
+
+	//FIXME
+	var _buffer = __fix_write_buffer(heapView);
+	if(_buffer.length < block_size){
+		while(_buffer.length < block_size && buffer + block_size * increase < HEAPU8.length){
+			increase += 2;
+			heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
+			_buffer = __fix_write_buffer(heapView);
+		}
+	}
+
+	var write_callback_fn = getCallback(p_decoder, 'write');
+	write_callback_fn(_buffer.subarray(0, block_size), frameInfo);//, clientData);
+
+	// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE	The write was OK and decoding can continue.
+	// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
+
+	return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
+});
+
+
+
+//(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderErrorStatus status, void *client_data)
+// -> void
+var dec_error_fn_ptr = Runtime.addFunction(function(p_decoder, err, p_client_data){
+	
+	error_callback_fn
+	
+	//err:
+	// FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC         An error in the stream caused the decoder to lose synchronization.
+	// FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER       The decoder encountered a corrupted frame header.
+	// FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH   The frame's data did not match the CRC in the footer.
+	// FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM   The decoder encountered reserved fields in use in the stream.
+	var msg;
+	switch(err){
+	case 0:
+		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC';
+		break;
+	case 1:
+		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER';
+		break;
+	case 2:
+		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH';
+		break;
+	case 3:
+		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM';
+		break;
+	default:
+		msg = 'FLAC__STREAM_DECODER_ERROR__UNKNOWN';//this should never happen
+	}
+	
+	var error_callback_fn = getCallback(p_decoder, 'error');
+
+	//TODO convert err? add/remove string representation for err code?
+	error_callback_fn(err, msg, p_client_data);
+});
+
+//(const FLAC__StreamDecoder *decoder, const FLAC__StreamMetadata *metadata, void *client_data) -> void
+//(const FLAC__StreamEncoder *encoder, const FLAC__StreamMetadata *metadata, void *client_data) -> void
+var metadata_fn_ptr = Runtime.addFunction(function(p_coder, p_metadata, p_client_data){
+	/*
+	 typedef struct {
+		FLAC__MetadataType type;
+		FLAC__bool is_last;
+		unsigned length;
+		union {
+			FLAC__StreamMetadata_StreamInfo stream_info;
+			FLAC__StreamMetadata_Padding padding;
+			FLAC__StreamMetadata_Application application;
+			FLAC__StreamMetadata_SeekTable seek_table;
+			FLAC__StreamMetadata_VorbisComment vorbis_comment;
+			FLAC__StreamMetadata_CueSheet cue_sheet;
+			FLAC__StreamMetadata_Picture picture;
+			FLAC__StreamMetadata_Unknown unknown;
+		} data;
+	} FLAC__StreamMetadata;
+	 */
+
+	/*
+	FLAC__METADATA_TYPE_STREAMINFO 		STREAMINFO block
+	FLAC__METADATA_TYPE_PADDING 		PADDING block
+	FLAC__METADATA_TYPE_APPLICATION 	APPLICATION block
+	FLAC__METADATA_TYPE_SEEKTABLE 		SEEKTABLE block
+	FLAC__METADATA_TYPE_VORBIS_COMMENT 	VORBISCOMMENT block (a.k.a. FLAC tags)
+	FLAC__METADATA_TYPE_CUESHEET 		CUESHEET block
+	FLAC__METADATA_TYPE_PICTURE 		PICTURE block
+	FLAC__METADATA_TYPE_UNDEFINED 		marker to denote beginning of undefined type range; this number will increase as new metadata types are added
+	FLAC__MAX_METADATA_TYPE 			No type will ever be greater than this. There is not enough room in the protocol block. 
+	 */
+
+	var type = Module.getValue(p_metadata,'i32');//4 bytes
+	var is_last = Module.getValue(p_metadata+4,'i32');//4 bytes
+	var length = Module.getValue(p_metadata+8,'i64');//8 bytes
+
+	var metadata_callback_fn = getCallback(p_coder, 'metadata');
+	var meta_data;
+	if(type === 0){// === FLAC__METADATA_TYPE_STREAMINFO
+		meta_data = _readStreamInfo(p_metadata+16);
+
+		metadata_callback_fn(meta_data);
+	}
+	//TODO handle other meta data too
+	
+});
+
 // export / public:
 return {
 	_module: Module,
-	_enc_cb: {},
-	_dec_cb: {},
-	_rm_cb: function(list){
-		for(var i=0, size = list.length; i < size; ++i){
-			Runtime.removeFunction(list[i]);
-		}
-	},
 	_clear_enc_cb: function(enc_ptr){
-		var list = this._enc_cb[enc_ptr];
-		if(list){
-			this._rm_cb(list);
-			this._enc_cb[enc_ptr] = void(0);
-		}
+		delete coders[enc_ptr];
 	},
 	_clear_dec_cb: function(dec_ptr){
-		var list = this._dec_cb[dec_ptr];
-		if(list){
-			this._rm_cb(list);
-			this._dec_cb[dec_ptr] = void(0);
-		}
-	},
-	getFreeCallbackSlots: function(){
-		return MAX_CALLBACKS - get_count(this._dec_cb) - get_count(this._enc_cb);
+		delete coders[dec_ptr];
 	},
 	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number' ]),
 	FLAC__stream_encoder_set_compression_level: Module.cwrap('FLAC__stream_encoder_set_compression_level', 'number', [ 'number', 'number' ]),
@@ -212,85 +560,30 @@ return {
 		
 		client_data = client_data|0;
 		
-		var callback_fn_ptr = Runtime.addFunction(function(p_encoder, buffer, bytes, samples, current_frame, p_client_data){
-			var arraybuf = new ArrayBuffer(buffer);
-			var retdata = new Uint8Array(bytes);
-			retdata.set(HEAPU8.subarray(buffer, buffer + bytes));
-			// write_callback_fn(retdata, bytes, p_client_data);
-			write_callback_fn(retdata, bytes, samples, current_frame, p_client_data);
-		});
+		if(typeof write_callback_fn !== 'function'){
+			return FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS;
+		}
+		setCallback(encoder, 'write', write_callback_fn);
 		
-		var metadata_callback_fn_ptr = !metadata_callback_fn? 0 : Runtime.addFunction(function(p_decoder, p_metadata, p_client_data){
-
-			/*
-			 typedef struct {
-				FLAC__MetadataType type;
-				FLAC__bool is_last;
-				unsigned length;
-				union {
-					FLAC__StreamMetadata_StreamInfo stream_info;
-					FLAC__StreamMetadata_Padding padding;
-					FLAC__StreamMetadata_Application application;
-					FLAC__StreamMetadata_SeekTable seek_table;
-					FLAC__StreamMetadata_VorbisComment vorbis_comment;
-					FLAC__StreamMetadata_CueSheet cue_sheet;
-					FLAC__StreamMetadata_Picture picture;
-					FLAC__StreamMetadata_Unknown unknown;
-				} data;
-			} FLAC__StreamMetadata;
-			 */
-
-			/*
-			FLAC__METADATA_TYPE_STREAMINFO 		STREAMINFO block
-			FLAC__METADATA_TYPE_PADDING 		PADDING block
-			FLAC__METADATA_TYPE_APPLICATION 	APPLICATION block
-			FLAC__METADATA_TYPE_SEEKTABLE 		SEEKTABLE block
-			FLAC__METADATA_TYPE_VORBIS_COMMENT 	VORBISCOMMENT block (a.k.a. FLAC tags)
-			FLAC__METADATA_TYPE_CUESHEET 		CUESHEET block
-			FLAC__METADATA_TYPE_PICTURE 		PICTURE block
-			FLAC__METADATA_TYPE_UNDEFINED 		marker to denote beginning of undefined type range; this number will increase as new metadata types are added
-			FLAC__MAX_METADATA_TYPE 			No type will ever be greater than this. There is not enough room in the protocol block. 
-			 */
-
-			var type = Module.getValue(p_metadata,'i32');//4 bytes
-			var is_last = Module.getValue(p_metadata+4,'i32');//4 bytes
-			var length = Module.getValue(p_metadata+8,'i64');//8 bytes
-
-			var meta_data;
-			//TODO handle other meta data too
-			if(type === 0){//FLAC__METADATA_TYPE_STREAMINFO
-				meta_data = _readStreamInfo(p_metadata+16);//10);
-
-				metadata_callback_fn(meta_data);
-			}
-		});
-
-		//store created callback pointers (for clean-up in finish()/delete())
-		//NOTE the number of callbacks that can be registered is limited
-		//     as a result, this limits the number of encoder/decoder instances that can run at the same time
-		//     the limit is set by the compile-option
-		//       -s RESERVED_FUNCTION_POINTERS=<n>
-		//     currently this is set to 20 (each encoder requires 1-2 slots, each decoder requires 3-4 slots)
-		this._enc_cb[encoder] = [callback_fn_ptr];
-		if(metadata_callback_fn) this._enc_cb[encoder].push(metadata_callback_fn_ptr);
+		var __metadata_callback_fn_ptr = 0;
+		if(typeof metadata_callback_fn === 'function'){
+			setCallback(encoder, 'metadata', metadata_callback_fn);
+			__metadata_callback_fn_ptr = metadata_fn_ptr;
+		}
 		
 		var init_status = Module.ccall(
 				'FLAC__stream_encoder_init_stream', 'number',
 				['number', 'number', 'number', 'number', 'number', 'number'],
 				[
 				 	encoder,
-				 	callback_fn_ptr,
+				 	enc_write_fn_ptr,
 				 	0,//	FLAC__StreamEncoderSeekCallback 
 				 	0,//	FLAC__StreamEncoderTellCallback 
-				 	metadata_callback_fn_ptr,
+				 	__metadata_callback_fn_ptr,
 				 	client_data
 				]
 		);
-		// FLAC__STREAM_ENCODER_INIT_STATUS_OK = 0
-		// if( init_status != 0){
-		// return false;
-		// }
-		// return true;
+		
 		return init_status;
 	},
 
@@ -298,278 +591,41 @@ return {
 
 		client_data = client_data|0;
 
-		//TODO move these out of this function / public export?
-		// FLAC__STREAM_DECODER_READ_STATUS_CONTINUE     The read was OK and decoding can continue.
-		// FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM   The read was attempted while at the end of the stream. Note that the client must only return this value when the read callback was called when already at the end of the stream. Otherwise, if the read itself moves to the end of the stream, the client should still return the data and FLAC__STREAM_DECODER_READ_STATUS_CONTINUE, and then on the next read callback it should return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM with a byte count of 0.
-		// FLAC__STREAM_DECODER_READ_STATUS_ABORT       An unrecoverable error occurred. The decoder will return from the process call.
-		var FLAC__STREAM_DECODER_READ_STATUS_CONTINUE = 0;
-		var FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM = 1;
-		var FLAC__STREAM_DECODER_READ_STATUS_ABORT = 2;
-
-
-		// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE   The write was OK and decoding can continue.
-		// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     An unrecoverable error occurred. The decoder will return from the process call.
-		var FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE = 0;
-		var FLAC__STREAM_DECODER_WRITE_STATUS_ABORT = 1;
-
-
-		/**
-		 * HELPER workaround / fix for returned write-buffer for decoding FLAC    	 * 
-		 * @param buffer {Uint8Array}
-		 * @returns {Uint8Array}
-		 */
-		var __fix_write_buffer = function(buffer){
-			//FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated"
-			//		HACK for now: remove 2 of the values, for each of these triplets
-			var count = 0;
-			var inc;
-			var isPrint;
-			for(var i=0, size = buffer.length; i < size; ++i){
-
-				if(buffer[i] === 0 || buffer[i] === 255){
-
-					inc = 0;
-					isPrint = true;
-
-					if(i + 1 < size && buffer[i] === buffer[i+1]){
-
-						++inc;
-
-						if(i + 2 < size){
-							if(buffer[i] === buffer[i+2]){
-								++inc;
-							} else {
-								//if only 2 occurrences: ignore value
-								isPrint = false;
-							}
-						}
-					}//else: if single value: do print (an do not jump)
-
-
-					if(isPrint){
-						++count;
-					}
-
-					i += inc;
-
-				} else {
-					++count;
-				}
-			}
-
-			var newBuffer = new Uint8Array(count);
-			var dv = new DataView(newBuffer.buffer);
-			for(var i=0, j=0, size = buffer.length; i < size; ++i, ++j){
-
-				if(buffer[i] === 0 || buffer[i] === 255){
-
-					inc = 0;
-					isPrint = true;
-
-					if(i + 1 < size && buffer[i] === buffer[i+1]){
-
-						++inc;
-
-						if(i + 2 < size){
-							if(buffer[i] === buffer[i+2]){
-								++inc;
-							} else {
-								//if only 2 occurrences: ignore value
-								isPrint = false;
-							}
-						}
-					}//else: if single value: do print (an do not jump)
-
-
-					if(isPrint){
-						dv.setUint8(j, buffer[i]);
-					} else {
-						--j;
-					}
-
-					i += inc;
-
-				} else {
-					dv.setUint8(j, buffer[i]);
-				}
-
-
-			}
-
-			return newBuffer;
-		};
-
-		//(const FLAC__StreamDecoder *decoder, FLAC__byte buffer[], size_t *bytes, void *client_data)
-		var read_callback_fn_ptr = Runtime.addFunction(function(p_decoder, buffer, bytes, p_client_data){
-			//FLAC__StreamDecoderReadCallback, see https://xiph.org/flac/api/group__flac__stream__decoder.html#ga7a5f593b9bc2d163884348b48c4285fd
-
-			var len = Module.getValue(bytes, 'i32');
-
-			if(len === 0){
-				return FLAC__STREAM_DECODER_READ_STATUS_ABORT;
-			}
-
-			//callback must return object with: {buffer: ArrayBuffer, readDataLength: number, error: boolean}
-			var readResult = read_callback_fn(len, p_client_data);
-			//in case of END_OF_STREAM or an error, readResult.readDataLength must be returned with 0
-
-			var readLen = readResult.readDataLength;
-			Module.setValue(bytes, readLen, 'i32');
-
-			if(readResult.error){
-				return FLAC__STREAM_DECODER_READ_STATUS_ABORT;
-			}
-
-			if(readLen === 0){
-				return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
-			}
-
-			var readBuf = readResult.buffer;
-
-			var dataHeap = new Uint8Array(Module.HEAPU8.buffer, buffer, readLen);
-			dataHeap.set(new Uint8Array(readBuf));
-
-			return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
-		});
-
-		//(const FLAC__StreamDecoder *decoder, const FLAC__Frame *frame, const FLAC__int32 *const buffer[], void *client_data)
-		var write_callback_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer, p_client_data){
-
-			// var dec = Module.getValue(p_decoder,'i32');
-			// var clientData = Module.getValue(p_client_data,'i32');
-
-			var buffer = Module.getValue(p_buffer,'i32');
-
-			var frameInfo = _readFrameHdr(p_frame);
-
-			console.log(frameInfo);//DEBUG
-
-			var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
-
-			var increase = 2;//FIXME (see below fix_write_buffer)
-
-			//FIXME this works for mono / single channel only...
-			var heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
-			//var _buffer = new Uint8Array(heapView);
-
-			//FIXME
-			var _buffer = __fix_write_buffer(heapView);
-			if(_buffer.length < block_size){
-				while(_buffer.length < block_size && buffer + block_size * increase < HEAPU8.length){
-					increase += 2;
-					heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
-					_buffer = __fix_write_buffer(heapView);
-				}
-			}
-
-			write_callback_fn(_buffer.subarray(0, block_size), frameInfo);//, clientData);
-
-			// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE	The write was OK and decoding can continue.
-			// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
-
-			return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
-		});
+		if(typeof read_callback_fn !== 'function'){
+			return FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS;
+		}
+		setCallback(decoder, 'read', read_callback_fn);
 		
-		//(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderErrorStatus status, void *client_data)
-		var error_callback_fn_ptr = !error_callback_fn? 0 : Runtime.addFunction(function(p_decoder, err, p_client_data){
-
-			//err:
-			// FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC         An error in the stream caused the decoder to lose synchronization.
-			// FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER       The decoder encountered a corrupted frame header.
-			// FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH   The frame's data did not match the CRC in the footer.
-			// FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM   The decoder encountered reserved fields in use in the stream.
-			var msg;
-			switch(err){
-			case 0:
-				msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC';
-				break;
-			case 1:
-				msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER';
-				break;
-			case 2:
-				msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH';
-				break;
-			case 3:
-				msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM';
-				break;
-			default:
-				msg = 'FLAC__STREAM_DECODER_ERROR__UNKNOWN';//this should never happen
-			}
-
-			//TODO convert err? add/remove string representation for err code?
-			error_callback_fn(err, msg, p_client_data);
-		});
-
-		//(const FLAC__StreamDecoder *decoder, const FLAC__StreamMetadata *metadata, void *client_data)
-		var metadata_callback_fn_ptr = !metadata_callback_fn? 0 : Runtime.addFunction(function(p_decoder, p_metadata, p_client_data){
-
-			/*
-			 typedef struct {
-				FLAC__MetadataType type;
-				FLAC__bool is_last;
-				unsigned length;
-				union {
-					FLAC__StreamMetadata_StreamInfo stream_info;
-					FLAC__StreamMetadata_Padding padding;
-					FLAC__StreamMetadata_Application application;
-					FLAC__StreamMetadata_SeekTable seek_table;
-					FLAC__StreamMetadata_VorbisComment vorbis_comment;
-					FLAC__StreamMetadata_CueSheet cue_sheet;
-					FLAC__StreamMetadata_Picture picture;
-					FLAC__StreamMetadata_Unknown unknown;
-				} data;
-			} FLAC__StreamMetadata;
-			 */
-
-			/*
-			FLAC__METADATA_TYPE_STREAMINFO 		STREAMINFO block
-			FLAC__METADATA_TYPE_PADDING 		PADDING block
-			FLAC__METADATA_TYPE_APPLICATION 	APPLICATION block
-			FLAC__METADATA_TYPE_SEEKTABLE 		SEEKTABLE block
-			FLAC__METADATA_TYPE_VORBIS_COMMENT 	VORBISCOMMENT block (a.k.a. FLAC tags)
-			FLAC__METADATA_TYPE_CUESHEET 		CUESHEET block
-			FLAC__METADATA_TYPE_PICTURE 		PICTURE block
-			FLAC__METADATA_TYPE_UNDEFINED 		marker to denote beginning of undefined type range; this number will increase as new metadata types are added
-			FLAC__MAX_METADATA_TYPE 			No type will ever be greater than this. There is not enough room in the protocol block. 
-			 */
-
-			var type = Module.getValue(p_metadata,'i32');//4 bytes
-			var is_last = Module.getValue(p_metadata+4,'i16');//2 bytes
-			var length = Module.getValue(p_metadata+6,'i32');//4 bytes
-
-			var meta_data;
-			//TODO handle other meta data too
-			if(type === 0){//FLAC__METADATA_TYPE_STREAMINFO
-				meta_data = _readStreamInfo(p_metadata+16);//10);
-
-				metadata_callback_fn(meta_data);
-			}
-		});
-
-		//store created callback pointers (for clean-up in finish()/delete())
-		//NOTE the number of callbacks that can be registered is limited
-		//     as a result, this limits the number of encoder/decoder instances that can run at the same time
-		//     the limit is set by the compile-option
-		//       -s RESERVED_FUNCTION_POINTERS=<n>
-		//     currently this is set to 20 (each encoder requires 1-2 slots, each decoder requires 2-4 slots)
-		//     (the slots are freed up, when an encoder/decoder is finished() or deleted())
-		this._dec_cb[decoder] = [read_callback_fn_ptr, write_callback_fn_ptr];
-		if(metadata_callback_fn) this._dec_cb[decoder].push(metadata_callback_fn_ptr);
-		if(error_callback_fn) this._dec_cb[decoder].push(error_callback_fn_ptr);
+		if(typeof write_callback_fn !== 'function'){
+			return FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS;
+		}
+		setCallback(decoder, 'write', write_callback_fn);
+		
+		var __error_callback_fn_ptr = 0;
+		if(typeof error_callback_fn === 'function'){
+			setCallback(decoder, 'error', error_callback_fn);
+			__error_callback_fn_ptr = dec_error_fn_ptr;
+		}
+		
+		var __metadata_callback_fn_ptr = 0;
+		if(typeof metadata_callback_fn === 'function'){
+			setCallback(decoder, 'metadata', metadata_callback_fn);
+			__metadata_callback_fn_ptr = metadata_fn_ptr;
+		}
 
 		var init_status = Module.ccall(
 				'FLAC__stream_decoder_init_stream', 'number',
 				[ 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
 				[
                    decoder,
-                   read_callback_fn_ptr, 
+                   dec_read_fn_ptr, 
                    0,// FLAC__StreamDecoderSeekCallback
                    0,// FLAC__StreamDecoderTellCallback
                    0,//	FLAC__StreamDecoderLengthCallback
                    0,//	FLAC__StreamDecoderEofCallback
-                   write_callback_fn_ptr,
-                   metadata_callback_fn_ptr,
-                   error_callback_fn_ptr,
+                   dec_write_fn_ptr,
+                   __metadata_callback_fn_ptr,
+                   __error_callback_fn_ptr,
                    client_data
                 ]
 		);
@@ -655,7 +711,6 @@ return {
 	
 //	/** @returns {Boolean} FALSE if the decoder is already initialized, else TRUE. */
 //	FLAC__stream_decoder_set_md5_checking: Module.cwrap('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number']),
-
 	
 	FLAC__stream_encoder_init_file: Module.cwrap('FLAC__stream_encoder_init_file', 'number', [ 'number', 'number', 'number', 'number' ]),
 	FLAC__stream_encoder_finish: function(encoder){

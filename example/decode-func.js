@@ -64,8 +64,6 @@ function decodeFlac(binData, decData){
 	if (flac_file_processing_check_flac_format(binData) == false){
 		return {error: 'Wrong FLAC file format', status: 1};
 	}
-
-	console.log('before INIT -> available callback slots: ', Flac.getFreeCallbackSlots());
 	
 	// init decoder
 	flac_decoder = Flac.init_libflac_decoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0, VERIFY);
@@ -114,8 +112,6 @@ function decodeFlac(binData, decData){
 		
 		flac_ok &= flac_return != false
 	}
-
-	console.log('before FINISH -> available callback slots: ', Flac.getFreeCallbackSlots());
 	
 	// finish Decoding
 	flac_ok &= Flac.FLAC__stream_decoder_finish(flac_decoder);
@@ -126,52 +122,5 @@ function decodeFlac(binData, decData){
 	
 	Flac.FLAC__stream_decoder_delete(flac_decoder);
 	
-	console.log('after FINISH -> available callback slots: ', Flac.getFreeCallbackSlots());
-	
 	return {metaData: meta_data, status: flac_ok};
-}
-
-function testCallbackLimit(){
-	
-	var BUFSIZE = 4096,
-		CHANNELS = 1,
-		SAMPLERATE = 44100,
-		COMPRESSION = 5,
-		BPS = 16,
-		VERIFY = true;
-	
-	var TEST_SIZE = 50;
-	var decs = [];
-	
-	var read_callback_fn = function(){};
-	var write_callback_fn = function(){};
-	var error_callback_fn = function(){};
-	var metadata_callback_fn = function(){};
-
-	console.log('before TEST -> available callback slots: ', Flac.getFreeCallbackSlots());
-	
-	for(var j=0; j < TEST_SIZE; ++j){
-		console.log('before TEST INIT('+(j+1)+') -> available callback slots: ', Flac.getFreeCallbackSlots());
-		var test_flac_decoder = Flac.init_libflac_decoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0, VERIFY);
-		if (test_flac_decoder != 0){
-			decs.push(test_flac_decoder);
-			try{
-				Flac.init_decoder_stream(test_flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn);
-				console.log('after TEST INIT('+(j+1)+') -> available callback slots: ', Flac.getFreeCallbackSlots());
-			} catch(err){
-				console.info('ERROR on TEST INIT('+(j+1)+') -> failed to init decoder, free callback slots: ', Flac.getFreeCallbackSlots(), ', error: ', err);
-				break;
-			}
-		} else {
-			console.error('FAILURE during TEST INIT('+(j+1)+') -> failed to create decoder, free callback slots: ', Flac.getFreeCallbackSlots());
-		}
-	}
-	
-	console.info('RESULT: created '+(j+1)+' active decoder instances, before callback-limit was reached.');
-	
-	//clean up,
-	for(var j=0, size = decs.length; j < size; ++j){
-		Flac.FLAC__stream_decoder_delete(decs[j]);
-	}
-	console.log('after TEST -> available callback slots: ', Flac.getFreeCallbackSlots());
 }
