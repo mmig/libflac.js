@@ -21,6 +21,14 @@ Building libflac.js requires that [emscripten] is installed and configured.
 See the [documentation][emscripten-doc] and the [main site][emscripten-main] for 
 an introduction, tutorials etc.
 
+For changing the targeted libflac version, modify the `Makefile`:
+```
+...
+FLAC_VERSION:=1.3.2
+...
+```
+
+## Build *nix (libflac 1.3.0)
 
 Start build process by executing the `Makefile`:
 ```
@@ -29,7 +37,72 @@ make
 (build process was tested on Unbuntu 12.10)
 
 
-## Change Build
+## Build Windows/VisualStudio 10 (libflac 1.3.0)
+
+__*EXPERIMENTAL*__
+
+ * __Prerequisites:__ 
+   * VisualStudio 10
+   * Emscripten plugin [vs-tool] (automatically installed, if Emscripten Installer was used)
+   * OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)
+
+Open the solution file `FLAC.sln` and select the project `libFLAC_static`.
+
+In the `Configuration Manager`, for `libFLAC_static` select `<New...>`, and then `Emscripten` as platform (`vs-tool` needs to be installed for this); change option `Copy settings from:` to `<Empty>`, and the press `OK`.
+
+Then open the project settings for `libFLAC_static`, and modify settings for `Configuration `:
+ * `Clang C/C++`: `Additional Include Directories` add entries:
+   ```
+   .\include
+   ..\..\include
+   ```
+ * `Clang C/C++` : `Preprocessor` add entries for `Preprocessor Definitions (-D)`:
+   ```
+   HAVE_SYS_PARAM_H
+   HAVE_LROUND
+   VERSION="1.3.0"
+   ```
+   
+   ```
+   DEBUG
+   _LIB
+   FLAC__HAS_OGG
+   VERSION="1.3.0"
+   ```
+
+* modify project (if without OGG support): remove the source files (*.c) and headers (*.h) that start with `ogg*` from project (remove or "Exclude from project"); or include OGG library (cf. README of libflac for details)
+   
+
+* Modify sources file:
+ * `flac-1.3.0\src\libFLAC\format.c` add the following at the beginning (e.g. after the `#include` statements):
+   ```
+	#define VERSION "1.3.0"
+   ```
+
+
+## Building *nix (libflac 1.3.2)
+
+For libflac version 1.3.2, the sources / configuration requires some changes, before libflac.js can be successfully be built.
+
+ * in `flac-1.3.2/Makefile.in` at line 400, disable (or remove) the last entry `microbench` in the line, e.g. change to:
+   ```
+   SUBDIRS = doc include m4 man src examples test build obj #microbench
+   ```
+ * in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
+	 ```c
+	 #elif defined __GNUC__
+		uint32_t lo, hi;
+		asm volatile (".byte 0x0f, 0x01, 0xd0" : "=a"(lo), "=d"(hi) : "c" (0));
+		return lo;
+	 ```
+
+After these changes, continue compilation with
+```
+make emmake
+```
+
+
+## Change Library API
 
 The API for _libflac.js_ (e.g. exported functions) are mainly specified in `libflac_post.js`.
 
@@ -208,7 +281,8 @@ var decBuffer = [];
 
 //function that will be called for decoded output data (WAV audio)
 function write_callback_fn(buffer){
-    // buffer is the decoded audio data (Uint8Array)
+    // buffer is an Array of the decoded audio data (Uint8Array):
+    // the length of array corresponds to the channels, i.e. there is an Uint8Array for each channel)
 	decBuffer.push(buffer);
 }
 
@@ -305,7 +379,7 @@ and published under the MIT license (see file LICENSE).
 [emscripten]: https://github.com/kripken/emscripten
 [emscripten-doc]: https://kripken.github.io/emscripten-site/docs/
 [emscripten-main]: https://kripken.github.io/emscripten-site/
-[closure-compiler]: https://github.com/google/closure-compiler
+[vs-tool]: https://kripken.github.io/emscripten-site/docs/getting_started/getting_started_with_emscripten_and_vs2010.html
 [libmp3lame-js]: https://github.com/akrennmair/libmp3lame-js
 [flac]: https://xiph.org/flac/index.html
 [speech-to-flac]: https://github.com/mmig/speech-to-flac
