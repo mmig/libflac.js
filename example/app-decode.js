@@ -14,7 +14,7 @@ function onFlacLoad(evt) {
 	var arrayBuffer = new Uint8Array(this.result);
 
 	var decData = [];
-	var result = decodeFlac(arrayBuffer, decData);
+	var result = decodeFlac(arrayBuffer, decData, isVerify());
 	console.log('decoded data array: ', decData);
 	
 	if(result.error){
@@ -39,15 +39,24 @@ function onFlacLoad(evt) {
 	var fileInfoEl = document.getElementById(evt.fileInfoId);
 	fileInfoEl.innerHTML = fileInfo.join('') ;
 	
-	if(!result.error && isDownload()){
+	if(!result.error){
 
 		//using data-util.js utility function(s)
-		var blob = exportWavFile(decData, metaData.sampleRate, metaData.channels);
+		var blob = exportWavFile(decData, metaData.sampleRate, metaData.channels, metaData.bitsPerSample);
 		
 		var fileName = getFileName(evt.fileName, 'wav');
 
 		//using data-util.js utility function(s)
-		forceDownload(blob, fileName);
+
+		//using data-util.js utility function(s)
+		if(isDownload()){
+			forceDownload(blob, fileName);
+		} else {
+			var anchor = getDownloadLink(blob, fileName);
+			var br = window.document.createElement('br');
+			fileInfoEl.appendChild(br);
+			fileInfoEl.appendChild(anchor);
+		}
 	}
 };
 

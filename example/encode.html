@@ -10,19 +10,49 @@
 	<!-- script src="decode-func.js" type="text/javascript"></script-->
 	<script src="util/data-util.js" type="text/javascript"></script>
     
+    <style>
+		.drop-zone {
+			border: 1px red solid;
+			height: 250px;
+		}
+		.hint {
+			background-color: #C6E7FF;
+			color: #0094FF;
+			border-radius: 50%;
+			height: 1em;
+			width: 1em;
+			display: inline-block;
+		}
+		.hint:before {
+			content: ' ? ';
+			margin-left: 0.25em;
+		}
+		.inline-note {
+			text-indent: -3em;
+			margin-left: 3em;
+		}
+	</style>
+	
   </head>
   <body>
     <div>
         <h1>WAV to FLAC conversion</h1>
-        <p>Convert a WAV-file into FLAC format.<br>
-        Either use the drop zone (change the extension of the WAV-file before dropping it into the browser - or else the WAV-file might be played back by the browser instead of converted to the FLAC format) or the file selection button.<br>
-        By checking the "Download" box you can select, whether the FLAC-file should be downloaded.<br></p>
+        
+        <p>
+        Either use the drop zone or the file selection button.
+        </p>
+        <p class="inline-note">
+        <em>NOTE:</em> If the browser plays the WAV-file instead of converting it to FLAC,
+                       change the file-extension before dropping it into the browser
+        </p>
     </div>
 
 
-	<div id="drop_zone" style="border: 1px red solid;height: 250px;">Drop WAV-files here</div>
+	<div id="drop_zone" class="drop-zone">Drop WAV-files here</div>
 	<input type="file" id="files" name="files[]" multiple />
-	<input type="checkbox" id="check_download" checked>Download
+	<input type="checkbox" id="check_download" checked>Download&nbsp;<div class="hint" title="download FLAC file after decoding"></div> &nbsp;
+	<input type="checkbox" id="check_verify" checked>Verify&nbsp;<div class="hint" title="Checksum verification during encoding
+(disable for faster encoding)"></div>
 
 	<!--input type="button" id="files_button" value="process file"-->
 	<output id="list"></output>

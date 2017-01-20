@@ -14,7 +14,7 @@ function onWavLoad(evt) {
 	var arrayBuffer = new Uint8Array(this.result);
 
 	var encData = [];
-	var result = encodeFlac(arrayBuffer, encData);
+	var result = encodeFlac(arrayBuffer, encData, isVerify());
 	console.log('encoded data array: ', encData);
 	
 	if(result.error){
@@ -39,15 +39,22 @@ function onWavLoad(evt) {
 	var fileInfoEl = document.getElementById(evt.fileInfoId);
 	fileInfoEl.innerHTML = fileInfo.join('') ;
 	
-	if(!result.error && isDownload()){
-
+	if(!result.error){
+		
 		//using data-util.js utility function(s)
 		var blob = exportFlacFile(encData, metaData);
 		
 		var fileName = getFileName(evt.fileName, 'flac');
 
 		//using data-util.js utility function(s)
-		forceDownload(blob, fileName);
+		if(isDownload()){
+			forceDownload(blob, fileName);
+		} else {
+			var anchor = getDownloadLink(blob, fileName);
+			var br = window.document.createElement('br');
+			fileInfoEl.appendChild(br);
+			fileInfoEl.appendChild(anchor);
+		}
 	}
 };
 

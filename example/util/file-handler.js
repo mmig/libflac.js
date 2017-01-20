@@ -116,6 +116,10 @@ function isDownload(){
 	return document.getElementById('check_download').checked;
 }
 
+function isVerify(){
+	return document.getElementById('check_verify').checked;
+}
+
 function getFileName(srcName, targetExt){
 	
 	var isFlac = /flac/i.test(targetExt);
