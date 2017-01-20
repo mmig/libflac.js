@@ -34,7 +34,7 @@ function onWavLoad(evt) {
 	}
 
 	var isOk = result.status;
-	fileInfo.push('</br>processing finished with return code: ', isOk, (isOk == 1? ' (OK)' : ' (with errors)'));
+	fileInfo.push('</br>processing finished with return code: ', isOk, (isOk == 1? ' (OK)' : ' (with problems)'));
 
 	var fileInfoEl = document.getElementById(evt.fileInfoId);
 	fileInfoEl.innerHTML = fileInfo.join('') ;
