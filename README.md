@@ -34,7 +34,9 @@ make
 The API for _libflac.js_ (e.g. exported functions) are mainly specified in `libflac_post.js`.
 
 Functions that will be exported/used from the native `libflac` implementation need to be declared in
-the compile option `-s EXPORTED_FUNCTIONS='[...]'` (see variable `EMCC_OPTS:=...` in `Makefile`).
+the compile option `-s EXPORTED_FUNCTIONS='[...]'` (see variable `EMCC_OPTS:=...` in `Makefile`);
+note, when manually editing `EXPORTED_FUNCTIONS`, that the function-names must be prefixed with `_`, i.e. for
+function `the_function`, the string for the exported function would be `_the_function`.
 
 There is a [helper script](tree/master/tools/extract_EXPORTED_FUNCTIONS.js) that will try to extract the compile option from `libflac_post.js` (i.e. the list of functions that need to be declared).
 Run the script with `Node.js` in `tools/` (and copy&paste the output value):
@@ -42,27 +44,9 @@ Run the script with `Node.js` in `tools/` (and copy&paste the output value):
 node extract_EXPORTED_FUNCTIONS.js
 ```
 
-> __NOTE:__ The number of maximal callbacks (see explanation in _Usage_ section below) can be changed with the
-> `RESERVED_FUNCTION_POINTERS` option, see `EMCC_OPTS:=...` in `Makefile`.
-
 
 # Usage
 ------
-
-
-> ### Important
-> Encoding and decoding requires registration of callbacks. Note that only a limit number of callbacks can be registered at once, 
-> i.e. for encoders/decoders that have been _initialized_ but not _finished_ yet.
-> 
-> Currently the number of callbacks is limited to `20` which should be enough for most usage scenarios:
-> a single encoder may take 1-2 callbacks, and a decoder 2-4 callbacks.
-> 
-> The function `Flac.getFreeCallbackSlots()` returns the number of currently available callback-slots. If
-> the number of free slots is exceeded, an error will be thrown upon trying to register callbacks (i.e. when invoking the
-> init-functions for the encoder/decoder).
-> 
-> The limit for callbacks can be changed by re-compiling `libflac.js` with a different setting for
-> the `RESERVED_FUNCTION_POINTERS` option.
 
 ## Encoding
 
