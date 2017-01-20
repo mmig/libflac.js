@@ -127,93 +127,13 @@ function _readFrameHdr(p_frame){
 	};
 }
 
-/**
- * HELPER count list elements in an "dictionary" (map) object.
- * 
- * @param dict {Object} the dictionary that contains arrays (must not contain custom String properties)
- * @returns {Number} the count of elements in the lists/arrays (i.e. sum of array-lengths)
- */
-function get_count(dict){
-	var count = 0;
-	for(var n in dict){
-		if(dict.hasOwnProperty(n) && dict[n] && typeof dict[n].length === 'number'){
-			count += dict[n].length;
-		}
-	}
-	return count;
-}
-
-// FLAC__STREAM_DECODER_READ_STATUS_CONTINUE     	The read was OK and decoding can continue.
-// FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM   The read was attempted while at the end of the stream. Note that the client must only return this value when the read callback was called when already at the end of the stream. Otherwise, if the read itself moves to the end of the stream, the client should still return the data and FLAC__STREAM_DECODER_READ_STATUS_CONTINUE, and then on the next read callback it should return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM with a byte count of 0.
-// FLAC__STREAM_DECODER_READ_STATUS_ABORT       	An unrecoverable error occurred. The decoder will return from the process call.
-var FLAC__STREAM_DECODER_READ_STATUS_CONTINUE = 0;
-var FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM = 1;
-var FLAC__STREAM_DECODER_READ_STATUS_ABORT = 2;
-
-// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE   The write was OK and decoding can continue.
-// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
-var FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE = 0;
-var FLAC__STREAM_DECODER_WRITE_STATUS_ABORT = 1;
-
-//FLAC__STREAM_DECODER_INIT_STATUS_OK						Initialization was successful.
-//FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER 	The library was not compiled with support for the given container format.
-//FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS 			A required callback was not supplied.
-//FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR 	An error occurred allocating memory.
-//FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE 		fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
-//FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED 		FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
-FLAC__STREAM_DECODER_INIT_STATUS_OK	= 0;
-FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER	= 1;
-FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS	= 2;
-FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR = 3;
-FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE = 4;
-FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED = 5;
-
-//FLAC__STREAM_ENCODER_INIT_STATUS_OK									Initialization was successful.
-//FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR						General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
-//FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER				The library was not compiled with support for the given container format.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS					A required callback was not supplied.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS			The encoder has an invalid setting for number of channels.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE				The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE					The encoder has an invalid setting for the input sample rate.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE					The encoder has an invalid setting for the block size.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER				The encoder has an invalid setting for the maximum LPC order.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION			The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
-//FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER	The specified block size is less than the maximum LPC order.
-//FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE						The encoder is bound to the Subset but other settings violate it.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA						The metadata input to the encoder is invalid, in one of the following ways:
-//																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
-//																	      One of the metadata blocks contains an undefined type
-//																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
-//																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
-//																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
-//FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED					FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
-FLAC__STREAM_ENCODER_INIT_STATUS_OK = 0;
-FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR = 1;
-FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER = 2;
-FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS = 3;
-FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS = 4;
-FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE = 5;
-FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE = 6;
-FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE = 7;
-FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER = 8;
-FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION = 9;
-FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER = 10;
-FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE = 11;
-FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA = 12;
-FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED = 13;
-
-//FLAC__STREAM_ENCODER_WRITE_STATUS_OK 				The write was OK and encoding can continue.
-//FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR		An unrecoverable error occurred. The encoder will return from the process call
-FLAC__STREAM_ENCODER_WRITE_STATUS_OK = 0;
-FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR = 1;
-
 
 /**
  * HELPER workaround / fix for returned write-buffer for decoding FLAC    	 * 
  * @param buffer {Uint8Array}
  * @returns {Uint8Array}
  */
-var __fix_write_buffer = function(buffer){
+function __fix_write_buffer(buffer){
 	//FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated"
 	//		HACK for now: remove 2 of the values, for each of these triplets
 	var count = 0;
@@ -292,7 +212,73 @@ var __fix_write_buffer = function(buffer){
 	}
 
 	return newBuffer;
-};
+}
+
+
+// FLAC__STREAM_DECODER_READ_STATUS_CONTINUE     	The read was OK and decoding can continue.
+// FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM   The read was attempted while at the end of the stream. Note that the client must only return this value when the read callback was called when already at the end of the stream. Otherwise, if the read itself moves to the end of the stream, the client should still return the data and FLAC__STREAM_DECODER_READ_STATUS_CONTINUE, and then on the next read callback it should return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM with a byte count of 0.
+// FLAC__STREAM_DECODER_READ_STATUS_ABORT       	An unrecoverable error occurred. The decoder will return from the process call.
+var FLAC__STREAM_DECODER_READ_STATUS_CONTINUE = 0;
+var FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM = 1;
+var FLAC__STREAM_DECODER_READ_STATUS_ABORT = 2;
+
+// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE   The write was OK and decoding can continue.
+// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
+var FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE = 0;
+var FLAC__STREAM_DECODER_WRITE_STATUS_ABORT = 1;
+
+//FLAC__STREAM_DECODER_INIT_STATUS_OK						Initialization was successful.
+//FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER 	The library was not compiled with support for the given container format.
+//FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS 			A required callback was not supplied.
+//FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR 	An error occurred allocating memory.
+//FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE 		fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
+//FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED 		FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
+FLAC__STREAM_DECODER_INIT_STATUS_OK	= 0;
+FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER	= 1;
+FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS	= 2;
+FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR = 3;
+FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE = 4;
+FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED = 5;
+
+//FLAC__STREAM_ENCODER_INIT_STATUS_OK									Initialization was successful.
+//FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR						General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
+//FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER				The library was not compiled with support for the given container format.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS					A required callback was not supplied.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS			The encoder has an invalid setting for number of channels.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE				The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE					The encoder has an invalid setting for the input sample rate.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE					The encoder has an invalid setting for the block size.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER				The encoder has an invalid setting for the maximum LPC order.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION			The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
+//FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER	The specified block size is less than the maximum LPC order.
+//FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE						The encoder is bound to the Subset but other settings violate it.
+//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA						The metadata input to the encoder is invalid, in one of the following ways:
+//																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
+//																	      One of the metadata blocks contains an undefined type
+//																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
+//																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
+//																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
+//FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED					FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
+FLAC__STREAM_ENCODER_INIT_STATUS_OK = 0;
+FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR = 1;
+FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER = 2;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS = 3;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS = 4;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE = 5;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE = 6;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE = 7;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER = 8;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION = 9;
+FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER = 10;
+FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE = 11;
+FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA = 12;
+FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED = 13;
+
+//FLAC__STREAM_ENCODER_WRITE_STATUS_OK 				The write was OK and encoding can continue.
+//FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR		An unrecoverable error occurred. The encoder will return from the process call
+FLAC__STREAM_ENCODER_WRITE_STATUS_OK = 0;
+FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR = 1;
+
 
 /**
  * Map for encoder/decoder callback functions
@@ -396,32 +382,39 @@ var dec_write_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer
 	// var dec = Module.getValue(p_decoder,'i32');
 	// var clientData = Module.getValue(p_client_data,'i32');
 
-	var buffer = Module.getValue(p_buffer,'i32');
-
 	var frameInfo = _readFrameHdr(p_frame);
 
 //	console.log(frameInfo);//DEBUG
 
+	var channels = frameInfo.channels;
 	var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
 
-	var increase = 2;//FIXME (see below fix_write_buffer)
+	var increase = 2;//<- for FIX/workaround -> see comment below
 
-	//FIXME this works for mono / single channel only...
-	var heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
-	//var _buffer = new Uint8Array(heapView);
-
-	//FIXME
-	var _buffer = __fix_write_buffer(heapView);
-	if(_buffer.length < block_size){
-		while(_buffer.length < block_size && buffer + block_size * increase < HEAPU8.length){
-			increase += 2;
-			heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
-			_buffer = __fix_write_buffer(heapView);
+	var data = [];//<- array for the data of each channel
+	var buffer, heapView, _buffer;
+	
+	for(var i=0; i < channels; ++i){
+		
+		buffer = Module.getValue(p_buffer + (i*4),'i32');
+	
+		heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
+	
+		//FIXME HACK for "strange" data (see helper function __fix_write_buffer)
+		_buffer = __fix_write_buffer(heapView);
+		
+		if(_buffer.length < block_size){
+			while(_buffer.length < block_size && buffer + block_size * increase < HEAPU8.length){
+				increase += 2;
+				heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
+				_buffer = __fix_write_buffer(heapView);
+			}
 		}
+		data.push(_buffer.subarray(0, block_size));
 	}
 
 	var write_callback_fn = getCallback(p_decoder, 'write');
-	write_callback_fn(_buffer.subarray(0, block_size), frameInfo);//, clientData);
+	write_callback_fn(data, frameInfo);//, clientData);
 
 	// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE	The write was OK and decoding can continue.
 	// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
@@ -434,9 +427,7 @@ var dec_write_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer
 //(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderErrorStatus status, void *client_data)
 // -> void
 var dec_error_fn_ptr = Runtime.addFunction(function(p_decoder, err, p_client_data){
-	
-	error_callback_fn
-	
+		
 	//err:
 	// FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC         An error in the stream caused the decoder to lose synchronization.
 	// FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER       The decoder encountered a corrupted frame header.
@@ -457,12 +448,10 @@ var dec_error_fn_ptr = Runtime.addFunction(function(p_decoder, err, p_client_dat
 		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM';
 		break;
 	default:
-		msg = 'FLAC__STREAM_DECODER_ERROR__UNKNOWN';//this should never happen
+		msg = 'FLAC__STREAM_DECODER_ERROR__UNKNOWN__';//<- this should never happen
 	}
 	
 	var error_callback_fn = getCallback(p_decoder, 'error');
-
-	//TODO convert err? add/remove string representation for err code?
 	error_callback_fn(err, msg, p_client_data);
 });
 
