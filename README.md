@@ -1,7 +1,7 @@
 libflac.js
 ==========
 
-[FLAC][flac] encoder compiled in JavaScript using _emscripten_.
+[FLAC][6] encoder compiled in JavaScript using _emscripten_.
 
 
 In order to build _libflac.js_, make sure you have _emscripten_ installed.
@@ -13,12 +13,12 @@ For immediate use, the `/dist` sub-directory contains the compiled
 JavaScript file `libflac.js`, along with a minified version.
 
 
-# Building
+## Building
 ------
 
-Building libflac.js requires that [emscripten][emscripten] is installed and configured.
+Building libflac.js requires that [emscripten][1] is installed and configured.
 
-See the [documentation][emscripten-doc] and the [main site][emscripten-main] for 
+See the [documentation][3] and the [main site][2] for 
 an introduction, tutorials etc.
 
 For changing the targeted libflac version, modify the `Makefile`:
@@ -28,7 +28,7 @@ FLAC_VERSION:=1.3.2
 ...
 ```
 
-## Build *nix (libflac 1.3.0)
+### Build *nix (libflac 1.3.0)
 
 Start build process by executing the `Makefile`:
 ```
@@ -37,13 +37,13 @@ make
 (build process was tested on Unbuntu 12.10)
 
 
-## Build Windows/VisualStudio 10 (libflac 1.3.0)
+### Build Windows/VisualStudio 10 (libflac 1.3.0)
 
 __*EXPERIMENTAL*__
 
  * __Prerequisites:__ 
    * VisualStudio 10
-   * Emscripten plugin [vs-tool][vs-tool] (automatically installed, if Emscripten Installer was used)
+   * Emscripten plugin [vs-tool][4] (automatically installed, if Emscripten Installer was used)
    * OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)
 
 Open the solution file `FLAC.sln` and select the project `libFLAC_static`.
@@ -80,9 +80,9 @@ Then open the project settings for `libFLAC_static`, and modify settings for `Co
    ```
 
 
-## Building *nix (libflac 1.3.2)
+### Building *nix (libflac 1.3.2)
 
-For libflac version 1.3.2, the sources / configuration requires some changes, before libflac.js can be successfully be built.
+For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.
 
  * in `flac-1.3.2/Makefile.in` at line 400, disable (or remove) the last entry `microbench` in the line, e.g. change to:
    ```
@@ -103,7 +103,7 @@ make emmake
 ```
 
 
-## Change Library API
+### Change Library API
 
 The API for _libflac.js_ (e.g. exported functions) are mainly specified in `libflac_post.js`.
 
@@ -112,26 +112,26 @@ the compile option `-s EXPORTED_FUNCTIONS='[...]'` (see variable `EMCC_OPTS:=...
 note, when manually editing `EXPORTED_FUNCTIONS`, that the function-names must be prefixed with `_`, i.e. for
 function `the_function`, the string for the exported function would be `_the_function`.
 
-There is a [helper script](tree/master/tools/extract_EXPORTED_FUNCTIONS.js) that will try to extract the compile option from `libflac_post.js` (i.e. the list of functions that need to be declared).
+There is a [helper script](tools/extract_EXPORTED_FUNCTIONS.js) that will try to extract the compile option from `libflac_post.js` (i.e. the list of functions that need to be declared).
 Run the script with `Node.js` in `tools/` (and copy&paste the output value):
 ```
 node extract_EXPORTED_FUNCTIONS.js
 ```
 
 
-# Usage
+## Usage
 ------
 
-## Encoding
+### Encoding
 
-Generally, `libflac.js` supports a subset of the [libflac encoding interface][flac-doc-encoder] for encoding audio data to FLAC (no full support yet!). 
+Generally, `libflac.js` supports a subset of the [libflac encoding interface][8] for encoding audio data to FLAC (no full support yet!). 
 _The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
 
-See [example/encode.html][enc_example] for a small example,
+See [example/encode.html](example/encode.html) for a small example,
 on how to encode a `WAV` file. 
 
 For a larger example on how to encode audio data from the 
-microphone see the [Speech to FLAC][speech-to-flac] example.
+microphone see the [Speech to FLAC][9] example.
 
 Small usage example:
 ```javascript
@@ -207,12 +207,12 @@ Flac.FLAC__stream_encoder_delete(flac_encoder);
 //     merge "encoded pieces" in encBuffer into one single Uint8Array...
 ```
 
-## Decoding
+### Decoding
 
-Generally, `libflac.js` supports a subset of the [libflac decoding interface][flac-doc-decoder] for decoding audio data from FLAC (no full support yet!). 
+Generally, `libflac.js` supports a subset of the [libflac decoding interface][7] for decoding audio data from FLAC (no full support yet!). 
 _The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
 
-See [example/decode.html][dec_example] for a small example,
+See [example/decode.html](example/decode.html) for a small example,
 on how to decode a `FLAC` file.
 
 Small usage example:
@@ -364,32 +364,31 @@ Flac.FLAC__stream_decoder_delete(flac_decoder);
 ```
 
 
-Contributors
+## Contributors
 ------
 
 Copyright (C) 2013-2017 DFKI GmbH
  
 See `CONTRIBUTORS` for list of contributors.
 
-Acknowledgments
+## Acknowledgments
 ------
-This project was inspired by Krennmair's [libmp3lame-js] project for [JS mp3][libmp3lame-js] encoding.
+This project was inspired by Krennmair's [libmp3lame-js][5] project for [JS mp3][5] encoding.
 
 
-License
+## License
 -------
 
 libflac.js is compiled from the reference implementation of FLAC (BSD license)
 and published under the MIT license (see file LICENSE).
 
-[emscripten]: https://github.com/kripken/emscripten
-[emscripten-doc]: https://kripken.github.io/emscripten-site/docs/
-[emscripten-main]: https://kripken.github.io/emscripten-site/
-[vs-tool]: https://kripken.github.io/emscripten-site/docs/getting_started/getting_started_with_emscripten_and_vs2010.html
-[libmp3lame-js]: https://github.com/akrennmair/libmp3lame-js
-[flac]: https://xiph.org/flac/index.html
-[flac-doc-decoder]: https://xiph.org/flac/api/group__flac__stream__decoder.html
-[flac-doc-encoder]: https://xiph.org/flac/api/group__flac__stream__encoder.html
-[speech-to-flac]: https://github.com/mmig/speech-to-flac
-[enc_example]: tree/master/example/encode.html
-[dec_example]: tree/master/example/decode.html
+
+[1]: https://github.com/kripken/emscripten
+[2]: https://kripken.github.io/emscripten-site
+[3]: https://kripken.github.io/emscripten-site/docs
+[4]: https://kripken.github.io/emscripten-site/docs/getting_started/getting_started_with_emscripten_and_vs2010.html
+[5]: https://github.com/akrennmair/libmp3lame-js
+[6]: https://xiph.org/flac/index.html
+[7]: https://xiph.org/flac/api/group__flac__stream__decoder.html
+[8]: https://xiph.org/flac/api/group__flac__stream__encoder.html
+[9]: https://github.com/mmig/speech-to-flac
