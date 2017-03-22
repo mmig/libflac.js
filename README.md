@@ -12,6 +12,9 @@ FLAC library, extract it, and build the JavaScript version of libflac.
 For immediate use, the `/dist` sub-directory contains the compiled
 JavaScript file `libflac.js`, along with a minified version.
 
+Try the [Encoding Demo][10] for encoding `*.wav` files to FLAC.  
+Try the [Decoding Demo][11] for decoding `*.flac` files to `*.wav` files.  
+
 
 ## Building
 ------
@@ -127,7 +130,7 @@ node extract_EXPORTED_FUNCTIONS.js
 Generally, `libflac.js` supports a subset of the [libflac encoding interface][8] for encoding audio data to FLAC (no full support yet!). 
 _The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
 
-See [example/encode.html](example/encode.html) for a small example,
+See [example/encode.html][10] for a small example,
 on how to encode a `WAV` file. 
 
 For a larger example on how to encode audio data from the 
@@ -212,7 +215,7 @@ Flac.FLAC__stream_encoder_delete(flac_encoder);
 Generally, `libflac.js` supports a subset of the [libflac decoding interface][7] for decoding audio data from FLAC (no full support yet!). 
 _The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
 
-See [example/decode.html](example/decode.html) for a small example,
+See [example/decode.html][11] for a small example,
 on how to decode a `FLAC` file.
 
 Small usage example:
@@ -392,3 +395,5 @@ and published under the MIT license (see file LICENSE).
 [7]: https://xiph.org/flac/api/group__flac__stream__decoder.html
 [8]: https://xiph.org/flac/api/group__flac__stream__encoder.html
 [9]: https://github.com/mmig/speech-to-flac
+[10]: https://mmig.github.io/libflac.js/example/encode.html
+[11]: https://mmig.github.io/libflac.js/example/decode.html
