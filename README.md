@@ -12,114 +12,13 @@ FLAC library, extract it, and build the JavaScript version of libflac.
 For immediate use, the `/dist` sub-directory contains the compiled
 JavaScript file `libflac.js`, along with a minified version.
 
+__Encoder Demo__  
 Try the [Encoding Demo][10] for encoding `*.wav` files to FLAC.  
+Or try the [speech-to-flac][12] [demo][13] that encodes the audio stream from a microphone to FLAC.  
+
+__Decoder Demo__  
 Try the [Decoding Demo][11] for decoding `*.flac` files to `*.wav` files.  
-
-
-## Building
-------
-
-Building libflac.js requires that [emscripten][1] is installed and configured.
-
-See the [documentation][3] and the [main site][2] for 
-an introduction, tutorials etc.
-
-For changing the targeted libflac version, modify the `Makefile`:
-```
-...
-FLAC_VERSION:=1.3.2
-...
-```
-
-### Build *nix (libflac 1.3.0)
-
-Start build process by executing the `Makefile`:
-```
-make
-```
-(build process was tested on Unbuntu 12.10)
-
-
-### Build Windows/VisualStudio 10 (libflac 1.3.0)
-
-__*EXPERIMENTAL*__
-
- * __Prerequisites:__ 
-   * VisualStudio 10
-   * Emscripten plugin [vs-tool][4] (automatically installed, if Emscripten Installer was used)
-   * OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)
-
-Open the solution file `FLAC.sln` and select the project `libFLAC_static`.
-
-In the `Configuration Manager`, for `libFLAC_static` select `<New...>`, and then `Emscripten` as platform (`vs-tool` needs to be installed for this); change option `Copy settings from:` to `<Empty>`, and the press `OK`.
-
-Then open the project settings for `libFLAC_static`, and modify settings for `Configuration `:
- * `Clang C/C++`: `Additional Include Directories` add entries:
-   ```
-   .\include
-   ..\..\include
-   ```
- * `Clang C/C++` : `Preprocessor` add entries for `Preprocessor Definitions (-D)`:
-   ```
-   HAVE_SYS_PARAM_H
-   HAVE_LROUND
-   VERSION="1.3.0"
-   ```
-   
-   ```
-   DEBUG
-   _LIB
-   FLAC__HAS_OGG
-   VERSION="1.3.0"
-   ```
-
-* modify project (if without OGG support): remove the source files (*.c) and headers (*.h) that start with `ogg*` from project (remove or "Exclude from project"); or include OGG library (cf. README of libflac for details)
-   
-
-* Modify sources file:
- * `flac-1.3.0\src\libFLAC\format.c` add the following at the beginning (e.g. after the `#include` statements):
-   ```
-	#define VERSION "1.3.0"
-   ```
-
-
-### Building *nix (libflac 1.3.2)
-
-For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.
-
- * in `flac-1.3.2/Makefile.in` at line 400, disable (or remove) the last entry `microbench` in the line, e.g. change to:
-   ```
-   SUBDIRS = doc include m4 man src examples test build obj #microbench
-   ```
- * in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
-   
-   ```
-   #elif defined __GNUC__
-       uint32_t lo, hi;
-       asm volatile (".byte 0x0f, 0x01, 0xd0" : "=a"(lo), "=d"(hi) : "c" (0));
-       return lo;
-    ```
-
-After these changes, continue compilation with
-```
-make emmake
-```
-
-
-### Change Library API
-
-The API for _libflac.js_ (e.g. exported functions) are mainly specified in `libflac_post.js`.
-
-Functions that will be exported/used from the native `libflac` implementation need to be declared in
-the compile option `-s EXPORTED_FUNCTIONS='[...]'` (see variable `EMCC_OPTS:=...` in `Makefile`);
-note, when manually editing `EXPORTED_FUNCTIONS`, that the function-names must be prefixed with `_`, i.e. for
-function `the_function`, the string for the exported function would be `_the_function`.
-
-There is a [helper script](tools/extract_EXPORTED_FUNCTIONS.js) that will try to extract the compile option from `libflac_post.js` (i.e. the list of functions that need to be declared).
-Run the script with `Node.js` in `tools/` (and copy&paste the output value):
-```
-node extract_EXPORTED_FUNCTIONS.js
-```
+_TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).
 
 
 ## Usage
@@ -366,6 +265,112 @@ Flac.FLAC__stream_decoder_delete(flac_decoder);
 
 ```
 
+## Building
+------
+
+Building libflac.js requires that [emscripten][1] is installed and configured.
+
+See the [documentation][3] and the [main site][2] for 
+an introduction, tutorials etc.
+
+For changing the targeted libflac version, modify the `Makefile`:
+```
+...
+FLAC_VERSION:=1.3.2
+...
+```
+
+### Build *nix (libflac 1.3.0)
+
+Start build process by executing the `Makefile`:
+```
+make
+```
+(build process was tested on Unbuntu 12.10)
+
+
+### Build Windows/VisualStudio 10 (libflac 1.3.0)
+
+__*EXPERIMENTAL*__
+
+ * __Prerequisites:__ 
+   * VisualStudio 10
+   * Emscripten plugin [vs-tool][4] (automatically installed, if Emscripten Installer was used)
+   * OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)
+
+Open the solution file `FLAC.sln` and select the project `libFLAC_static`.
+
+In the `Configuration Manager`, for `libFLAC_static` select `<New...>`, and then `Emscripten` as platform (`vs-tool` needs to be installed for this); change option `Copy settings from:` to `<Empty>`, and the press `OK`.
+
+Then open the project settings for `libFLAC_static`, and modify settings for `Configuration `:
+ * `Clang C/C++`: `Additional Include Directories` add entries:
+   ```
+   .\include
+   ..\..\include
+   ```
+ * `Clang C/C++` : `Preprocessor` add entries for `Preprocessor Definitions (-D)`:
+   ```
+   HAVE_SYS_PARAM_H
+   HAVE_LROUND
+   VERSION="1.3.0"
+   ```
+   
+   ```
+   DEBUG
+   _LIB
+   FLAC__HAS_OGG
+   VERSION="1.3.0"
+   ```
+
+* modify project (if without OGG support): remove the source files (*.c) and headers (*.h) that start with `ogg*` from project (remove or "Exclude from project"); or include OGG library (cf. README of libflac for details)
+   
+
+* Modify sources file:
+ * `flac-1.3.0\src\libFLAC\format.c` add the following at the beginning (e.g. after the `#include` statements):
+   ```
+	#define VERSION "1.3.0"
+   ```
+
+
+### Building *nix (libflac 1.3.2)
+
+For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.
+
+ * in `flac-1.3.2/Makefile.in` at line 400, disable (or remove) the last entry `microbench` in the line, e.g. change to:
+   ```
+   SUBDIRS = doc include m4 man src examples test build obj #microbench
+   ```
+ * in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
+   
+   ```
+   #elif defined __GNUC__
+       uint32_t lo, hi;
+       asm volatile (".byte 0x0f, 0x01, 0xd0" : "=a"(lo), "=d"(hi) : "c" (0));
+       return lo;
+    ```
+
+After these changes, continue compilation with
+```
+make emmake
+```
+
+
+### Change Library API
+
+The API for _libflac.js_ (e.g. exported functions) are mainly specified in `libflac_post.js`.
+
+Functions that will be exported/used from the native `libflac` implementation need to be declared in
+the compile option `-s EXPORTED_FUNCTIONS='[...]'` (see variable `EMCC_OPTS:=...` in `Makefile`);
+note, when manually editing `EXPORTED_FUNCTIONS`, that the function-names must be prefixed with `_`, i.e. for
+function `the_function`, the string for the exported function would be `_the_function`.
+
+There is a [helper script](tools/extract_EXPORTED_FUNCTIONS.js) that will try to extract the compile option from `libflac_post.js` (i.e. the list of functions that need to be declared).
+Run the script with `Node.js` in `tools/` (and copy&paste the output value):
+```
+node extract_EXPORTED_FUNCTIONS.js
+```
+
+
 
 ## Contributors
 ------
@@ -395,5 +400,7 @@ and published under the MIT license (see file LICENSE).
 [7]: https://xiph.org/flac/api/group__flac__stream__decoder.html
 [8]: https://xiph.org/flac/api/group__flac__stream__encoder.html
 [9]: https://github.com/mmig/speech-to-flac
-[10]: https://mmig.github.io/libflac.js/example/encode.html
-[11]: https://mmig.github.io/libflac.js/example/decode.html
+[10]: blob/master/example/encode.html
+[11]: blob/master/example/decode.html
+[12]: https://github.com/mmig/speech-to-flac
+[13]: https://mmig.github.io/speech-to-flac/
