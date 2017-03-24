@@ -400,7 +400,7 @@ and published under the MIT license (see file LICENSE).
 [7]: https://xiph.org/flac/api/group__flac__stream__decoder.html
 [8]: https://xiph.org/flac/api/group__flac__stream__encoder.html
 [9]: https://github.com/mmig/speech-to-flac
-[10]: blob/master/example/encode.html
-[11]: blob/master/example/decode.html
+[10]: example/encode.html
+[11]: example/decode.html
 [12]: https://github.com/mmig/speech-to-flac
 [13]: https://mmig.github.io/speech-to-flac/
