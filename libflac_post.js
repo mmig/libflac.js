@@ -129,65 +129,44 @@ function _readFrameHdr(p_frame){
 
 
 /**
- * HELPER workaround / fix for returned write-buffer for decoding FLAC    	 * 
- * @param buffer {Uint8Array}
- * @returns {Uint8Array}
+ * HELPER workaround / fix for returned write-buffer when decoding FLAC
+ * 
+ * @param {number} heapOffset
+ * 				the offset for the data on HEAPU8
+ * @param {Uint8Array} newBuffer
+ * 				the target buffer into which the data should be written -- with the correct (block) size
  */
-function __fix_write_buffer(buffer){
-	//FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated"
-	//		HACK for now: remove 2 of the values, for each of these triplets
-	var count = 0;
-	var inc;
-	var isPrint;
-	for(var i=0, size = buffer.length; i < size; ++i){
+function __fix_write_buffer(heapOffset, newBuffer){
 
-		if(buffer[i] === 0 || buffer[i] === 255){
-
-			inc = 0;
-			isPrint = true;
-
-			if(i + 1 < size && buffer[i] === buffer[i+1]){
-
-				++inc;
-
-				if(i + 2 < size){
-					if(buffer[i] === buffer[i+2]){
-						++inc;
-					} else {
-						//if only 2 occurrences: ignore value
-						isPrint = false;
-					}
-				}
-			}//else: if single value: do print (an do not jump)
-
-
-			if(isPrint){
-				++count;
-			}
-
-			i += inc;
-
-		} else {
-			++count;
-		}
-	}
-
-	var newBuffer = new Uint8Array(count);
 	var dv = new DataView(newBuffer.buffer);
-	for(var i=0, j=0, size = buffer.length; i < size; ++i, ++j){
+	var targetSize = newBuffer.length;
+	
+	var increase = 2;//<- for FIX/workaround
+	var buffer = HEAPU8.subarray(heapOffset, heapOffset + targetSize * increase);
+
+	//FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated"
+	//		HACK for now: remove/"overread" 2 of the values, for each of these triplets
+	var jump, isPrint;
+	for(var i=0, j=0, size = buffer.length; i < size && j < targetSize; ++i, ++j){
+
+		if(i === size-1 && j < targetSize - 1){
+			//increase heap-view, in order to read more (valid) data into the target buffer
+			buffer = HEAPU8.subarray(heapOffset, size + targetSize);
+			size = buffer.length;
+		}
 
 		if(buffer[i] === 0 || buffer[i] === 255){
 
-			inc = 0;
+			jump = 0;
 			isPrint = true;
 
 			if(i + 1 < size && buffer[i] === buffer[i+1]){
 
-				++inc;
+				++jump;
 
 				if(i + 2 < size){
 					if(buffer[i] === buffer[i+2]){
-						++inc;
+						++jump;
 					} else {
 						//if only 2 occurrences: ignore value
 						isPrint = false;
@@ -202,16 +181,13 @@ function __fix_write_buffer(buffer){
 				--j;
 			}
 
-			i += inc;
+			i += jump;//<- apply jump, if there were value duplications
 
 		} else {
 			dv.setUint8(j, buffer[i]);
 		}
 
-
 	}
-
-	return newBuffer;
 }
 
 
@@ -389,27 +365,17 @@ var dec_write_fn_ptr = Runtime.addFunction(function(p_decoder, p_frame, p_buffer
 	var channels = frameInfo.channels;
 	var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
 
-	var increase = 2;//<- for FIX/workaround -> see comment below
-
 	var data = [];//<- array for the data of each channel
-	var buffer, heapView, _buffer;
+	var bufferOffset, heapView, _buffer;
 	
 	for(var i=0; i < channels; ++i){
 		
-		buffer = Module.getValue(p_buffer + (i*4),'i32');
-	
-		heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
-	
-		//FIXME HACK for "strange" data (see helper function __fix_write_buffer)
-		_buffer = __fix_write_buffer(heapView);
+		bufferOffset = Module.getValue(p_buffer + (i*4),'i32');
 		
-		if(_buffer.length < block_size){
-			while(_buffer.length < block_size && buffer + block_size * increase < HEAPU8.length){
-				increase += 2;
-				heapView = HEAPU8.subarray(buffer, buffer + block_size * increase);
-				_buffer = __fix_write_buffer(heapView);
-			}
-		}
+		_buffer = new Uint8Array(block_size);
+		//FIXME HACK for "strange" data (see helper function __fix_write_buffer)
+		__fix_write_buffer(bufferOffset, _buffer);
+		
 		data.push(_buffer.subarray(0, block_size));
 	}
 
