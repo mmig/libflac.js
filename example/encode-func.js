@@ -14,7 +14,7 @@ function encodeFlac(binData, recBuffers, isVerify){
 	/**
 	 *  records/saves the output data of libflac-encode method
 	 */
-	function write_callback_fn(buffer, bytes){
+	function write_callback_fn(buffer, bytes, samples, current_frame){
 		recBuffers.push(buffer);
 		recLength += bytes;
 		// recLength += buffer.byteLength;
@@ -22,7 +22,6 @@ function encodeFlac(binData, recBuffers, isVerify){
 	
 	function metadata_callback_fn(data){
 		console.info('meta data: ', data);
-		
 		meta_data = data;
 	}
 
