@@ -2,18 +2,9 @@
 function decodeFlac(binData, decData, isVerify){
 	
 	var flac_decoder,
-		BUFSIZE = 4096,
-		CHANNELS = 1,
-		SAMPLERATE = 44100,
-		COMPRESSION = 5,
-		BPS = 16,
 		VERIFY = true,
 		flac_ok = 1,
 		meta_data;
-	
-	
-	var TEST_MAX = 10000;//FIXME TEST: for safety check for testing -> avoid infinite loop by breaking at max. repeats
-	var TEST_COUNT = 0;//FIXME TEST
 	
 	var currentDataOffset = 0;
 	var size = binData.buffer.byteLength;
@@ -24,11 +15,6 @@ function decodeFlac(binData, decData, isVerify){
 	function read_callback_fn(bufferSize){
 		
 	    console.log('decode read callback, buffer bytes max=', bufferSize);
-	    
-	    //safety check for testing: avoid infinite loop by breaking at max. repeats
-	    if(++TEST_COUNT > TEST_MAX){
-			return {buffer: null, readDataLength: 0, error: false};
-		}
 	    
 	    var start = currentDataOffset;
 	    var end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
@@ -72,7 +58,7 @@ function decodeFlac(binData, decData, isVerify){
 	}
 	
 	// init decoder
-	flac_decoder = Flac.init_libflac_decoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0, VERIFY);
+	flac_decoder = Flac.init_libflac_decoder(VERIFY);
 
 	if (flac_decoder != 0){
 		var init_status = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn);
@@ -105,12 +91,6 @@ function decodeFlac(binData, decData, isVerify){
 		
 		//request to decode data chunks until end-of-stream is reached:
 		while(state <= 3 && flac_return != false){
-			
-			//safety check for testing: avoid infinite loop by breaking at max. repeats
-		    if(++TEST_COUNT > TEST_MAX){
-		    	console.error('reached safetly limit for loop!');
-				break;
-			}
 		    
 			flac_return &= Flac.decode_buffer_flac_as_pcm(flac_decoder);
 			state = Flac.FLAC__stream_decoder_get_state(flac_decoder);

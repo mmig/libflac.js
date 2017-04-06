@@ -482,7 +482,7 @@ return {
 	FLAC__stream_encoder_set_compression_level: Module.cwrap('FLAC__stream_encoder_set_compression_level', 'number', [ 'number', 'number' ]),
 	/* ... */
 
-	// FLAC__StreamEncoder* init_libflac(unsigned sample_rate, unsigned channels, unsigned bps, unsigned compression_level, unsigned total_samples);
+	// FLAC__StreamEncoder* init_libflac(unsigned sample_rate, unsigned channels, unsigned bps, unsigned compression_level, unsigned total_samples, unsigned is_verify);
 	init_libflac_encoder: function(sample_rate, channels, bps, compression_level, total_samples, is_verify){
 		is_verify = typeof is_verify === 'undefined'? 1 : is_verify + 0;
 		var ok = true;
@@ -499,8 +499,8 @@ return {
 		return 0;
 	},
 
-	// FLAC__StreamDecoder* init_libflac_decoder(unsigned sample_rate, unsigned channels, unsigned bps, unsigned compression_level, unsigned total_samples);
-	init_libflac_decoder: function(sample_rate, channels, bps, compression_level, total_samples, is_verify){
+	// FLAC__StreamDecoder* init_libflac_decoder(unsigned is_verify);
+	init_libflac_decoder: function(is_verify){
 		is_verify = typeof is_verify === 'undefined'? 1 : is_verify + 0;
 		var ok = true;
 		var decoder = Module.ccall('FLAC__stream_decoder_new', 'number', [ ], [ ]);
@@ -627,7 +627,7 @@ return {
 	},
 	
 	/**
-	 * Decodes data until end of stream.
+	 * Decodes data until end of metadata.
 	 * @returns {Boolean} FALSE if an error occurred
 	 */
 	decode_metadata_flac: function(decoder){
@@ -662,6 +662,10 @@ return {
 	 */
 	FLAC__stream_encoder_get_state:  Module.cwrap('FLAC__stream_encoder_get_state', 'number', ['number']),
 	
+	/**
+	 * get if MD5 verification is enabled for decoder
+	 * @returns {Boolean} TRUE if MD5 verification is enabled
+	 */
 	FLAC__stream_decoder_get_md5_checking: Module.cwrap('FLAC__stream_decoder_get_md5_checking', 'number', ['number']),
 	
 //	/** @returns {Boolean} FALSE if the decoder is already initialized, else TRUE. */

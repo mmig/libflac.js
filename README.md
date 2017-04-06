@@ -68,7 +68,7 @@ if (flac_encoder == 0){
 }
 
 var encBuffer = [];
-var status_encoder = Flac.init_encoder_stream(flac_encoder, function(encodedData /*Uint8Array*/, bytes){
+var status_encoder = Flac.init_encoder_stream(flac_encoder, function(encodedData /*Uint8Array*/, bytes, samples, current_frame){
 	//store all encoded data "pieces" into a buffer 
 	encBuffer.push(encodedData);
 });
@@ -134,15 +134,11 @@ var BUFSIZE = 4096,
 //             IN: flacData Uint8Array (FLAC data)
 
 //overwrite default configuration from config object
-COMPRESSION = config.compression;
-BPS = config.bps;
-SAMPLERATE = config.samplerate;
-CHANNELS = config.channels;
 VERIFY = config.isVerify;//verification can be disabled for speeding up decoding process
 
 
 // init decoder
-var flac_decoder = Flac.init_libflac_decoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0, VERIFY);
+var flac_decoder = Flac.init_libflac_decoder(VERIFY);
 
 if (flac_decoder == 0){
 	return;
@@ -201,6 +197,17 @@ function error_callback_fn(decoder, err, client_data){
 }
 
 function metadata_callback_fn(data){
+	// data -> [example] {
+	//	min_blocksize: 4096,
+	//	max_blocksize: 4096,
+	//	min_framesize: 14,
+	//	max_framesize: 5408,
+	//	sampleRate: 44100,
+	//	channels: 2,
+	//	bitsPerSample: 16,
+	//	total_samples: 267776,
+	//	md5sum: "50d4d469448e5ea75eb44ab6b7f111f4"
+	//}
 	console.info('meta data: ', data);
 }
 
