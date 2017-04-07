@@ -140,12 +140,12 @@ function __fix_write_buffer(heapOffset, newBuffer){
 
 	var dv = new DataView(newBuffer.buffer);
 	var targetSize = newBuffer.length;
-	
+
 	var increase = 2;//<- for FIX/workaround
 	var buffer = HEAPU8.subarray(heapOffset, heapOffset + targetSize * increase);
 
 	//FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated"
-	//		HACK for now: remove/"overread" 2 of the values, for each of these triplets
+	//		HACK for now: remove/"over-read" 2 of the values, for each of these triplets
 	var jump, isPrint;
 	for(var i=0, j=0, size = buffer.length; i < size && j < targetSize; ++i, ++j){
 
@@ -177,6 +177,14 @@ function __fix_write_buffer(heapOffset, newBuffer){
 
 			if(isPrint){
 				dv.setUint8(j, buffer[i]);
+				if(jump === 2 && i + 3 < size && buffer[i] === buffer[i+3]){
+					//special case for reducing triples in case the following value is also the same
+					// (ie. something like: x x x |+ x)
+					// -> then: do write the value one more time, and jump one further ahead
+					// i.e. if value occurs 4 times in a row, write 2 values
+					++jump;
+					dv.setUint8(++j, buffer[i]);
+				}
 			} else {
 				--j;
 			}
