@@ -470,7 +470,7 @@ var metadata_fn_ptr = Runtime.addFunction(function(p_coder, p_metadata, p_client
 });
 
 // export / public:
-return {
+var _exported = {
 	_module: Module,
 	_clear_enc_cb: function(enc_ptr){
 		delete coders[enc_ptr];
@@ -478,6 +478,7 @@ return {
 	_clear_dec_cb: function(dec_ptr){
 		delete coders[dec_ptr];
 	},
+	isReady: function() { return _flac_ready; },
 	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number' ]),
 	FLAC__stream_encoder_set_compression_level: Module.cwrap('FLAC__stream_encoder_set_compression_level', 'number', [ 'number', 'number' ]),
 	/* ... */
@@ -692,8 +693,9 @@ return {
 		return Module.ccall('FLAC__stream_decoder_delete', 'number', [ 'number' ], [decoder]);
 	}
 
-};
-})();
+};//END: var _exported = {
+return _exported;
+})(window);
 
 if (typeof self !== "undefined" && self !== null){
 	self.Flac = Flac; // make Flac accessible to other webworker scripts.
