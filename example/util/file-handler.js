@@ -1,9 +1,31 @@
+
+function setEnabled(enable){
+	
+	document.getElementById('files').disabled = !enable;
+	
+	var color = enable? '' : 'lightgray';
+	var dropZone = document.getElementById('drop_zone');
+	dropZone.style.backgroundColor = color;
+	dropZone.style.color = color;
+	dropZone.style.borderColor = color;
+}
+
 /**
  * initialize event handlers (GUI) for HTML elements
  * 
  * @param onFileLoaded {Function} handler for (binary) file data, i.e. encoding/decoding file contents
  */
 function initHandlers(onFileLoaded){
+	
+	//Flac may initialize asynchronously (e.g. minified version), so disable file-input
+	// as long as it is not enabled:
+	var isFlacInitialized = Flac.isReady();
+	if(!isFlacInitialized){
+		setEnabled(false);
+		Flac.onready = function(){
+			setEnabled(true);
+		}
+	}
 
 	//create handler for loaded data/file
 	var fileListHandler = createFileListHandler(onFileLoaded);
@@ -31,6 +53,10 @@ function initHandlers(onFileLoaded){
 		
 			evt.stopPropagation();
 			evt.preventDefault();
+			
+			if(document.getElementById('files').disabled){
+				return;
+			}
 		
 			var files;
 		
