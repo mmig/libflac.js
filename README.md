@@ -20,7 +20,7 @@ __Decoder Demo__
 Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.  
 _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).
 
-__API Documentation__
+__API Documentation__  
 See [apidoc/index.html][16] for the API documentation. 
 
 
@@ -325,6 +325,10 @@ Flac.FLAC__stream_decoder_delete(flac_decoder);
 //     merge "decoded pieces" in decBuffer into a single data stream and add WAV header...
 
 ```
+
+### API
+
+See the [doc/index.html][16] for the API documentation.
 
 ## Building
 ------
