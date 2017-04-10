@@ -166,7 +166,7 @@ function encodeWAV(samples, sampleRate, channels, bitsPerSample){
 	/* RIFF identifier */
 	writeString(view, 0, 'RIFF');
 	/* file length */
-	view.setUint32(4, 32 + length, true);
+	view.setUint32(4, 36 + length, true);
 	/* RIFF type */
 	writeString(view, 8, 'WAVE');
 	/* format chunk identifier */
