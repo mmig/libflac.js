@@ -69,7 +69,7 @@ __Minified Library:__
         Flac.onready = function(){ /*some code that gets executed when library is ready */ };
       }
       ```
-      NOTE that `onready()` will not be called, if `Flac.isReady()` is already `true`.
+      NOTE that `onready()` will not be called again, when `Flac.isReady()` is already `true`.
 
 
 __Development Library:__
