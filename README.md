@@ -24,7 +24,58 @@ _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not kno
 ## Usage
 ------
 
-### Encoding
+### Including libflac.js
+
+Include the library file, e.g. 
+```html
+<script src="libflac-1.3.2.js" type="text/javascript"></script>
+```
+or in a WebWorker:
+```javascript
+importScripts('libflac-1.3.2.js');
+```
+
+__Default Library:__
+ * `libflac-<version>.js`
+
+__Minified Library:__
+ * `libflac-<version>.min.js`
+ * `libflac-<version>.min.js.mem` (required; will be loaded by the library)
+ * `libflac-<version>.min.js.symbols` (optional; contains renaming information)
+ * __NOTES__ for using the minified version (`.min.js`):
+    * the corresponding `.mem` file must be included in the same directory as the `.min.js` file
+    * the `.mem` file must not be renamed (or the `.min.js` must be edited accordingly)
+    * if the minified library is included from a location other than the web-page/web-worker, then
+      the path to directory of the library must be given as a global variable `FLAC_SCRIPT_LOCATION`
+      before loading the library (this is necessary for loading the `.mem` file).  
+      The path must end with a `/` (slash).  
+      Example for web page:
+      ```html
+        <script type="text/javascript">window.FLAC_SCRIPT_LOCATION = 'libs/';</script>
+	    <script src="libs/libflac-1.3.2.min.js" type="text/javascript"></script>
+      ```  
+      or when loading the library from a WebWorker:  
+      ```javascript
+        self.FLAC_SCRIPT_LOCATION = 'libs/';
+        importScripts('libs/libflac-1.3.2.min.js');
+      ```
+    * the minified library loads asynchronously -- it must not be used, before it is loaded.  
+      For checking, if the library is ready before using the library:  
+      ```javascript
+      if( Flac.isReady() ){
+        Flac.onready = function(){ /*some code that gets executed when library is ready */ };
+      }
+      ```
+      NOTE that `onready()` will not be called, if `Flac.isReady()` is already `true`.
+
+
+__Development Library:__
+ * `libflac-<version>.dev.js`
+ * `libflac-<version>.dev.js.map` (optional; mapping to C code)
+
+
+
+### Encoding with libflac.js
 
 Generally, `libflac.js` supports a subset of the [libflac encoding interface][8] for encoding audio data to FLAC (no full support yet!). 
 _The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
@@ -109,7 +160,7 @@ Flac.FLAC__stream_encoder_delete(flac_encoder);
 //     merge "encoded pieces" in encBuffer into one single Uint8Array...
 ```
 
-### Decoding
+### Decoding with libflac.js
 
 Generally, `libflac.js` supports a subset of the [libflac decoding interface][7] for decoding audio data from FLAC (no full support yet!). 
 _The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
