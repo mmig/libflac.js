@@ -20,7 +20,7 @@ __Decoder Demo__
 Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.  
 _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).
 
-__API Documentation__
+__API Documentation__  
 See [apidoc/index.html][16] for the API documentation. 
 
 
@@ -326,6 +326,10 @@ Flac.FLAC__stream_decoder_delete(flac_decoder);
 
 ```
 
+### API
+
+See the [doc/index.html][16] for the API documentation.
+
 ## Building
 ------
 
@@ -467,4 +471,4 @@ and published under the MIT license (see file LICENSE).
 [13]: https://mmig.github.io/speech-to-flac/
 [14]: https://mmig.github.io/libflac.js/example/encode.html
 [15]: https://mmig.github.io/libflac.js/example/decode.html
-[16]: https://mmig.github.io/libflac.js/doc/
+[16]: https://mmig.github.io/libflac.js/apidoc/
