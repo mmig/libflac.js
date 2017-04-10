@@ -8,6 +8,24 @@ function setEnabled(enable){
 	dropZone.style.backgroundColor = color;
 	dropZone.style.color = color;
 	dropZone.style.borderColor = color;
+	
+	//add/remove textual hint:
+	var labelCl = enable? 'init-hint' : 'drop-hint';
+	var labels = document.getElementsByClassName(labelCl);
+	var label;
+	for(var i=labels.length - 1; i >= 0; --i){
+		label = labels[i];
+		if(enable){
+			label.parentElement.removeChild(label);
+		} else {
+			var el = document.createElement('div');
+			el.classList.add('init-hint');
+			el.textContent = 'Initializing libflac.js ...';
+			el.style.color = 'black';
+			label.appendChild(el);
+		}
+	}
+	
 }
 
 /**
