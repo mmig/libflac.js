@@ -59,10 +59,10 @@ function encodeFlac(binData, recBuffers, isVerify){
 	// creates a new array (32-bit) and stores the 16-bit data of the wav-file as 32-bit data
 	var buffer_i32 = wav_file_processing_convert_16bitdata_to32bitdata(ui8_data.buffer);
 
-	var flac_return = Flac.encode_buffer_pcm_as_flac(flac_encoder, buffer_i32, buffer_i32.length / wav_parameters.channels);
+	var flac_return = Flac.FLAC__stream_encoder_process_interleaved(flac_encoder, buffer_i32, buffer_i32.length / wav_parameters.channels);
 
 	if (flac_return != true){
-		console.log("Error: encode_buffer_pcm_as_flac returned false. " + flac_return);
+		console.log("Error: FLAC__stream_encoder_process_interleaved returned false. " + flac_return);
 	}
 	
 	flac_ok &= Flac.FLAC__stream_encoder_finish(flac_encoder);

@@ -1,6 +1,5 @@
 // libflac.js - port of libflac to JavaScript using emscripten
 
-var window = window || this;
 var Flac = (function(global) {
 
 var Module = Module || {};

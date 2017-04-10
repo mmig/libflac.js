@@ -28,20 +28,20 @@ _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not kno
 
 Include the library file, e.g. 
 ```html
-<script src="libflac-1.3.2.js" type="text/javascript"></script>
+<script src="libflac3-1.3.2.js" type="text/javascript"></script>
 ```
 or in a WebWorker:
 ```javascript
-importScripts('libflac-1.3.2.js');
+importScripts('libflac3-1.3.2.js');
 ```
 
 __Default Library:__
- * `libflac-<version>.js`
+ * `libflac<lib version>-<flac version>.js`
 
 __Minified Library:__
- * `libflac-<version>.min.js`
- * `libflac-<version>.min.js.mem` (required; will be loaded by the library)
- * `libflac-<version>.min.js.symbols` (optional; contains renaming information)
+ * `libflac<lib version>-<flac version>.min.js`
+ * `libflac<lib version>-<flac version>.min.js.mem` (required; will be loaded by the library)
+ * `libflac<lib version>-<flac version>.min.js.symbols` (optional; contains renaming information)
  * __NOTES__ for using the minified version (`.min.js`):
     * the corresponding `.mem` file must be included in the same directory as the `.min.js` file
     * the `.mem` file must not be renamed (or the `.min.js` must be edited accordingly)
@@ -70,8 +70,8 @@ __Minified Library:__
 
 
 __Development Library:__
- * `libflac-<version>.dev.js`
- * `libflac-<version>.dev.js.map` (optional; mapping to C code)
+ * `libflac<lib version>-<flac version>.dev.js`
+ * `libflac<lib version>-<flac version>.dev.js.map` (optional; mapping to C code)
 
 
 
@@ -140,9 +140,9 @@ for (var i = 0; i < buf_length; i++){
     index += 4;
 }
 
-var flac_return = Flac.encode_buffer_pcm_as_flac(flac_encoder, buffer_i32, buf_length);
+var flac_return = Flac.FLAC__stream_encoder_process_interleaved(flac_encoder, buffer_i32, buf_length);
 if (flac_return != true){
-    console.log("Error: encode_buffer_pcm_as_flac returned false. " + flac_return);
+    console.log("Error: FLAC__stream_encoder_process_interleaved returned false. " + flac_return);
 }
 
 
@@ -288,7 +288,7 @@ if(mode == 'v1'){
 	//request to decode data chunks until end-of-stream is reached:
 	while(state <= 3 && flac_return != false){
 	    
-		flac_return &= Flac.decode_buffer_flac_as_pcm(flac_decoder);
+		flac_return &= Flac.FLAC__stream_decoder_process_single(flac_decoder);
 		state = Flac.FLAC__stream_decoder_get_state(flac_decoder);
 	}
 	
@@ -297,7 +297,7 @@ if(mode == 'v1'){
 } else if(mode == 'v2'){
 
 	// VARIANT 2: decode complete data stream, all at once
-	flac_return &= Flac.decode_stream_flac_as_pcm(flac_decoder);
+	flac_return &= Flac.FLAC__stream_decoder_process_until_end_of_stream(flac_decoder);
 	
 	//optionally: retrieve status
 	state = Flac.FLAC__stream_decoder_get_state(flac_decoder);

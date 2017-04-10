@@ -77,7 +77,7 @@ function decodeFlac(binData, decData, isVerify){
 	if(!isDecodePartial){
 		//variant 1: decode stream at once / completely
 		
-		flac_return &= Flac.decode_stream_flac_as_pcm(flac_decoder);
+		flac_return &= Flac.FLAC__stream_decoder_process_until_end_of_stream(flac_decoder);
 		if (flac_return != true){
 			console.error('encountered error during decoding data');
 		}
@@ -85,14 +85,12 @@ function decodeFlac(binData, decData, isVerify){
 	} else {
 		//variant 2: decode data chunks
 		
-		flac_return &= Flac.decode_buffer_flac_as_pcm(flac_decoder);
-		//need to check decoder state: state == 4: end of stream ( > 4: error)
-		var state = Flac.FLAC__stream_decoder_get_state(flac_decoder);
-		
 		//request to decode data chunks until end-of-stream is reached:
+		var state = 0;
 		while(state <= 3 && flac_return != false){
 		    
-			flac_return &= Flac.decode_buffer_flac_as_pcm(flac_decoder);
+			flac_return &= Flac.FLAC__stream_decoder_process_single(flac_decoder);
+			//need to check decoder state: state == 4: end of stream ( > 4: error)
 			state = Flac.FLAC__stream_decoder_get_state(flac_decoder);
 		}
 		
