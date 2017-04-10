@@ -65,7 +65,7 @@ __Minified Library:__
     * the minified library loads asynchronously -- it must not be used, before it is loaded.  
       For checking, if the library is ready before using the library:  
       ```javascript
-      if( Flac.isReady() ){
+      if( !Flac.isReady() ){
         Flac.onready = function(){ /*some code that gets executed when library is ready */ };
       }
       ```
