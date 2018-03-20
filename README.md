@@ -101,6 +101,7 @@ var flac_encoder,
     COMPRESSION = 5,
     BPS = 16,
     VERIFY = false,
+    BLOCK_SIZE = 0,
     flac_ok = 1;
 
 
@@ -113,9 +114,10 @@ BPS = config.bps;
 SAMPLERATE = config.samplerate;
 CHANNELS = config.channels;
 VERIFY = config.isVerify;//verification can be disabled for speeding up encoding process
+BLOCK_SIZE = config.blockSize;
 
 //init encoder
-flac_encoder = Flac.init_libflac_encoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0, VERIFY);
+flac_encoder = Flac.create_libflac_encoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0, VERIFY, BLOCK_SIZE);
 
 if (flac_encoder == 0){
 	return;
@@ -192,7 +194,7 @@ VERIFY = config.isVerify;//verification can be disabled for speeding up decoding
 
 
 // init decoder
-var flac_decoder = Flac.init_libflac_decoder(VERIFY);
+var flac_decoder = Flac.create_libflac_decoder(VERIFY);
 
 if (flac_decoder == 0){
 	return;
