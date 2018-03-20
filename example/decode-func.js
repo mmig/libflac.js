@@ -58,7 +58,7 @@ function decodeFlac(binData, decData, isVerify){
 	}
 	
 	// init decoder
-	flac_decoder = Flac.init_libflac_decoder(VERIFY);
+	flac_decoder = Flac.create_libflac_decoder(VERIFY);
 
 	if (flac_decoder != 0){
 		var init_status = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn);

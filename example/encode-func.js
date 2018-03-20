@@ -44,7 +44,7 @@ function encodeFlac(binData, recBuffers, isVerify){
 	var flac_ok = 1;
 	var is_verify = isVerify;
 
-	var flac_encoder = Flac.init_libflac_encoder(wav_parameters.sample_rate, wav_parameters.channels, wav_parameters.bps, compression_level, tot_samples, is_verify);
+	var flac_encoder = Flac.create_libflac_encoder(wav_parameters.sample_rate, wav_parameters.channels, wav_parameters.bps, compression_level, tot_samples, is_verify);
 	if (flac_encoder != 0){
 		var init_status = Flac.init_encoder_stream(flac_encoder, write_callback_fn, metadata_callback_fn, 0);
 		flac_ok &= init_status == 0;

@@ -526,12 +526,125 @@ var _exported = {
 	/**@memberOf Flac#
 	 * @function
 	 */
-	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number' ]),
+	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number', 'number' ]),
 	/**@memberOf Flac#
 	 * @function
 	 */
 	FLAC__stream_encoder_set_compression_level: Module.cwrap('FLAC__stream_encoder_set_compression_level', 'number', [ 'number', 'number' ]),
-	/* ... */
+	/**@memberOf Flac#
+	 * @function
+	 */
+	FLAC__stream_encoder_set_blocksize: Module.cwrap('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number']),
+/* 
+
+TODO export other encoder API functions?:
+
+FLAC__StreamEncoder * 	FLAC__stream_encoder_new (void)
+
+FLAC__bool 	FLAC__stream_encoder_set_channels (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_bits_per_sample (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_sample_rate (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_do_mid_side_stereo (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_loose_mid_side_stereo (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_apodization (FLAC__StreamEncoder *encoder, const char *specification)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_max_lpc_order (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_qlp_coeff_precision (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_do_qlp_coeff_prec_search (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_do_escape_coding (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_do_exhaustive_model_search (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_min_residual_partition_order (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_max_residual_partition_order (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_rice_parameter_search_dist (FLAC__StreamEncoder *encoder, unsigned value)  
+
+
+FLAC__StreamDecoderState 	FLAC__stream_encoder_get_verify_decoder_state (const FLAC__StreamEncoder *encoder)
+
+FLAC__bool 	FLAC__stream_encoder_get_verify (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_streamable_subset (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_channels (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_bits_per_sample (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_sample_rate (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_blocksize (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_do_mid_side_stereo (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_loose_mid_side_stereo (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_max_lpc_order (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_qlp_coeff_precision (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_do_qlp_coeff_prec_search (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_do_escape_coding (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_do_exhaustive_model_search (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_min_residual_partition_order (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_max_residual_partition_order (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_rice_parameter_search_dist (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__uint64 	FLAC__stream_encoder_get_total_samples_estimate (const FLAC__StreamEncoder *encoder)
+
+
+
+TODO export other decoder API functions?:
+
+FLAC__StreamDecoder * 	FLAC__stream_decoder_new (void)
+
+FLAC__bool 	FLAC__stream_decoder_set_md5_checking (FLAC__StreamDecoder *decoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_respond (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_respond_application (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_respond_all (FLAC__StreamDecoder *decoder)
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore_application (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore_all (FLAC__StreamDecoder *decoder)
+
+ 
+const char * 	FLAC__stream_decoder_get_resolved_state_string (const FLAC__StreamDecoder *decoder)
+ 
+FLAC__uint64 	FLAC__stream_decoder_get_total_samples (const FLAC__StreamDecoder *decoder)
+ 
+unsigned 	FLAC__stream_decoder_get_channels (const FLAC__StreamDecoder *decoder)
+ 
+unsigned 	FLAC__stream_decoder_get_bits_per_sample (const FLAC__StreamDecoder *decoder)
+ 
+unsigned 	FLAC__stream_decoder_get_sample_rate (const FLAC__StreamDecoder *decoder)
+ 
+unsigned 	FLAC__stream_decoder_get_blocksize (const FLAC__StreamDecoder *decoder)
+
+
+FLAC__bool 	FLAC__stream_decoder_flush (FLAC__StreamDecoder *decoder)
+
+FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder)
+
+ */
 
 	/**
 	 * Create an encoder.
@@ -545,12 +658,22 @@ var _exported = {
 	 * @param {number} compression_level
 	 * 					the desired Flac compression level: [0, 8]
 	 * @param {number} [total_samples] OPTIONAL
-	 * 					the number of total samples of the input PCM data<br>
+	 * 					the number of total samples of the input PCM data:<br>
+	 * 					 Sets an estimate of the total samples that will be encoded.
+	 * 					 This is merely an estimate and may be set to 0 if unknown.
+	 * 					 This value will be written to the STREAMINFO block before encoding,
+	 * 					 and can remove the need for the caller to rewrite the value later if
+	 * 					 the value is known before encoding.<br>
+	 * 					If specified, the it will be written into metadata of the FLAC header.<br>
 	 * 					DEFAULT: 0 (i.e. unknown number of samples)
-	 * @param {boolean} [is_verify]
+	 * @param {boolean} [is_verify] OPTIONAL
 	 * 					enable/disable checksum verification during encoding<br>
 	 * 					DEFAULT: true<br>
 	 * 					NOTE: this argument is positional (i.e. total_samples must also be given)
+	 * @param {number} [block_size] OPTIONAL
+	 * 					the number of samples to use per frame.<br>
+	 * 					DEFAULT: 0 (i.e. encoder sets block size automatically)
+	 * 					NOTE: this argument is positional (i.e. total_samples and is_verify must also be given)
 	 * 
 	 * 
 	 * @returns {number} the ID of the created encoder instance (or 0, if there was an error)
@@ -558,9 +681,10 @@ var _exported = {
 	 * @memberOf Flac#
 	 * @function
 	 */
-	init_libflac_encoder: function(sample_rate, channels, bps, compression_level, total_samples, is_verify){
+	create_libflac_encoder: function(sample_rate, channels, bps, compression_level, total_samples, is_verify, block_size){
 		is_verify = typeof is_verify === 'undefined'? 1 : is_verify + 0;
 		total_samples = typeof total_samples === 'number'? total_samples : 0;
+		block_size = typeof block_size === 'number'? block_size : 0;
 		var ok = true;
 		var encoder = Module.ccall('FLAC__stream_encoder_new', 'number', [ ], [ ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_verify', 'number', ['number', 'number'], [ encoder, is_verify ]);
@@ -568,12 +692,15 @@ var _exported = {
 		ok &= Module.ccall('FLAC__stream_encoder_set_channels', 'number', ['number', 'number'], [ encoder, channels ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_bits_per_sample', 'number', ['number', 'number'], [ encoder, bps ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_sample_rate', 'number', ['number', 'number'], [ encoder, sample_rate ]);
+		ok &= Module.ccall('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number'], [ encoder, block_size ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_total_samples_estimate', 'number', ['number', 'number'], [ encoder, total_samples ]);
 		if (ok){
 			return encoder;
 		}
 		return 0;
 	},
+	/** @deprecated use {@link #create_libflac_encoder} instead */
+	init_libflac_encoder: function(){ return this.create_libflac_encoder.apply(this, arguments); },
 
 	/**
 	 * Create a decoder.
@@ -587,7 +714,7 @@ var _exported = {
 	 * @memberOf Flac#
 	 * @function
 	 */
-	init_libflac_decoder: function(is_verify){
+	create_libflac_decoder: function(is_verify){
 		is_verify = typeof is_verify === 'undefined'? 1 : is_verify + 0;
 		var ok = true;
 		var decoder = Module.ccall('FLAC__stream_decoder_new', 'number', [ ], [ ]);
@@ -597,6 +724,8 @@ var _exported = {
 		}
 		return 0;
 	},
+	/** @deprecated use {@link #create_libflac_decoder} instead */
+	init_libflac_decoder: function(){ return this.create_libflac_decoder.apply(this, arguments); },
 	
 	/**
 	 * Initialize the decoder.
@@ -919,6 +1048,7 @@ var _exported = {
 	 * 				the ID of the decoder instance
 	 * 
 	 * @returns {boolean} TRUE if MD5 verification is enabled
+	 * @memberOf Flac#
 	 * @function
 	 */
 	FLAC__stream_decoder_get_md5_checking: Module.cwrap('FLAC__stream_decoder_get_md5_checking', 'number', ['number']),
