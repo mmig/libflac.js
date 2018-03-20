@@ -1216,14 +1216,74 @@ var STACK_BASE = 0, STACKTOP = 0, STACK_MAX = 0; // stack area
 var DYNAMIC_BASE = 0, DYNAMICTOP = 0; // dynamic area handled by sbrk
 
 
-function abortOnCannotGrowMemory() {
-  abort('Cannot enlarge memory arrays. Either (1) compile with  -s TOTAL_MEMORY=X  with X higher than the current value ' + TOTAL_MEMORY + ', (2) compile with  -s ALLOW_MEMORY_GROWTH=1  which adjusts the size at runtime but prevents some optimizations, (3) set Module.TOTAL_MEMORY to a higher value before the program runs, or if you want malloc to return NULL (0) instead of this abort, compile with  -s ABORTING_MALLOC=0 ');
-}
 
 function enlargeMemory() {
-  abortOnCannotGrowMemory();
+  // TOTAL_MEMORY is the current size of the actual array, and DYNAMICTOP is the new top.
+
+  var OLD_TOTAL_MEMORY = TOTAL_MEMORY;
+
+
+  var LIMIT = Math.pow(2, 31); // 2GB is a practical maximum, as we use signed ints as pointers
+                               // and JS engines seem unhappy to give us 2GB arrays currently
+  if (DYNAMICTOP >= LIMIT) return false;
+
+  while (TOTAL_MEMORY <= DYNAMICTOP) { // Simple heuristic.
+    if (TOTAL_MEMORY < LIMIT/2) {
+      TOTAL_MEMORY = alignMemoryPage(2*TOTAL_MEMORY); // double until 1GB
+    } else {
+      var last = TOTAL_MEMORY;
+      TOTAL_MEMORY = alignMemoryPage((3*TOTAL_MEMORY + LIMIT)/4); // add smaller increments towards 2GB, which we cannot reach
+      if (TOTAL_MEMORY <= last) return false;
+    }
+  }
+
+  TOTAL_MEMORY = Math.max(TOTAL_MEMORY, 16*1024*1024);
+
+  if (TOTAL_MEMORY >= LIMIT) return false;
+
+
+
+
+  try {
+    if (ArrayBuffer.transfer) {
+      buffer = ArrayBuffer.transfer(buffer, TOTAL_MEMORY);
+    } else {
+      var oldHEAP8 = HEAP8;
+      buffer = new ArrayBuffer(TOTAL_MEMORY);
+    }
+  } catch(e) {
+    return false;
+  }
+
+  var success = _emscripten_replace_memory(buffer);
+  if (!success) return false;
+
+  // everything worked
+
+  Module['buffer'] = buffer;
+  Module['HEAP8'] = HEAP8 = new Int8Array(buffer);
+  Module['HEAP16'] = HEAP16 = new Int16Array(buffer);
+  Module['HEAP32'] = HEAP32 = new Int32Array(buffer);
+  Module['HEAPU8'] = HEAPU8 = new Uint8Array(buffer);
+  Module['HEAPU16'] = HEAPU16 = new Uint16Array(buffer);
+  Module['HEAPU32'] = HEAPU32 = new Uint32Array(buffer);
+  Module['HEAPF32'] = HEAPF32 = new Float32Array(buffer);
+  Module['HEAPF64'] = HEAPF64 = new Float64Array(buffer);
+  if (!ArrayBuffer.transfer) {
+    HEAP8.set(oldHEAP8);
+  }
+
+
+  return true;
 }
 
+var byteLength;
+try {
+  byteLength = Function.prototype.call.bind(Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength').get);
+  byteLength(new ArrayBuffer(4)); // can fail on older ie
+} catch(e) { // can fail on older node/v8
+  byteLength = function(buffer) { return buffer.byteLength; };
+}
 
 var TOTAL_STACK = Module['TOTAL_STACK'] || 5242880;
 var TOTAL_MEMORY = Module['TOTAL_MEMORY'] || 16777216;
@@ -1236,6 +1296,7 @@ while (totalMemory < TOTAL_MEMORY || totalMemory < 2*TOTAL_STACK) {
     totalMemory += 16*1024*1024
   }
 }
+totalMemory = Math.max(totalMemory, 16*1024*1024);
 if (totalMemory !== TOTAL_MEMORY) {
   TOTAL_MEMORY = totalMemory;
 }
@@ -5798,7 +5859,7 @@ function jsCall_viiii(index,a1,a2,a3,a4) {
     Runtime.functionPointers[index](a1,a2,a3,a4);
 }
 
-Module.asmGlobalArg = { "Math": Math, "Int8Array": Int8Array, "Int16Array": Int16Array, "Int32Array": Int32Array, "Uint8Array": Uint8Array, "Uint16Array": Uint16Array, "Uint32Array": Uint32Array, "Float32Array": Float32Array, "Float64Array": Float64Array, "NaN": NaN, "Infinity": Infinity };
+Module.asmGlobalArg = { "Math": Math, "Int8Array": Int8Array, "Int16Array": Int16Array, "Int32Array": Int32Array, "Uint8Array": Uint8Array, "Uint16Array": Uint16Array, "Uint32Array": Uint32Array, "Float32Array": Float32Array, "Float64Array": Float64Array, "NaN": NaN, "Infinity": Infinity, "byteLength": byteLength };
 
 Module.asmLibraryArg = { "abort": abort, "assert": assert, "invoke_iiii": invoke_iiii, "jsCall_iiii": jsCall_iiii, "invoke_viiiiiii": invoke_viiiiiii, "jsCall_viiiiiii": jsCall_viiiiiii, "invoke_vi": invoke_vi, "jsCall_vi": jsCall_vi, "invoke_iiiiiii": invoke_iiiiiii, "jsCall_iiiiiii": jsCall_iiiiiii, "invoke_ii": invoke_ii, "jsCall_ii": jsCall_ii, "invoke_viii": invoke_viii, "jsCall_viii": jsCall_viii, "invoke_iiiii": invoke_iiiii, "jsCall_iiiii": jsCall_iiiii, "invoke_viiiiii": invoke_viiiiii, "jsCall_viiiiii": jsCall_viiiiii, "invoke_iii": invoke_iii, "jsCall_iii": jsCall_iii, "invoke_viiii": invoke_viiii, "jsCall_viiii": jsCall_viiii, "_fabs": _fabs, "_pthread_cleanup_pop": _pthread_cleanup_pop, "_exp": _exp, "___syscall54": ___syscall54, "___syscall6": ___syscall6, "___setErrNo": ___setErrNo, "_emscripten_set_main_loop_timing": _emscripten_set_main_loop_timing, "_fabsf": _fabsf, "_sbrk": _sbrk, "_emscripten_memcpy_big": _emscripten_memcpy_big, "_sysconf": _sysconf, "_cos": _cos, "_pthread_self": _pthread_self, "_log": _log, "___unlock": ___unlock, "_emscripten_set_main_loop": _emscripten_set_main_loop, "___lock": ___lock, "_abort": _abort, "_pthread_cleanup_push": _pthread_cleanup_push, "_time": _time, "___syscall140": ___syscall140, "___syscall145": ___syscall145, "___syscall146": ___syscall146, "STACKTOP": STACKTOP, "STACK_MAX": STACK_MAX, "tempDoublePtr": tempDoublePtr, "ABORT": ABORT, "cttz_i8": cttz_i8 };
 // EMSCRIPTEN_START_ASM
@@ -5806,14 +5867,23 @@ var asm = (function(global, env, buffer) {
   'use asm';
   
   
-  var HEAP8 = new global.Int8Array(buffer);
-  var HEAP16 = new global.Int16Array(buffer);
-  var HEAP32 = new global.Int32Array(buffer);
-  var HEAPU8 = new global.Uint8Array(buffer);
-  var HEAPU16 = new global.Uint16Array(buffer);
-  var HEAPU32 = new global.Uint32Array(buffer);
-  var HEAPF32 = new global.Float32Array(buffer);
-  var HEAPF64 = new global.Float64Array(buffer);
+  var Int8View = global.Int8Array;
+  var Int16View = global.Int16Array;
+  var Int32View = global.Int32Array;
+  var Uint8View = global.Uint8Array;
+  var Uint16View = global.Uint16Array;
+  var Uint32View = global.Uint32Array;
+  var Float32View = global.Float32Array;
+  var Float64View = global.Float64Array;
+  var HEAP8 = new Int8View(buffer);
+  var HEAP16 = new Int16View(buffer);
+  var HEAP32 = new Int32View(buffer);
+  var HEAPU8 = new Uint8View(buffer);
+  var HEAPU16 = new Uint16View(buffer);
+  var HEAPU32 = new Uint32View(buffer);
+  var HEAPF32 = new Float32View(buffer);
+  var HEAPF64 = new Float64View(buffer);
+  var byteLength = global.byteLength;
 
 
   var STACKTOP=env.STACKTOP|0;
@@ -5902,6 +5972,20 @@ var asm = (function(global, env, buffer) {
   var ___syscall145=env.___syscall145;
   var ___syscall146=env.___syscall146;
   var tempFloat = 0.0;
+
+function _emscripten_replace_memory(newBuffer) {
+  if ((byteLength(newBuffer) & 0xffffff || byteLength(newBuffer) <= 0xffffff) || byteLength(newBuffer) > 0x80000000) return false;
+  HEAP8 = new Int8View(newBuffer);
+  HEAP16 = new Int16View(newBuffer);
+  HEAP32 = new Int32View(newBuffer);
+  HEAPU8 = new Uint8View(newBuffer);
+  HEAPU16 = new Uint16View(newBuffer);
+  HEAPU32 = new Uint32View(newBuffer);
+  HEAPF32 = new Float32View(newBuffer);
+  HEAPF64 = new Float64View(newBuffer);
+  buffer = newBuffer;
+  return true;
+}
 
 // EMSCRIPTEN_START_FUNCS
 function stackAlloc(size) {
@@ -26670,6 +26754,23 @@ function _FLAC__stream_encoder_set_rice_parameter_search_dist($encoder,$value) {
  $$ = $2&1;
  return ($$|0);
 }
+function _FLAC__stream_encoder_set_blocksize($encoder,$value) {
+ $encoder = $encoder|0;
+ $value = $value|0;
+ var $$0 = 0, $0 = 0, $1 = 0, $2 = 0, $3 = 0, label = 0, sp = 0;
+ sp = STACKTOP;
+ $0 = HEAP32[$encoder>>2]|0;
+ $1 = HEAP32[$0>>2]|0;
+ $2 = ($1|0)==(1);
+ if (!($2)) {
+  $$0 = 0;
+  return ($$0|0);
+ }
+ $3 = ((($0)) + 36|0);
+ HEAP32[$3>>2] = $value;
+ $$0 = 1;
+ return ($$0|0);
+}
 function _FLAC__stream_encoder_set_total_samples_estimate($encoder,$0,$1) {
  $encoder = $encoder|0;
  $0 = $0|0;
@@ -44759,11 +44860,12 @@ var FUNCTION_TABLE_viiiiii = [b7,b7,jsCall_viiiiii_0,b7,jsCall_viiiiii_1,b7,jsCa
 var FUNCTION_TABLE_iii = [b8,b8,jsCall_iii_0,b8,jsCall_iii_1,b8,jsCall_iii_2,b8,jsCall_iii_3,b8,jsCall_iii_4,b8,_seekpoint_compare_,b8,b8,b8];
 var FUNCTION_TABLE_viiii = [b9,b9,jsCall_viiii_0,b9,jsCall_viiii_1,b9,jsCall_viiii_2,b9,jsCall_viiii_3,b9,jsCall_viiii_4,b9,_FLAC__lpc_compute_autocorrelation,b9,b9,b9];
 
-  return { _FLAC__stream_decoder_delete: _FLAC__stream_decoder_delete, _FLAC__stream_encoder_set_sample_rate: _FLAC__stream_encoder_set_sample_rate, _FLAC__stream_encoder_set_bits_per_sample: _FLAC__stream_encoder_set_bits_per_sample, _bitshift64Lshr: _bitshift64Lshr, _bitshift64Shl: _bitshift64Shl, _FLAC__stream_encoder_init_stream: _FLAC__stream_encoder_init_stream, _FLAC__stream_decoder_reset: _FLAC__stream_decoder_reset, _bitshift64Ashr: _bitshift64Ashr, _memset: _memset, _FLAC__stream_encoder_set_verify: _FLAC__stream_encoder_set_verify, _memcpy: _memcpy, _llvm_bswap_i32: _llvm_bswap_i32, _FLAC__stream_decoder_get_md5_checking: _FLAC__stream_decoder_get_md5_checking, _FLAC__stream_decoder_set_md5_checking: _FLAC__stream_decoder_set_md5_checking, _i64Subtract: _i64Subtract, _i64Add: _i64Add, _FLAC__stream_encoder_set_channels: _FLAC__stream_encoder_set_channels, _FLAC__stream_decoder_finish: _FLAC__stream_decoder_finish, _FLAC__stream_decoder_process_single: _FLAC__stream_decoder_process_single, _FLAC__stream_decoder_process_until_end_of_stream: _FLAC__stream_decoder_process_until_end_of_stream, _FLAC__stream_decoder_init_stream: _FLAC__stream_decoder_init_stream, _FLAC__stream_decoder_process_until_end_of_metadata: _FLAC__stream_decoder_process_until_end_of_metadata, _free: _free, _FLAC__stream_encoder_delete: _FLAC__stream_encoder_delete, _FLAC__stream_encoder_set_total_samples_estimate: _FLAC__stream_encoder_set_total_samples_estimate, ___errno_location: ___errno_location, _FLAC__stream_encoder_process_interleaved: _FLAC__stream_encoder_process_interleaved, _FLAC__stream_decoder_new: _FLAC__stream_decoder_new, _FLAC__stream_encoder_get_state: _FLAC__stream_encoder_get_state, _FLAC__stream_encoder_finish: _FLAC__stream_encoder_finish, _memmove: _memmove, _FLAC__stream_decoder_get_state: _FLAC__stream_decoder_get_state, _malloc: _malloc, _FLAC__stream_encoder_set_compression_level: _FLAC__stream_encoder_set_compression_level, _FLAC__stream_encoder_new: _FLAC__stream_encoder_new, runPostSets: runPostSets, stackAlloc: stackAlloc, stackSave: stackSave, stackRestore: stackRestore, establishStackSpace: establishStackSpace, setThrew: setThrew, setTempRet0: setTempRet0, getTempRet0: getTempRet0, dynCall_iiii: dynCall_iiii, dynCall_viiiiiii: dynCall_viiiiiii, dynCall_vi: dynCall_vi, dynCall_iiiiiii: dynCall_iiiiiii, dynCall_ii: dynCall_ii, dynCall_viii: dynCall_viii, dynCall_iiiii: dynCall_iiiii, dynCall_viiiiii: dynCall_viiiiii, dynCall_iii: dynCall_iii, dynCall_viiii: dynCall_viiii };
+  return { _FLAC__stream_decoder_delete: _FLAC__stream_decoder_delete, _FLAC__stream_encoder_set_blocksize: _FLAC__stream_encoder_set_blocksize, _FLAC__stream_encoder_set_sample_rate: _FLAC__stream_encoder_set_sample_rate, _FLAC__stream_encoder_set_bits_per_sample: _FLAC__stream_encoder_set_bits_per_sample, _bitshift64Lshr: _bitshift64Lshr, _bitshift64Shl: _bitshift64Shl, _FLAC__stream_encoder_init_stream: _FLAC__stream_encoder_init_stream, _FLAC__stream_decoder_reset: _FLAC__stream_decoder_reset, _bitshift64Ashr: _bitshift64Ashr, _memset: _memset, _FLAC__stream_encoder_set_verify: _FLAC__stream_encoder_set_verify, _memcpy: _memcpy, _llvm_bswap_i32: _llvm_bswap_i32, _FLAC__stream_decoder_get_md5_checking: _FLAC__stream_decoder_get_md5_checking, _FLAC__stream_decoder_set_md5_checking: _FLAC__stream_decoder_set_md5_checking, _i64Subtract: _i64Subtract, _i64Add: _i64Add, _FLAC__stream_encoder_set_channels: _FLAC__stream_encoder_set_channels, _FLAC__stream_decoder_finish: _FLAC__stream_decoder_finish, _FLAC__stream_decoder_process_single: _FLAC__stream_decoder_process_single, _FLAC__stream_decoder_process_until_end_of_stream: _FLAC__stream_decoder_process_until_end_of_stream, _FLAC__stream_decoder_init_stream: _FLAC__stream_decoder_init_stream, _FLAC__stream_decoder_process_until_end_of_metadata: _FLAC__stream_decoder_process_until_end_of_metadata, _free: _free, _FLAC__stream_encoder_delete: _FLAC__stream_encoder_delete, _FLAC__stream_encoder_set_total_samples_estimate: _FLAC__stream_encoder_set_total_samples_estimate, ___errno_location: ___errno_location, _FLAC__stream_encoder_process_interleaved: _FLAC__stream_encoder_process_interleaved, _FLAC__stream_decoder_new: _FLAC__stream_decoder_new, _FLAC__stream_encoder_get_state: _FLAC__stream_encoder_get_state, _FLAC__stream_encoder_finish: _FLAC__stream_encoder_finish, _memmove: _memmove, _FLAC__stream_decoder_get_state: _FLAC__stream_decoder_get_state, _malloc: _malloc, _FLAC__stream_encoder_set_compression_level: _FLAC__stream_encoder_set_compression_level, _FLAC__stream_encoder_new: _FLAC__stream_encoder_new, runPostSets: runPostSets, _emscripten_replace_memory: _emscripten_replace_memory, stackAlloc: stackAlloc, stackSave: stackSave, stackRestore: stackRestore, establishStackSpace: establishStackSpace, setThrew: setThrew, setTempRet0: setTempRet0, getTempRet0: getTempRet0, dynCall_iiii: dynCall_iiii, dynCall_viiiiiii: dynCall_viiiiiii, dynCall_vi: dynCall_vi, dynCall_iiiiiii: dynCall_iiiiiii, dynCall_ii: dynCall_ii, dynCall_viii: dynCall_viii, dynCall_iiiii: dynCall_iiiii, dynCall_viiiiii: dynCall_viiiiii, dynCall_iii: dynCall_iii, dynCall_viiii: dynCall_viiii };
 })
 // EMSCRIPTEN_END_ASM
 (Module.asmGlobalArg, Module.asmLibraryArg, buffer);
 var _FLAC__stream_decoder_delete = Module["_FLAC__stream_decoder_delete"] = asm["_FLAC__stream_decoder_delete"];
+var _FLAC__stream_encoder_set_blocksize = Module["_FLAC__stream_encoder_set_blocksize"] = asm["_FLAC__stream_encoder_set_blocksize"];
 var _FLAC__stream_encoder_set_sample_rate = Module["_FLAC__stream_encoder_set_sample_rate"] = asm["_FLAC__stream_encoder_set_sample_rate"];
 var _FLAC__stream_encoder_set_bits_per_sample = Module["_FLAC__stream_encoder_set_bits_per_sample"] = asm["_FLAC__stream_encoder_set_bits_per_sample"];
 var _bitshift64Lshr = Module["_bitshift64Lshr"] = asm["_bitshift64Lshr"];
@@ -44798,6 +44900,7 @@ var _memmove = Module["_memmove"] = asm["_memmove"];
 var _FLAC__stream_decoder_get_state = Module["_FLAC__stream_decoder_get_state"] = asm["_FLAC__stream_decoder_get_state"];
 var _malloc = Module["_malloc"] = asm["_malloc"];
 var _FLAC__stream_encoder_set_compression_level = Module["_FLAC__stream_encoder_set_compression_level"] = asm["_FLAC__stream_encoder_set_compression_level"];
+var _emscripten_replace_memory = Module["_emscripten_replace_memory"] = asm["_emscripten_replace_memory"];
 var _FLAC__stream_encoder_new = Module["_FLAC__stream_encoder_new"] = asm["_FLAC__stream_encoder_new"];
 var dynCall_iiii = Module["dynCall_iiii"] = asm["dynCall_iiii"];
 var dynCall_viiiiiii = Module["dynCall_viiiiiii"] = asm["dynCall_viiiiiii"];
@@ -45565,12 +45668,125 @@ var _exported = {
 	/**@memberOf Flac#
 	 * @function
 	 */
-	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number' ]),
+	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number', 'number' ]),
 	/**@memberOf Flac#
 	 * @function
 	 */
 	FLAC__stream_encoder_set_compression_level: Module.cwrap('FLAC__stream_encoder_set_compression_level', 'number', [ 'number', 'number' ]),
-	/* ... */
+	/**@memberOf Flac#
+	 * @function
+	 */
+	FLAC__stream_encoder_set_blocksize: Module.cwrap('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number']),
+/* 
+
+TODO export other encoder API functions?:
+
+FLAC__StreamEncoder * 	FLAC__stream_encoder_new (void)
+
+FLAC__bool 	FLAC__stream_encoder_set_channels (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_bits_per_sample (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_sample_rate (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_do_mid_side_stereo (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_loose_mid_side_stereo (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_apodization (FLAC__StreamEncoder *encoder, const char *specification)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_max_lpc_order (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_qlp_coeff_precision (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_do_qlp_coeff_prec_search (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_do_escape_coding (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_do_exhaustive_model_search (FLAC__StreamEncoder *encoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_min_residual_partition_order (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_max_residual_partition_order (FLAC__StreamEncoder *encoder, unsigned value)
+ 
+FLAC__bool 	FLAC__stream_encoder_set_rice_parameter_search_dist (FLAC__StreamEncoder *encoder, unsigned value)  
+
+
+FLAC__StreamDecoderState 	FLAC__stream_encoder_get_verify_decoder_state (const FLAC__StreamEncoder *encoder)
+
+FLAC__bool 	FLAC__stream_encoder_get_verify (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_streamable_subset (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_channels (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_bits_per_sample (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_sample_rate (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_blocksize (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_do_mid_side_stereo (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_loose_mid_side_stereo (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_max_lpc_order (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_qlp_coeff_precision (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_do_qlp_coeff_prec_search (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_do_escape_coding (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__bool 	FLAC__stream_encoder_get_do_exhaustive_model_search (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_min_residual_partition_order (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_max_residual_partition_order (const FLAC__StreamEncoder *encoder)
+ 
+unsigned 	FLAC__stream_encoder_get_rice_parameter_search_dist (const FLAC__StreamEncoder *encoder)
+ 
+FLAC__uint64 	FLAC__stream_encoder_get_total_samples_estimate (const FLAC__StreamEncoder *encoder)
+
+
+
+TODO export other decoder API functions?:
+
+FLAC__StreamDecoder * 	FLAC__stream_decoder_new (void)
+
+FLAC__bool 	FLAC__stream_decoder_set_md5_checking (FLAC__StreamDecoder *decoder, FLAC__bool value)
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_respond (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_respond_application (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_respond_all (FLAC__StreamDecoder *decoder)
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore_application (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
+ 
+FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore_all (FLAC__StreamDecoder *decoder)
+
+ 
+const char * 	FLAC__stream_decoder_get_resolved_state_string (const FLAC__StreamDecoder *decoder)
+ 
+FLAC__uint64 	FLAC__stream_decoder_get_total_samples (const FLAC__StreamDecoder *decoder)
+ 
+unsigned 	FLAC__stream_decoder_get_channels (const FLAC__StreamDecoder *decoder)
+ 
+unsigned 	FLAC__stream_decoder_get_bits_per_sample (const FLAC__StreamDecoder *decoder)
+ 
+unsigned 	FLAC__stream_decoder_get_sample_rate (const FLAC__StreamDecoder *decoder)
+ 
+unsigned 	FLAC__stream_decoder_get_blocksize (const FLAC__StreamDecoder *decoder)
+
+
+FLAC__bool 	FLAC__stream_decoder_flush (FLAC__StreamDecoder *decoder)
+
+FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder)
+
+ */
 
 	/**
 	 * Create an encoder.
@@ -45584,12 +45800,22 @@ var _exported = {
 	 * @param {number} compression_level
 	 * 					the desired Flac compression level: [0, 8]
 	 * @param {number} [total_samples] OPTIONAL
-	 * 					the number of total samples of the input PCM data<br>
+	 * 					the number of total samples of the input PCM data:<br>
+	 * 					 Sets an estimate of the total samples that will be encoded.
+	 * 					 This is merely an estimate and may be set to 0 if unknown.
+	 * 					 This value will be written to the STREAMINFO block before encoding,
+	 * 					 and can remove the need for the caller to rewrite the value later if
+	 * 					 the value is known before encoding.<br>
+	 * 					If specified, the it will be written into metadata of the FLAC header.<br>
 	 * 					DEFAULT: 0 (i.e. unknown number of samples)
-	 * @param {boolean} [is_verify]
+	 * @param {boolean} [is_verify] OPTIONAL
 	 * 					enable/disable checksum verification during encoding<br>
 	 * 					DEFAULT: true<br>
 	 * 					NOTE: this argument is positional (i.e. total_samples must also be given)
+	 * @param {number} [block_size] OPTIONAL
+	 * 					the number of samples to use per frame.<br>
+	 * 					DEFAULT: 0 (i.e. encoder sets block size automatically)
+	 * 					NOTE: this argument is positional (i.e. total_samples and is_verify must also be given)
 	 * 
 	 * 
 	 * @returns {number} the ID of the created encoder instance (or 0, if there was an error)
@@ -45597,9 +45823,10 @@ var _exported = {
 	 * @memberOf Flac#
 	 * @function
 	 */
-	init_libflac_encoder: function(sample_rate, channels, bps, compression_level, total_samples, is_verify){
+	create_libflac_encoder: function(sample_rate, channels, bps, compression_level, total_samples, is_verify, block_size){
 		is_verify = typeof is_verify === 'undefined'? 1 : is_verify + 0;
 		total_samples = typeof total_samples === 'number'? total_samples : 0;
+		block_size = typeof block_size === 'number'? block_size : 0;
 		var ok = true;
 		var encoder = Module.ccall('FLAC__stream_encoder_new', 'number', [ ], [ ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_verify', 'number', ['number', 'number'], [ encoder, is_verify ]);
@@ -45607,12 +45834,15 @@ var _exported = {
 		ok &= Module.ccall('FLAC__stream_encoder_set_channels', 'number', ['number', 'number'], [ encoder, channels ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_bits_per_sample', 'number', ['number', 'number'], [ encoder, bps ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_sample_rate', 'number', ['number', 'number'], [ encoder, sample_rate ]);
+		ok &= Module.ccall('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number'], [ encoder, block_size ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_total_samples_estimate', 'number', ['number', 'number'], [ encoder, total_samples ]);
 		if (ok){
 			return encoder;
 		}
 		return 0;
 	},
+	/** @deprecated use {@link #create_libflac_encoder} instead */
+	init_libflac_encoder: function(){ return this.create_libflac_encoder.apply(this, arguments); },
 
 	/**
 	 * Create a decoder.
@@ -45626,7 +45856,7 @@ var _exported = {
 	 * @memberOf Flac#
 	 * @function
 	 */
-	init_libflac_decoder: function(is_verify){
+	create_libflac_decoder: function(is_verify){
 		is_verify = typeof is_verify === 'undefined'? 1 : is_verify + 0;
 		var ok = true;
 		var decoder = Module.ccall('FLAC__stream_decoder_new', 'number', [ ], [ ]);
@@ -45636,6 +45866,8 @@ var _exported = {
 		}
 		return 0;
 	},
+	/** @deprecated use {@link #create_libflac_decoder} instead */
+	init_libflac_decoder: function(){ return this.create_libflac_decoder.apply(this, arguments); },
 	
 	/**
 	 * Initialize the decoder.
@@ -45958,6 +46190,7 @@ var _exported = {
 	 * 				the ID of the decoder instance
 	 * 
 	 * @returns {boolean} TRUE if MD5 verification is enabled
+	 * @memberOf Flac#
 	 * @function
 	 */
 	FLAC__stream_decoder_get_md5_checking: Module.cwrap('FLAC__stream_decoder_get_md5_checking', 'number', ['number']),
