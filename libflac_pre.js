@@ -1,6 +1,7 @@
 // libflac.js - port of libflac to JavaScript using emscripten
 
 var Flac = (function(global) {
+'use strict';
 
 var Module = Module || {};
 var _flac_ready = false;
