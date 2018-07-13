@@ -1,4 +1,4 @@
-'strict'
+'use strict'
 
 /**
  * adapted (with minor changes) from:
