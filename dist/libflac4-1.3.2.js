@@ -1,5 +1,3 @@
-"use strict"
-
 // The Module object: Our interface to the outside world. We import
 // and export values on it. There are various ways Module can be used:
 // 1. Not defined. We create it here
@@ -20,7 +18,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 // libflac.js - port of libflac to JavaScript using emscripten
 
 var Flac = (function(global) {
-"use strict";
+'use strict';
 
 var Module = Module || {};
 var _flac_ready = false;
