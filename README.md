@@ -3,6 +3,9 @@ libflac.js
 
 [FLAC][6] encoder compiled in JavaScript using _emscripten_.
 
+Current `libflac.js` version: 4  
+Complied from `libFLAC` (static `C` library) version: 1.3.2  
+Used compiler `Emscripten` version: 1.38.8
 
 In order to build _libflac.js_, make sure you have _emscripten_ installed.
 
@@ -21,7 +24,7 @@ Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.
 _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).
 
 __API Documentation__  
-See [apidoc/index.html][16] for the API documentation. 
+See [apidoc/index.html][16] for the API documentation.
 
 
 ## Usage
@@ -29,64 +32,149 @@ See [apidoc/index.html][16] for the API documentation.
 
 ### Including libflac.js
 
-Include the library file, e.g. 
+Include the library file, e.g.
 ```html
-<script src="libflac3-1.3.2.js" type="text/javascript"></script>
+<script src="libflac4-1.3.2.js" type="text/javascript"></script>
 ```
 or in a WebWorker:
 ```javascript
-importScripts('libflac3-1.3.2.js');
+importScripts('libflac4-1.3.2.js');
 ```
 
-__Default Library:__
- * `libflac<lib version>-<flac version>.js`
+#### Including Dynamically Loaded libflac.js
 
-__Minified Library:__
- * `libflac<lib version>-<flac version>.min.js`
- * `libflac<lib version>-<flac version>.min.js.mem` (required; will be loaded by the library)
- * `libflac<lib version>-<flac version>.min.js.symbols` (optional; contains renaming information)
- * __NOTES__ for using the minified version (`.min.js`):
-    * the corresponding `.mem` file must be included in the same directory as the `.min.js` file
-    * the `.mem` file must not be renamed (or the `.min.js` must be edited accordingly)
-    * if the minified library is included from a location other than the web-page/web-worker, then
-      the path to directory of the library must be given as a global variable `FLAC_SCRIPT_LOCATION`
-      before loading the library (this is necessary for loading the `.mem` file).  
-      The path must end with a `/` (slash).  
-      Example for web page:
-      ```html
-        <script type="text/javascript">window.FLAC_SCRIPT_LOCATION = 'libs/';</script>
-	    <script src="libs/libflac-1.3.2.min.js" type="text/javascript"></script>
-      ```  
-      or when loading the library from a WebWorker:  
-      ```javascript
-        self.FLAC_SCRIPT_LOCATION = 'libs/';
-        importScripts('libs/libflac-1.3.2.min.js');
-      ```
-    * the minified library loads asynchronously -- it must not be used, before it is loaded.  
-      For checking, if the library is ready before using the library:  
-      ```javascript
-      if( !Flac.isReady() ){
-        Flac.onready = function(){ /*some code that gets executed when library is ready */ };
-      }
-      ```
-      NOTE that `onready()` will not be called again, when `Flac.isReady()` is already `true`.
+Some variants of the `libflac.js` library are loaded asynchronously
+(e.g. minimized/optimized variants may load a separate binary file during initialization of the library).
+
+In this case, you have to make sure, not to use `libflac.js` before is has been completely loaded / initialized.
+
+Code example:
+```javascript
+
+if( !Flac.isReady() ){
+  Flac.onready = function(){
+
+    //call function that uses libflac.js:
+    someFunctionForProcessingFLAC();
+  };
+} else {
+
+  //call function that uses libflac.js:
+  someFunctionForProcessingFLAC();
+}
+
+```
+
+**NOTE** that the `onready()` callback will not be called, when the library already
+         has been initialized, i.e. when `Flac.isReady()` returns `true`.
+         So you should always check `Flac.isReady()` and provide alternative code
+         execution to the `onready()` function, in case `Flac.isReady()` is `true`.
 
 
-__Development Library:__
- * `libflac<lib version>-<flac version>.dev.js`
- * `libflac<lib version>-<flac version>.dev.js.map` (optional; mapping to C code)
+#### Including Dynamically Loaded  libflac.js from Non-Default Location
+
+Variants of the `libflac.js` library that are loaded asynchronously do usually also load some additional files.
+
+If the library-file is not loaded from the default location ("page root"), but from a sub-directory/-path, you need to
+let the library know, so that it searches for the additional files, that it needs to load, in that sub-directory/-path.
+
+For this, the path/location must be stored in the global variable `FLAC_SCRIPT_LOCATION` *before* the `libflac.js`
+library is loaded.  
+In addition, the path/location must end with a slash (`"/"`), e.g. `'some/path/'`.
+
+An example for specifying the path/location at `libs/` in an HTML file:
+```html
+  <script type="text/javascript">window.FLAC_SCRIPT_LOCATION = 'libs/';</script>
+  <script src="libs/libflac4-1.3.2.js" type="text/javascript"></script>
+```
+
+Or example for specifying the path/location at `libs/` in a WebWorker script:
+```javascript
+  self.FLAC_SCRIPT_LOCATION = 'libs/';
+  importScripts('libs/libflac4-1.3.2.js');
+```
+
+### Library Variants
+
+There are multiple variants available for the library, that are compiled with different
+settings for debug-output and code optimization, namely `debug`, `min`, and the
+default (release) library variants.
+
+
+
+In addition, for each of these variants, there is now a `wasm` variant (_WebAssembly_) available:
+the old/default variants where compiled for `asm.js` which is "normal" JavaScript, with some
+optimizations that browsers could take advantage off by specifically supporting `asm.js`.
+
+(from the [Emscripten documentation][17])
+> WebAssembly is a new binary format for executing code on the web, allowing much faster start times
+> (smaller download, much faster parsing in browsers)
+
+In short, the (old) `asm.js` is backwards compatible, since it is simply JavaScript
+(and browsers that specifically support it, can execute it optimized/more efficiently),
+while the new `WebAssembly` format requires more recent/modern browsers, but is generally
+more efficient with regard to code size and execution time.
+
+> NOTE the `WebAssembly` variant does not create "binary-perfect" FLAC files
+     compared to the other library variants, or compared to the FLAC
+     command-line tool.
+     That is, comparing the encoding result byte-by-byte with encoding result
+     from the `asm.js` variants, or separately encoded data using the FLAC
+     command-line tool, results are different for the `WebAssembly` variant.  
+     However, decoding these "binary-different" FLAC files (using `WebAssembly`,
+     or `asm.js` or the command-line tool) results in the same WAV data again.  
+     _It seems, the `WebAssembly` variant chooses different frame-sizes
+       while encoding; e.g. the max. frame-size may differ from when encoding
+       with the `asm.js` variant or with the command-line tool._
+
+NOTES for dynamically loaded library variants:
+   * the corresponding _required_ files must be included in the same directory as the library/JavaScript file
+   * the additional _required_ files file must not be renamed (or the library/JavaScript file must be edited accordingly)
+   * see also the section above for handling dynamically loaded library variants, and, if appropriate, the section for
+     including dynamically loaded libraries from a sub-path/location
+
+##### Default Library:
+_(see [`/dist`](dist))_  
+ * ASM.js Variant:
+    * `libflac<lib version>-<flac version>.js`
+ * WebAssembly variant _(dynamically loaded)_:
+    * `libflac<lib version>-<flac version>.wasm.js`
+    * `libflac<lib version>-<flac version>.wasm.wasm` (**required**; will be loaded by the library)
+    * `libflac<lib version>-<flac version>.wasm.js.symbols` (optional; contains renaming information)
+
+##### Minified Library:
+_(see [`/dist/min`](dist/min))_  
+ * ASM.js Variant _(dynamically loaded)_:
+     * `libflac<lib version>-<flac version>.min.js`
+     * `libflac<lib version>-<flac version>.min.js.mem` (**required**; will be loaded by the library)
+     * `libflac<lib version>-<flac version>.min.js.symbols` (optional; contains renaming information)
+  * WebAssembly variant _(dynamically loaded)_:
+     * `libflac<lib version>-<flac version>.min.wasm.js`
+     * `libflac<lib version>-<flac version>.min.wasm.wasm` (**required**; will be loaded by the library)
+     * `libflac<lib version>-<flac version>.min.wasm.js.symbols` (optional; contains renaming information)
+
+##### Development Library:
+_(see [`/dist/dev`](dist/dev))_  
+ * ASM.js Variant:
+   * `libflac<lib version>-<flac version>.dev.js`
+   * `libflac<lib version>-<flac version>.dev.js.map` (optional; mapping to C code)
+* WebAssembly variant _(dynamically loaded)_:
+   * `libflac<lib version>-<flac version>.dev.wasm.js`
+   * `libflac<lib version>-<flac version>.dev.wasm.wasm` (**required**; will be loaded by the library)
+   * `libflac<lib version>-<flac version>.dev.wasm.js.map` (optional; mapping to C code)
+   * `libflac<lib version>-<flac version>.dev.wasm.wast` (optional; plaintext of WASM code in s-expression format)
 
 
 
 ### Encoding with libflac.js
 
-Generally, `libflac.js` supports a subset of the [libflac encoding interface][8] for encoding audio data to FLAC (no full support yet!). 
+Generally, `libflac.js` supports a subset of the [libflac encoding interface][8] for encoding audio data to FLAC (no full support yet!).
 _The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
 
 See [example/encode.html][10] for a small example,
-on how to encode a `WAV` file. 
+on how to encode a `WAV` file.
 
-For a larger example on how to encode audio data from the 
+For a larger example on how to encode audio data from the
 microphone see the [Speech to FLAC][9] example.
 
 Small usage example:
@@ -125,7 +213,7 @@ if (flac_encoder == 0){
 
 var encBuffer = [];
 var status_encoder = Flac.init_encoder_stream(flac_encoder, function(encodedData /*Uint8Array*/, bytes, samples, current_frame){
-	//store all encoded data "pieces" into a buffer 
+	//store all encoded data "pieces" into a buffer
 	encBuffer.push(encodedData);
 });
 flac_ok &= (status_encoder == 0);
@@ -167,7 +255,7 @@ Flac.FLAC__stream_encoder_delete(flac_encoder);
 
 ### Decoding with libflac.js
 
-Generally, `libflac.js` supports a subset of the [libflac decoding interface][7] for decoding audio data from FLAC (no full support yet!). 
+Generally, `libflac.js` supports a subset of the [libflac decoding interface][7] for decoding audio data from FLAC (no full support yet!).
 _The current build in `/dist` does not support the OGG container format; but a custom build could be made to support OGG._
 
 See [example/decode.html][11] for a small example,
@@ -216,14 +304,14 @@ function read_callback_fn(bufferSize){
 
     var start = currentDataOffset;
     var end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
-    
+
     var _buffer;
     var numberOfReadBytes;
     if(end !== -1){
-    	
+
     	_buffer = flacData.subarray(currentDataOffset, end);
     	numberOfReadBytes = end - currentDataOffset;
-    	
+
     	currentDataOffset = end;
     } else {
     	//nothing left to read: return zero read bytes (indicates end-of-stream)
@@ -269,7 +357,7 @@ function metadata_callback_fn(data){
 
 var flac_ok = 1;
 var status_decoder = Flac.init_decoder_stream(
-	flac_decoder, 
+	flac_decoder,
 	read_callback_fn, write_callback_fn,	//required callbacks
 	error_callback_fn, metadata_callback_fn	//optional callbacks
 );
@@ -289,21 +377,21 @@ var flac_return = 1;
 
 if(mode == 'v1'){
 	// VARIANT 1: decode chunks of flac data, one by one
-	
+
 	//request to decode data chunks until end-of-stream is reached:
 	while(state <= 3 && flac_return != false){
-	    
+
 		flac_return &= Flac.FLAC__stream_decoder_process_single(flac_decoder);
 		state = Flac.FLAC__stream_decoder_get_state(flac_decoder);
 	}
-	
+
 	flac_ok &= flac_return != false;
-	
+
 } else if(mode == 'v2'){
 
 	// VARIANT 2: decode complete data stream, all at once
 	flac_return &= Flac.FLAC__stream_decoder_process_until_end_of_stream(flac_decoder);
-	
+
 	//optionally: retrieve status
 	state = Flac.FLAC__stream_decoder_get_state(flac_decoder);
 }
@@ -337,7 +425,7 @@ See the [doc/index.html][16] for the API documentation.
 
 Building libflac.js requires that [emscripten][1] is installed and configured.
 
-See the [documentation][3] and the [main site][2] for 
+See the [documentation][3] and the [main site][2] for
 an introduction, tutorials etc.
 
 For changing the targeted libflac version, modify the `Makefile`:
@@ -360,7 +448,7 @@ make
 
 __*EXPERIMENTAL*__
 
- * __Prerequisites:__ 
+ * __Prerequisites:__
    * VisualStudio 10
    * Emscripten plugin [vs-tool][4] (automatically installed, if Emscripten Installer was used)
    * OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)
@@ -381,7 +469,7 @@ Then open the project settings for `libFLAC_static`, and modify settings for `Co
    HAVE_LROUND
    VERSION="1.3.0"
    ```
-   
+
    ```
    DEBUG
    _LIB
@@ -390,7 +478,7 @@ Then open the project settings for `libFLAC_static`, and modify settings for `Co
    ```
 
 * modify project (if without OGG support): remove the source files (*.c) and headers (*.h) that start with `ogg*` from project (remove or "Exclude from project"); or include OGG library (cf. README of libflac for details)
-   
+
 
 * Modify sources file:
  * `flac-1.3.0\src\libFLAC\format.c` add the following at the beginning (e.g. after the `#include` statements):
@@ -408,7 +496,7 @@ For libflac version 1.3.2, the sources / configuration require some changes, bef
    SUBDIRS = doc include m4 man src examples test build obj #microbench
    ```
  * in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
-   
+
    ```
    #elif defined __GNUC__
        uint32_t lo, hi;
@@ -443,7 +531,7 @@ node extract_EXPORTED_FUNCTIONS.js
 ------
 
 Copyright (C) 2013-2017 DFKI GmbH
- 
+
 See `CONTRIBUTORS` for list of contributors.
 
 ## Acknowledgments
@@ -474,3 +562,4 @@ and published under the MIT license (see file LICENSE).
 [14]: https://mmig.github.io/libflac.js/example/encode.html
 [15]: https://mmig.github.io/libflac.js/example/decode.html
 [16]: https://mmig.github.io/libflac.js/apidoc/
+[17]: http://kripken.github.io/emscripten-site/docs/compiling/WebAssembly.html#webassembly
