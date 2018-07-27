@@ -1,0 +1,21 @@
+{
+    "name": "libflac",
+    "version": "4.0.0",
+    "description": "FLAC encoder compiled in JavaScript using emscripten.",
+    "main": "index.js",
+    "directories": {
+      "doc": "apidoc",
+      "bin": "dist",
+      "example": "example"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/mmig/libflac.js.git"
+    },
+    "author": "Contributors to libflac.js F. Petersen and A. Russ",
+    "license": "MIT",
+    "bugs": {
+      "url": "https://github.com/mmig/libflac.js/issues"
+    },
+    "homepage": "https://github.com/mmig/libflac.js"
+  }
