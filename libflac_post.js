@@ -1128,8 +1128,5 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 
 };//END: var _exported = {
 return _exported;
-})(typeof window !== 'undefined'? window : this);
 
-if (typeof self !== "undefined" && self !== null){
-	self.Flac = Flac; // make Flac accessible to other webworker scripts.
-}
+}));//END: UMD wrapper
