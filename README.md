@@ -94,6 +94,13 @@ Or example for specifying the path/location at `libs/` in a WebWorker script:
   importScripts('libs/libflac4-1.3.2.js');
 ```
 
+Or example for specifying the path/location at `libs/` in Node.js script:
+```javascript
+  process.env.FLAC_SCRIPT_LOCATION = './libs/';
+  process.env.FLAC_UMD_MODE = true;//<- OPTIONAL: avoid export to global namespace
+  var Flac = require('./libs/libflac4-1.3.2.js');
+```
+
 ### Library Variants
 
 There are multiple variants available for the library, that are compiled with different
