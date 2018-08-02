@@ -1,5 +1,11 @@
-// Entry point placeholder
 
-console.warn('Looks like you are trying to import libflac.js as a Node module. '
- + 'libflac.js does not currently support such usage. Please refer to '
- + 'https://github.com/mmig/libflac.js for how to import libflac.js.')
+// confiuration for loading libflac.js:
+
+// set library directory
+// (not really necessary a.t.m. for the default non-wasm library version)
+process.env.FLAC_SCRIPT_LOCATION = './libs/';
+// avoid export to global namespace, i.e. export as module only:
+process.env.FLAC_UMD_MODE = true;
+
+// export standard (asm.js) variant of the library:
+module.exports = require('./dist/libflac4-1.3.2.js');
