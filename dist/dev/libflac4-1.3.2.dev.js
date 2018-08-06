@@ -64,9 +64,9 @@ Module["onRuntimeInitialized"] = function(){
 	_flac_ready = true;
 	if(!_exported){
 		//if _exported is not yet set, "pause" until initialization has run through
-		setTimeout(function(){if(_exported.onready){_exported.onready();}}, 0);
+		setTimeout(function(){do_fire_event('ready', [_exported], true);}, 0);
 	} else {
-		if(_exported.onready){_exported.onready();}
+		do_fire_event('ready', [_exported], true);
 	}
 };
 
@@ -62862,6 +62862,64 @@ var metadata_fn_ptr = addFunction(function(p_coder, p_metadata, p_client_data){
 
 }, 'viii');
 
+
+////////////// helper fields and functions for event handling
+// see exported on()/off() functions
+var listeners = {};
+var persistedEvents = [];
+var add_event_listener = function (eventName, listener){
+	var list = listeners[eventName];
+	if(!list){
+		list = [listener];
+		listeners[eventName] = list;
+	} else {
+		list.push(listener);
+	}
+	var activated;
+	for(var i=persistedEvents.length-1; i >= 0; --i){
+		activated = persistedEvents[i];
+		if(activated && activated.event === eventName){
+			listener.apply(null, activated.args);
+			break;
+		}
+	}
+};
+var remove_event_listener = function (eventName, listener){
+	var list = listeners[eventName];
+	if(list){
+		for(var i=list.length-1; i >= 0; --i){
+			if(list[i] === listener){
+				list.splice(i, 1);
+			}
+		}
+	}
+};
+/**
+ * HELPER: fire an event
+ * @param  {string} eventName
+ * 										the event name
+ * @param  {Array<any>} [args] OPITIONAL
+ * 										the arguments when triggering the listeners
+ * @param  {boolean} [isPersist] OPTIONAL (positinal argument!)
+ * 										if TRUE, handlers for this event that will be registered after this will get triggered immediately
+ * 										(i.e. event is "persistent": once triggered it stays "active")
+ *
+ */
+var do_fire_event = function (eventName, args, isPersist){
+	if(_exported['on'+eventName]){
+		_exported['on'+eventName].apply(null, args);
+	}
+	var list = listeners[eventName];
+	if(list){
+		for(var i=0, size=list.length; i < size; ++i){
+			list[i].apply(null, args)
+		}
+	}
+	if(isPersist){
+		persistedEvents.push({event: eventName, args: args});
+	}
+}
+
 /////////////////////////////////////    export / public: /////////////////////////////////////////////
 /**
  * The <code>Flac</code> module that provides functionality
@@ -62904,6 +62962,35 @@ var _exported = {
 	 *  }
 	 */
 	onready: void(0),
+	/**
+	 * Add an event listener for module-events.
+	 * Supported events:
+	 * <ul>
+	 *  <li> <code>"ready"</code>: emitted when module is ready for usage (i.e. {@link #isReady} is true)<br/>
+	 *             (NOTE listener will get immediately triggered if module is already <code>"ready"</code>)
+	 *  </li>
+	 * </ul>
+	 *
+	 * @param {string} eventName
+	 * @param {Function} listener
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 * @example
+	 *  Flac.on('ready', function(){
+	 *     //gets executed when library is ready, or becomes ready...
+	 *  });
+	 */
+	on: add_event_listener,
+	/**
+	 * Remove an event listener for module-events.
+	 * @function
+	 * @param {string} eventName
+	 * @param {Function} listener
+	 *
+	 * @memberOf Flac#
+	 */
+	off: remove_event_listener,
 
 	/**@memberOf Flac#
 	 * @function

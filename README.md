@@ -57,7 +57,7 @@ var Flac = require('libflacjs')();
 //
 // can be combined with dot, e.g. "min.wasm":
 var Flac = require('libflacjs')('min.wasm');
-if(!Flac.isReady()){
+Flac.on('ready', function(flac){
   ...
 ```
 
@@ -71,8 +71,18 @@ In this case, you have to make sure, not to use `libflac.js` before is has been 
 Code example:
 ```javascript
 
+//either use Flac.on() or set handler Flac.onready:
+Flac.on('ready', function(libFlac){
+  //NOTE: Flac === libFlac
+
+  //call function that uses libflac.js:
+  someFunctionForProcessingFLAC();
+};
+
+//... or set handler
 if( !Flac.isReady() ){
-  Flac.onready = function(){
+  Flac.onready = function(libFlac){
+    //NOTE: Flac === libFlac
 
     //call function that uses libflac.js:
     someFunctionForProcessingFLAC();
@@ -82,13 +92,13 @@ if( !Flac.isReady() ){
   //call function that uses libflac.js:
   someFunctionForProcessingFLAC();
 }
-
 ```
 
-**NOTE** that the `onready()` callback will not be called, when the library already
+**NOTE** that the `onready()` handler will not be called, when the library already
          has been initialized, i.e. when `Flac.isReady()` returns `true`.
          So you should always check `Flac.isReady()` and provide alternative code
-         execution to the `onready()` function, in case `Flac.isReady()` is `true`.
+         execution to the `onready()` function, in case `Flac.isReady()` is `true`
+         (or use `Flac.on('ready', ...)` instead).
 
 
 #### Including Dynamically Loaded  libflac.js from Non-Default Location
@@ -100,7 +110,8 @@ let the library know, so that it searches for the additional files, that it need
 
 For this, the path/location must be stored in the global variable `FLAC_SCRIPT_LOCATION` *before* the `libflac.js`
 library is loaded.  
-In addition, the path/location must end with a slash (`"/"`), e.g. `'some/path/'`.
+In addition, the path/location should end with a slash (`"/"`), e.g. `'some/path/'`
+(the library will try to automatically add a slash, if it is missing).
 
 An example for specifying the path/location at `libs/` in an HTML file:
 ```html

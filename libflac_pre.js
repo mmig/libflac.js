@@ -47,9 +47,9 @@ Module["onRuntimeInitialized"] = function(){
 	_flac_ready = true;
 	if(!_exported){
 		//if _exported is not yet set, "pause" until initialization has run through
-		setTimeout(function(){if(_exported.onready){_exported.onready();}}, 0);
+		setTimeout(function(){do_fire_event('ready', [_exported], true);}, 0);
 	} else {
-		if(_exported.onready){_exported.onready();}
+		do_fire_event('ready', [_exported], true);
 	}
 };
 
