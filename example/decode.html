@@ -49,6 +49,9 @@
 	<script src="util/data-util.js" type="text/javascript"></script>
 
 	<style>
+		.project-link {
+			float: right;
+		}
 		.drop-zone {
 			border: 1px red solid;
 			height: 250px;
@@ -74,6 +77,7 @@
   </head>
   <body>
     <div>
+        <div class="project-link">Demo for <a href="https://github.com/mmig/libflac.js">libflac.js</a></div>
         <h1>FLAC to WAV conversion</h1>
 
         <p>
@@ -95,6 +99,26 @@
 	<!-- script src="app-encode.js" type="text/javascript"></script-->
 	<script src="app-decode.js" type="text/javascript"></script>
 
+  <br/>
+  <br/>
+  <hr/>
+  <div>
+    <h2>Library Variants</h2>
+    <p>
+      <strong>Technology:</strong> <em>asm.js</em> vs <em>WASM</em> (WebAssembly)<br/>
+      <strong>Optimizations:</strong> <em>debug</em> all debugging output enabled; <em>release</em> normal optimizations; <em>minified</em> all optimizations enabled.<br/>
+
+      <br/>Note that some library variants initialize synchronously, and some asynchronously.
+    </p>
+    <table>
+      <th><tr><td>Optimization /<br/> Technology</td><td>asm.js</td><td>WASM</td></tr></th>
+      <tbody>
+        <tr><td>release</td><td valign="top"><a href="?lib=&wasm=false">(release.asmjs)</a><br/><em>synchronous</em><br/><em>(default)</em></td><td valign="top"><a href="?lib=&wasm=true">(release.)wasm</a><br/><em>asynchronous</em></td></tr>
+        <tr><td>debug</td><td><a href="?lib=dev&wasm=false">dev(.asmjs)</a><br/><em>synchronous</em></td><td><a href="?lib=dev&wasm=true">dev.wasm</a><br/><em>asynchronous</em></td></tr>
+        <tr><td>minified</td><td><a href="?lib=min&wasm=false">min(.asmjs)</a><br/><em>asynchronous</em></td><td><a href="?lib=min&wasm=true">min.wasm</a><br/><em>asynchronous</em></td></tr>
+      </tbody>
+    </table>
+  </div>
 </body>
 
 
