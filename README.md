@@ -41,6 +41,26 @@ or in a WebWorker:
 importScripts('libflac4-1.3.2.js');
 ```
 
+In `Node.js`: use factory method for loading one of the library variants:
+```javascript
+
+//load default/release asm.js variant:
+var Flac = require('libflacjs')();
+
+// use one of the optimization-variants:
+//  * <empty> / "release"
+//  * "min"
+//  * "dev"
+// use one of the technology-variants:
+//  * <empty> / "asmjs"
+//  * "wasm"
+//
+// can be combined with dot, e.g. "min.wasm":
+var Flac = require('libflacjs')('min.wasm');
+if(!Flac.isReady()){
+  ...
+```
+
 #### Including Dynamically Loaded libflac.js
 
 Some variants of the `libflac.js` library are loaded asynchronously
