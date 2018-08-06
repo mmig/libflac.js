@@ -43,8 +43,11 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 		root.Flac = lib;
 	}
 
-	if(env? !env.FLAC_UMD_MODE : !root.FLAC_UMD_MODE){
-		//"classic mode": export to global variable Flac regardless of environment.
+	//non-UMD mode: "classic mode" exports library to global variable Flac regardless of environment.
+	// -> for backwards compatibility: by default, always export library to global variable Flac
+	//                                 except in case UMD mode is explicitly activated.
+	var umdMode = env? env.FLAC_UMD_MODE : root.FLAC_UMD_MODE;
+	if(/false/.test(umdMode)){//<- normalize "true" | "false" | true | false -> BOOLEAN
 
 		// if in Node environment, use Node's global (if available) as global/root namespace:
 		root = env && env !== root && typeof global !== 'undefined' && global? global : root;
