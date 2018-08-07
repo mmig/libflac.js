@@ -82,7 +82,7 @@
   <body>
     <div>
         <div class="project-link">Demo for <a href="https://github.com/mmig/libflac.js">libflac.js</a></div>
-        <h1>WAV to FLAC conversion</h1>
+        <h1><a href="encode.html">WAV to FLAC conversion</a></h1>
 
         <p>
         Either use the drop zone or the file selection button.
@@ -92,6 +92,80 @@
                        change the file-extension before dropping it into the browser
         </p>
     </div>
+
+    <!-- START: section for library variants -->
+    <div>
+      <style>
+    		#variants-collapse {
+    			background-color: #DFDFDF;
+    			color: #737373;
+    			border-radius: 50%;
+    			height: 1em;
+    			width: 1em;
+    			display: inline-block;
+          text-decoration: none;
+          padding-bottom: 4px;
+          padding-left: 2px;
+          padding-right: 2px;
+    		}
+        .hidden {
+          display: none;
+        }
+    	</style>
+      <h3>Library Variants <a href="#" id="variants-collapse" class="hidden">&rarr;</a></h3>
+      <div id="variants-desc">
+        <hr/>
+        <p>
+          <dl><dt>Technology:</dt>
+            <dd><em>asm.js</em>: sub-set of JavaScript for optimized execution (if browser supports it; fully "JavaScript compatible")</dd>
+            <dd><em>WASM</em>: new standard for "web binaries" (WebAssembly), i.e. binary execution format</dd>
+          </dl>
+          <dl><dt>Optimizations:</dt>
+            <dd><em>debug</em>: all debugging output enabled</dd>
+            <dd><em>release</em>: normal optimizations</dd>
+            <dd><em>minified</em>: all optimizations enabled</dd>
+          </dl>
+          <br/>
+        </p>
+        <p>
+          <h4>Load and Try Library Variants</h4>
+          <em>Note that some library variants initialize synchronously, and some asynchronously.</em>
+        </p>
+        <table>
+          <thead>
+            <tr><th align="left">Technology &rarr;<br/> Optimization &darr;</th><th>asm.js</th><th>WASM</th></tr>
+          </thead>
+          <tbody>
+            <tr><th align="left">release</th><td valign="top"><a href="?lib=&wasm=false&showSelect=true">[release.asmjs]</a><br/><em>sync init</em><br/><em>(default)</em></td><td valign="top"><a href="?lib=&wasm=true&showSelect=true">[release.]wasm</a><br/><em>async init</em></td></tr>
+            <tr><th align="left">debug</th><td><a href="?lib=dev&wasm=false&showSelect=true">dev[.asmjs]</a><br/><em>sync init</em></td><td><a href="?lib=dev&wasm=true&showSelect=true">dev.wasm</a><br/><em>async init</em></td></tr>
+            <tr><th align="left">minified</th><td><a href="?lib=min&wasm=false&showSelect=true">min[.asmjs]</a><br/><em>async init</em></td><td><a href="?lib=min&wasm=true&showSelect=true">min.wasm</a><br/><em>async init</em></td></tr>
+          </tbody>
+        </table>
+        <script type="text/javascript">
+          ;(function(){
+            var btn = document.getElementById('variants-collapse');
+            btn.classList.remove('hidden');
+
+            var descEl = document.getElementById('variants-desc');
+            if(!/\bshowSelect=true\b/.test(document.location.search)){
+              descEl.classList.add('hidden');
+            } else {
+              btn.innerHTML = '&nbsp;&darr;';
+            }
+
+            btn.addEventListener('click', function(){
+              var isShow = descEl.classList.contains('hidden');
+              var func = isShow? 'remove' : 'add';
+              btn.innerHTML = isShow? '&nbsp;&darr;' : '&rarr;';
+              descEl.classList[func]('hidden');
+            }, false);
+
+          })();
+        </script>
+        <hr/>
+      </div>
+    </div>
+    <!-- END: section for library variants -->
 
 
 	<div id="drop_zone" class="drop-zone"><div class="drop-hint">Drop WAV-files here</div></div>
@@ -107,25 +181,5 @@
 	<script src="app-encode.js" type="text/javascript"></script>
 	<!-- script src="app-decode.js" type="text/javascript"></script-->
 
-  <br/>
-  <br/>
-  <hr/>
-  <div>
-    <h2>Library Variants</h2>
-    <p>
-      <strong>Technology:</strong> <em>asm.js</em> vs <em>WASM</em> (WebAssembly)<br/>
-      <strong>Optimizations:</strong> <em>debug</em> all debugging output enabled; <em>release</em> normal optimizations; <em>minified</em> all optimizations enabled.<br/>
-
-      <br/>Note that some library variants initialize synchronously, and some asynchronously.
-    </p>
-    <table>
-      <th><tr><td>Optimization /<br/> Technology</td><td>asm.js</td><td>WASM</td></tr></th>
-      <tbody>
-        <tr><td>release</td><td valign="top"><a href="?lib=&wasm=false">(release.asmjs)</a><br/><em>synchronous</em><br/><em>(default)</em></td><td valign="top"><a href="?lib=&wasm=true">(release.)wasm</a><br/><em>asynchronous</em></td></tr>
-        <tr><td>debug</td><td><a href="?lib=dev&wasm=false">dev(.asmjs)</a><br/><em>synchronous</em></td><td><a href="?lib=dev&wasm=true">dev.wasm</a><br/><em>asynchronous</em></td></tr>
-        <tr><td>minified</td><td><a href="?lib=min&wasm=false">min(.asmjs)</a><br/><em>asynchronous</em></td><td><a href="?lib=min&wasm=true">min.wasm</a><br/><em>asynchronous</em></td></tr>
-      </tbody>
-    </table>
-  </div>
 </body>
 </html>
