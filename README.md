@@ -3,8 +3,8 @@ libflac.js
 
 [FLAC][6] encoder compiled in JavaScript using _emscripten_.
 
-Current `libflac.js` version: 4  
-Complied from `libFLAC` (static `C` library) version: 1.3.2  
+Current `libflac.js` version: 4
+Complied from `libFLAC` (static `C` library) version: 1.3.2
 Used compiler `Emscripten` version: 1.38.8
 
 In order to build _libflac.js_, make sure you have _emscripten_ installed.
@@ -15,15 +15,15 @@ FLAC library, extract it, and build the JavaScript version of libflac.
 For immediate use, the `/dist` sub-directory contains the compiled
 JavaScript file `libflac.js`, along with a minified version.
 
-__Encoder Demo__  
-Try the [Encoding Demo][14] for encoding `*.wav` files to FLAC.  
-Or try the [speech-to-flac][12] [demo][13] that encodes the audio stream from a microphone to FLAC.  
+__Encoder Demo__
+Try the [Encoding Demo][14] for encoding `*.wav` files to FLAC.
+Or try the [speech-to-flac][12] [demo][13] that encodes the audio stream from a microphone to FLAC.
 
-__Decoder Demo__  
-Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.  
+__Decoder Demo__
+Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.
 _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).
 
-__API Documentation__  
+__API Documentation__
 See [apidoc/index.html][16] for the API documentation.
 
 
@@ -32,16 +32,27 @@ See [apidoc/index.html][16] for the API documentation.
 
 ### Including libflac.js
 
+##### Browser
 Include the library file, e.g.
 ```html
 <script src="libflac4-1.3.2.js" type="text/javascript"></script>
 ```
-or in a WebWorker:
+
+##### WebWorker
+Import the library file, e.g.
 ```javascript
 importScripts('libflac4-1.3.2.js');
 ```
 
-In `Node.js`: use factory method for loading one of the library variants:
+##### Node
+
+In `Node.js`:
+install with `npm`
+```
+npm install --save git+https://github.com/mmig/libflac.js.git
+```
+
+then, use factory method for loading one of the library variants:
 ```javascript
 
 //load default/release asm.js variant:
@@ -56,10 +67,20 @@ var Flac = require('libflacjs')();
 //  * "wasm"
 //
 // can be combined with dot, e.g. "min.wasm":
-var Flac = require('libflacjs')('min.wasm');
+var FlacFactory = require('libflacjs');
+var Flac = FlacFactory('min.wasm');
 Flac.on('ready', function(flac){
   ...
 ```
+
+##### React
+_(thanks to @jay-shah for providing this solution)_
+For `reactjs`:
+install with `npm` (see above), and `require()` the library directly, like
+```javascript
+var Flac = require('../node_modules/libflacjs/dist/libflac4-1.3.2.js');
+```
+
 
 #### Including Dynamically Loaded libflac.js
 
@@ -109,7 +130,7 @@ If the library-file is not loaded from the default location ("page root"), but f
 let the library know, so that it searches for the additional files, that it needs to load, in that sub-directory/-path.
 
 For this, the path/location must be stored in the global variable `FLAC_SCRIPT_LOCATION` *before* the `libflac.js`
-library is loaded.  
+library is loaded.
 In addition, the path/location should end with a slash (`"/"`), e.g. `'some/path/'`
 (the library will try to automatically add a slash, if it is missing).
 
@@ -158,9 +179,9 @@ more efficient with regard to code size and execution time.
      command-line tool.
      That is, comparing the encoding result byte-by-byte with encoding result
      from the `asm.js` variants, or separately encoded data using the FLAC
-     command-line tool, results are different for the `WebAssembly` variant.  
+     command-line tool, results are different for the `WebAssembly` variant.
      However, decoding these "binary-different" FLAC files (using `WebAssembly`,
-     or `asm.js` or the command-line tool) results in the same WAV data again.  
+     or `asm.js` or the command-line tool) results in the same WAV data again.
      _It seems, the `WebAssembly` variant chooses different frame-sizes
        while encoding; e.g. the max. frame-size may differ from when encoding
        with the `asm.js` variant or with the command-line tool._
@@ -172,7 +193,7 @@ NOTES for dynamically loaded library variants:
      including dynamically loaded libraries from a sub-path/location
 
 ##### Default Library:
-_(see [`/dist`](dist))_  
+_(see [`/dist`](dist))_
  * ASM.js Variant:
     * `libflac<lib version>-<flac version>.js`
  * WebAssembly variant _(dynamically loaded)_:
@@ -181,7 +202,7 @@ _(see [`/dist`](dist))_
     * `libflac<lib version>-<flac version>.wasm.js.symbols` (optional; contains renaming information)
 
 ##### Minified Library:
-_(see [`/dist/min`](dist/min))_  
+_(see [`/dist/min`](dist/min))_
  * ASM.js Variant _(dynamically loaded)_:
      * `libflac<lib version>-<flac version>.min.js`
      * `libflac<lib version>-<flac version>.min.js.mem` (**required**; will be loaded by the library)
@@ -192,7 +213,7 @@ _(see [`/dist/min`](dist/min))_
      * `libflac<lib version>-<flac version>.min.wasm.js.symbols` (optional; contains renaming information)
 
 ##### Development Library:
-_(see [`/dist/dev`](dist/dev))_  
+_(see [`/dist/dev`](dist/dev))_
  * ASM.js Variant:
    * `libflac<lib version>-<flac version>.dev.js`
    * `libflac<lib version>-<flac version>.dev.js.map` (optional; mapping to C code)
