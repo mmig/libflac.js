@@ -26,6 +26,35 @@ _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not kno
 __API Documentation__
 See [apidoc/index.html][16] for the API documentation.
 
+----
+
+<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
+
+- [Usage](#usage)
+	- [Including libflac.js](#including-libflacjs)
+		- [Browser](#browser)
+		- [WebWorker](#webworker)
+		- [Node](#node)
+		- [React](#react)
+		- [Including Dynamically Loaded libflac.js](#including-dynamically-loaded-libflacjs)
+		- [Including Dynamically Loaded  libflac.js from Non-Default Location](#including-dynamically-loaded-libflacjs-from-non-default-location)
+	- [Library Variants](#library-variants)
+		- [Default Library:](#default-library)
+		- [Minified Library:](#minified-library)
+		- [Development Library:](#development-library)
+	- [Encoding with libflac.js](#encoding-with-libflacjs)
+	- [Decoding with libflac.js](#decoding-with-libflacjs)
+	- [API](#api)
+- [Building](#building)
+	- [Build *nix (libflac 1.3.0)](#build-nix-libflac-130)
+	- [Build Windows/VisualStudio 10 (libflac 1.3.0)](#build-windowsvisualstudio-10-libflac-130)
+	- [Building *nix (libflac 1.3.2)](#building-nix-libflac-132)
+	- [Change Library API](#change-library-api)
+- [Contributors](#contributors)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
+
+<!-- /TOC -->
 
 ## Usage
 ------
@@ -74,7 +103,8 @@ Flac.on('ready', function(flac){
 ```
 
 ##### React
-_(thanks to @jay-shah for providing this solution)_
+_(thanks to @jay-shah for providing this solution)_  
+
 For `reactjs`:
 install with `npm` (see above), and `require()` the library directly, like
 ```javascript
