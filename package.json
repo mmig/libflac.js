@@ -1,6 +1,6 @@
 {
     "name": "libflacjs",
-    "version": "4.0.0",
+    "version": "4.0.1",
     "main": "index.js",
     "description": "FLAC encoder compiled in JavaScript using emscripten.",
     "directories": {
@@ -13,12 +13,8 @@
       "url": "git+https://github.com/mmig/libflac.js.git"
     },
     "contributors": [
-      {
-        "name": "F. Petersen"
-      },
-      {
-        "name": "A. Russ"
-      }
+      {"name": "F. Petersen"},
+      {"name": "A. Russ"}
     ],
     "license": "MIT",
     "bugs": {
