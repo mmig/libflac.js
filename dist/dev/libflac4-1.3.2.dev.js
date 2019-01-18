@@ -1,3 +1,8 @@
+// Copyright 2010 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
+
 // The Module object: Our interface to the outside world. We import
 // and export values on it. There are various ways Module can be used:
 // 1. Not defined. We create it here
@@ -72,8 +77,6 @@ Module["onRuntimeInitialized"] = function(){
 
 if(global && global.FLAC_SCRIPT_LOCATION){
 
-	Module["memoryInitializerPrefixURL"] = global.FLAC_SCRIPT_LOCATION;
-
 	Module["locateFile"] = function(fileName){
 		var path = global.FLAC_SCRIPT_LOCATION || '';
 		path += path && !/\/$/.test(path)? '/' : '';
@@ -131,8 +134,8 @@ Module['quit'] = function(status, toThrow) {
 Module['preRun'] = [];
 Module['postRun'] = [];
 
-// The environment setup code below is customized to use Module.
-// *** Environment setup code ***
+// Determine the runtime environment we are in. You can customize this by
+// setting the ENVIRONMENT setting at compile time (see settings.js).
 
 var ENVIRONMENT_IS_WEB = false;
 var ENVIRONMENT_IS_WORKER = false;
@@ -152,8 +155,18 @@ if (Module['ENVIRONMENT']) {
 // 2) We could be the application main() thread proxied to worker. (with Emscripten -s PROXY_TO_WORKER=1) (ENVIRONMENT_IS_WORKER == true, ENVIRONMENT_IS_PTHREAD == false)
 // 3) We could be an application pthread running in a worker. (ENVIRONMENT_IS_WORKER == true and ENVIRONMENT_IS_PTHREAD == true)
 
-if (ENVIRONMENT_IS_NODE) {
+// `/` should be present at the end if `scriptDirectory` is not empty
+var scriptDirectory = '';
+function locateFile(path) {
+  if (Module['locateFile']) {
+    return Module['locateFile'](path, scriptDirectory);
+  } else {
+    return scriptDirectory + path;
+  }
+}
 
+if (ENVIRONMENT_IS_NODE) {
+  scriptDirectory = __dirname + '/';
 
   // Expose functionality in the same simple way that the shells work
   // Note that we pollute the global namespace here, otherwise we break in node
@@ -196,10 +209,7 @@ if (ENVIRONMENT_IS_NODE) {
   });
   // Currently node will swallow unhandled rejections, but this behavior is
   // deprecated, and in the future it will exit with error status.
-  process['on']('unhandledRejection', function(reason, p) {
-    err('node.js exiting due to unhandled promise rejection');
-    process['exit'](1);
-  });
+  process['on']('unhandledRejection', abort);
 
   Module['quit'] = function(status) {
     process['exit'](status);
@@ -239,6 +249,20 @@ if (ENVIRONMENT_IS_SHELL) {
   }
 } else
 if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+  if (ENVIRONMENT_IS_WORKER) { // Check worker, not web, since window could be polyfilled
+    scriptDirectory = self.location.href;
+  } else if (document.currentScript) { // web
+    scriptDirectory = document.currentScript.src;
+  }
+  // blob urls look like blob:http://site.com/etc/etc and we cannot infer anything from them.
+  // otherwise, slice off the final part of the url to find the script directory.
+  // if scriptDirectory does not contain a slash, lastIndexOf will return -1,
+  // and scriptDirectory will correctly be replaced with an empty string.
+  if (scriptDirectory.indexOf('blob:') !== 0) {
+    scriptDirectory = scriptDirectory.substr(0, scriptDirectory.lastIndexOf('/')+1);
+  } else {
+    scriptDirectory = '';
+  }
 
 
   Module['read'] = function shell_read(url) {
@@ -288,8 +312,6 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
 var out = Module['print'] || (typeof console !== 'undefined' ? console.log.bind(console) : (typeof print !== 'undefined' ? print : null));
 var err = Module['printErr'] || (typeof printErr !== 'undefined' ? printErr : ((typeof console !== 'undefined' && console.warn.bind(console)) || out));
 
-// *** Environment setup code ***
-
 // Merge back in the overrides
 for (key in moduleOverrides) {
   if (moduleOverrides.hasOwnProperty(key)) {
@@ -300,7 +322,18 @@ for (key in moduleOverrides) {
 // reclaim data used e.g. in memoryInitializerRequest, which is a large typed array.
 moduleOverrides = undefined;
 
+// perform assertions in shell.js after we set up out() and err(), as otherwise if an assertion fails it cannot print the message
+assert(typeof Module['memoryInitializerPrefixURL'] === 'undefined', 'Module.memoryInitializerPrefixURL option was removed, use Module.locateFile instead');
+assert(typeof Module['pthreadMainPrefixURL'] === 'undefined', 'Module.pthreadMainPrefixURL option was removed, use Module.locateFile instead');
+assert(typeof Module['cdInitializerPrefixURL'] === 'undefined', 'Module.cdInitializerPrefixURL option was removed, use Module.locateFile instead');
+assert(typeof Module['filePackagePrefixURL'] === 'undefined', 'Module.filePackagePrefixURL option was removed, use Module.locateFile instead');
 
+
+
+// Copyright 2017 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 // {{PREAMBLE_ADDITIONS}}
 
@@ -308,7 +341,7 @@ var STACK_ALIGN = 16;
 
 // stack management, and other functionality that is provided by the compiled code,
 // should not be used before it is ready
-stackSave = stackRestore = stackAlloc = setTempRet0 = getTempRet0 = function() {
+stackSave = stackRestore = stackAlloc = function() {
   abort('cannot use the stack before compiled code is ready to run, and has provided stack access');
 };
 
@@ -450,6 +483,15 @@ function dynCall(sig, ptr, args) {
   }
 }
 
+var tempRet0 = 0;
+
+var setTempRet0 = function(value) {
+  tempRet0 = value;
+}
+
+var getTempRet0 = function() {
+  return tempRet0;
+}
 
 function getCompilerSetting(name) {
   throw 'You must build with -s RETAIN_COMPILER_SETTINGS=1 for getCompilerSetting or emscripten_get_compiler_setting to work';
@@ -489,7 +531,13 @@ var GLOBAL_BASE = 8;
 // Runtime essentials
 //========================================
 
-var ABORT = 0; // whether we are quitting the application. no code should run after this. set in exit() and abort()
+// whether we are quitting the application. no code should run after this.
+// set in exit() and abort()
+var ABORT = false;
+
+// set by exit() and abort().  Passed to 'onExit' handler.
+// NOTE: This is also used as the process return code code in shell environments
+// but only when noExitRuntime is false.
 var EXITSTATUS = 0;
 
 /** @type {function(*, string=)} */
@@ -775,7 +823,10 @@ function UTF8ArrayToString(u8Array, idx) {
 
     var str = '';
     while (1) {
-      // For UTF8 byte structure, see http://en.wikipedia.org/wiki/UTF-8#Description and https://www.ietf.org/rfc/rfc2279.txt and https://tools.ietf.org/html/rfc3629
+      // For UTF8 byte structure, see:
+      // http://en.wikipedia.org/wiki/UTF-8#Description
+      // https://www.ietf.org/rfc/rfc2279.txt
+      // https://tools.ietf.org/html/rfc3629
       u0 = u8Array[idx++];
       if (!u0) return str;
       if (!(u0 & 0x80)) { str += String.fromCharCode(u0); continue; }
@@ -822,8 +873,9 @@ function UTF8ToString(ptr) {
 //   str: the Javascript string to copy.
 //   outU8Array: the array to copy to. Each index in this array is assumed to be one 8-byte element.
 //   outIdx: The starting offset in the array to begin the copying.
-//   maxBytesToWrite: The maximum number of bytes this function can write to the array. This count should include the null
-//                    terminator, i.e. if maxBytesToWrite=1, only the null terminator will be written and nothing else.
+//   maxBytesToWrite: The maximum number of bytes this function can write to the array.
+//                    This count should include the null terminator,
+//                    i.e. if maxBytesToWrite=1, only the null terminator will be written and nothing else.
 //                    maxBytesToWrite=0 does not write any bytes to the output, not even the null terminator.
 // Returns the number of bytes written, EXCLUDING the null terminator.
 
@@ -838,7 +890,10 @@ function stringToUTF8Array(str, outU8Array, outIdx, maxBytesToWrite) {
     // See http://unicode.org/faq/utf_bom.html#utf16-3
     // For UTF8 byte structure, see http://en.wikipedia.org/wiki/UTF-8#Description and https://www.ietf.org/rfc/rfc2279.txt and https://tools.ietf.org/html/rfc3629
     var u = str.charCodeAt(i); // possibly a lead surrogate
-    if (u >= 0xD800 && u <= 0xDFFF) u = 0x10000 + ((u & 0x3FF) << 10) | (str.charCodeAt(++i) & 0x3FF);
+    if (u >= 0xD800 && u <= 0xDFFF) {
+      var u1 = str.charCodeAt(++i);
+      u = 0x10000 + ((u & 0x3FF) << 10) | (u1 & 0x3FF);
+    }
     if (u <= 0x7F) {
       if (outIdx >= endIdx) break;
       outU8Array[outIdx++] = u;
@@ -1085,7 +1140,7 @@ function demangleAll(text) {
   return text.replace(regex,
     function(x) {
       var y = demangle(x);
-      return x === y ? x : (x + ' [' + y + ']');
+      return x === y ? x : (y + ' [' + x + ']');
     });
 }
 
@@ -1180,7 +1235,7 @@ function checkStackCookie() {
   if (HEAPU32[(STACK_MAX >> 2)-1] != 0x02135467 || HEAPU32[(STACK_MAX >> 2)-2] != 0x89BACDFE) {
     abort('Stack overflow! Stack cookie has been overwritten, expected hex dwords 0x89BACDFE and 0x02135467, but received 0x' + HEAPU32[(STACK_MAX >> 2)-2].toString(16) + ' ' + HEAPU32[(STACK_MAX >> 2)-1].toString(16));
   }
-  // Also test the global address 0 for integrity. This check is not compatible with SAFE_SPLIT_MEMORY though, since that mode already tests all address 0 accesses on its own.
+  // Also test the global address 0 for integrity.
   if (HEAP32[0] !== 0x63736d65 /* 'emsc' */) throw 'Runtime error: The application has corrupted its heap memory area (address zero)!';
 }
 
@@ -1196,14 +1251,10 @@ function abortOnCannotGrowMemory() {
 if (!Module['reallocBuffer']) Module['reallocBuffer'] = function(size) {
   var ret;
   try {
-    if (ArrayBuffer.transfer) {
-      ret = ArrayBuffer.transfer(buffer, size);
-    } else {
-      var oldHEAP8 = HEAP8;
-      ret = new ArrayBuffer(size);
-      var temp = new Int8Array(ret);
-      temp.set(oldHEAP8);
-    }
+    var oldHEAP8 = HEAP8;
+    ret = new ArrayBuffer(size);
+    var temp = new Int8Array(ret);
+    temp.set(oldHEAP8);
   } catch(e) {
     return false;
   }
@@ -1239,6 +1290,7 @@ function enlargeMemory() {
       }
     }
   }
+
 
   var start = Date.now();
 
@@ -1455,7 +1507,10 @@ function reSign(value, bits, ignore) {
   return value;
 }
 
-assert(Math['imul'] && Math['fround'] && Math['clz32'] && Math['trunc'], 'this is a legacy browser, build with LEGACY_VM_SUPPORT');
+assert(Math.imul, 'This browser does not support Math.imul(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill');
+assert(Math.fround, 'This browser does not support Math.fround(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill');
+assert(Math.clz32, 'This browser does not support Math.clz32(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill');
+assert(Math.trunc, 'This browser does not support Math.trunc(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill');
 
 var Math_abs = Math.abs;
 var Math_cos = Math.cos;
@@ -1482,7 +1537,7 @@ var Math_trunc = Math.trunc;
 // A counter of dependencies for calling run(). If we need to
 // do asynchronous work before running, increment this and
 // decrement it. Incrementing must happen in a place like
-// PRE_RUN_ADDITIONS (used by emcc to add file preloading).
+// Module.preRun (used by emcc to add file preloading).
 // Note that you can add dependencies in preRun, even though
 // it happens right before run - run will be postponed until
 // the dependencies are met.
@@ -1570,6 +1625,11 @@ var memoryInitializer = null;
 
 
 
+// Copyright 2017 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
+
 // Prefix of data URIs emitted by SINGLE_FILE and related options.
 var dataURIPrefix = 'data:application/octet-stream;base64,';
 
@@ -1594,11 +1654,11 @@ var ASM_CONSTS = [];
 
 STATIC_BASE = GLOBAL_BASE;
 
-STATICTOP = STATIC_BASE + 6144;
+STATICTOP = STATIC_BASE + 6176;
 /* global initializers */  __ATINIT__.push();
 
 
-/* memory initializer */ allocate([0,0,0,0,5,128,0,0,15,128,0,0,10,0,0,0,27,128,0,0,30,0,0,0,20,0,0,0,17,128,0,0,51,128,0,0,54,0,0,0,60,0,0,0,57,128,0,0,40,0,0,0,45,128,0,0,39,128,0,0,34,0,0,0,99,128,0,0,102,0,0,0,108,0,0,0,105,128,0,0,120,0,0,0,125,128,0,0,119,128,0,0,114,0,0,0,80,0,0,0,85,128,0,0,95,128,0,0,90,0,0,0,75,128,0,0,78,0,0,0,68,0,0,0,65,128,0,0,195,128,0,0,198,0,0,0,204,0,0,0,201,128,0,0,216,0,0,0,221,128,0,0,215,128,0,0,210,0,0,0,240,0,0,0,245,128,0,0,255,128,0,0,250,0,0,0,235,128,0,0,238,0,0,0,228,0,0,0,225,128,0,0,160,0,0,0,165,128,0,0,175,128,0,0,170,0,0,0,187,128,0,0,190,0,0,0,180,0,0,0,177,128,0,0,147,128,0,0,150,0,0,0,156,0,0,0,153,128,0,0,136,0,0,0,141,128,0,0,135,128,0,0,130,0,0,0,131,129,0,0,134,1,0,0,140,1,0,0,137,129,0,0,152,1,0,0,157,129,0,0,151,129,0,0,146,1,0,0,176,1,0,0,181,129,0,0,191,129,0,0,186,1,0,0,171,129,0,0,174,1,0,0,164,1,0,0,161,129,0,0,224,1,0,0,229,129,0,0,239,129,0,0,234,1,0,0,251,129,0,0,254,1,0,0,244,1,0,0,241,129,0,0,211,129,0,0,214,1,0,0,220,1,0,0,217,129,0,0,200,1,0,0,205,129,0,0,199,129,0,0,194,1,0,0,64,1,0,0,69,129,0,0,79,129,0,0,74,1,0,0,91,129,0,0,94,1,0,0,84,1,0,0,81,129,0,0,115,129,0,0,118,1,0,0,124,1,0,0,121,129,0,0,104,1,0,0,109,129,0,0,103,129,0,0,98,1,0,0,35,129,0,0,38,1,0,0,44,1,0,0,41,129,0,0,56,1,0,0,61,129,0,0,55,129,0,0,50,1,0,0,16,1,0,0,21,129,0,0,31,129,0,0,26,1,0,0,11,129,0,0,14,1,0,0,4,1,0,0,1,129,0,0,3,131,0,0,6,3,0,0,12,3,0,0,9,131,0,0,24,3,0,0,29,131,0,0,23,131,0,0,18,3,0,0,48,3,0,0,53,131,0,0,63,131,0,0,58,3,0,0,43,131,0,0,46,3,0,0,36,3,0,0,33,131,0,0,96,3,0,0,101,131,0,0,111,131,0,0,106,3,0,0,123,131,0,0,126,3,0,0,116,3,0,0,113,131,0,0,83,131,0,0,86,3,0,0,92,3,0,0,89,131,0,0,72,3,0,0,77,131,0,0,71,131,0,0,66,3,0,0,192,3,0,0,197,131,0,0,207,131,0,0,202,3,0,0,219,131,0,0,222,3,0,0,212,3,0,0,209,131,0,0,243,131,0,0,246,3,0,0,252,3,0,0,249,131,0,0,232,3,0,0,237,131,0,0,231,131,0,0,226,3,0,0,163,131,0,0,166,3,0,0,172,3,0,0,169,131,0,0,184,3,0,0,189,131,0,0,183,131,0,0,178,3,0,0,144,3,0,0,149,131,0,0,159,131,0,0,154,3,0,0,139,131,0,0,142,3,0,0,132,3,0,0,129,131,0,0,128,2,0,0,133,130,0,0,143,130,0,0,138,2,0,0,155,130,0,0,158,2,0,0,148,2,0,0,145,130,0,0,179,130,0,0,182,2,0,0,188,2,0,0,185,130,0,0,168,2,0,0,173,130,0,0,167,130,0,0,162,2,0,0,227,130,0,0,230,2,0,0,236,2,0,0,233,130,0,0,248,2,0,0,253,130,0,0,247,130,0,0,242,2,0,0,208,2,0,0,213,130,0,0,223,130,0,0,218,2,0,0,203,130,0,0,206,2,0,0,196,2,0,0,193,130,0,0,67,130,0,0,70,2,0,0,76,2,0,0,73,130,0,0,88,2,0,0,93,130,0,0,87,130,0,0,82,2,0,0,112,2,0,0,117,130,0,0,127,130,0,0,122,2,0,0,107,130,0,0,110,2,0,0,100,2,0,0,97,130,0,0,32,2,0,0,37,130,0,0,47,130,0,0,42,2,0,0,59,130,0,0,62,2,0,0,52,2,0,0,49,130,0,0,19,130,0,0,22,2,0,0,28,2,0,0,25,130,0,0,8,2,0,0,13,130,0,0,7,130,0,0,2,2,0,0,67,97,76,102,20,0,0,0,36,0,0,0,96,0,0,0,110,0,0,0,0,4,0,0,23,8,0,0,32,0,0,0,7,0,0,0,24,0,0,0,254,63,0,0,14,0,0,0,3,0,0,0,8,0,0,0,15,0,0,0,31,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,1,0,0,0,2,0,0,0,16,0,0,0,64,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,32,13,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,32,13,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,32,13,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,32,13,0,0,1,0,0,0,1,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,32,13,0,0,1,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0,0,0,0,0,0,0,32,13,0,0,1,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,44,13,0,0,1,0,0,0,0,0,0,0,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,44,13,0,0,1,0,0,0,0,0,0,0,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,73,13,0,0,244,5,0,0,9,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,8,0,0,0,241,15,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,255,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,116,6,0,0,5,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,8,0,0,0,249,19,0,0,0,4,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,255,255,255,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,116,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,176,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,100,0,0,0,232,3,0,0,16,39,0,0,160,134,1,0,64,66,15,0,128,150,152,0,0,225,245,5,95,112,137,0,255,9,47,15,0,7,14,9,28,27,18,21,56,63,54,49,36,35,42,45,112,119,126,121,108,107,98,101,72,79,70,65,84,83,90,93,224,231,238,233,252,251,242,245,216,223,214,209,196,195,202,205,144,151,158,153,140,139,130,133,168,175,166,161,180,179,186,189,199,192,201,206,219,220,213,210,255,248,241,246,227,228,237,234,183,176,185,190,171,172,165,162,143,136,129,134,147,148,157,154,39,32,41,46,59,60,53,50,31,24,17,22,3,4,13,10,87,80,89,94,75,76,69,66,111,104,97,102,115,116,125,122,137,142,135,128,149,146,155,156,177,182,191,184,173,170,163,164,249,254,247,240,229,226,235,236,193,198,207,200,221,218,211,212,105,110,103,96,117,114,123,124,81,86,95,88,77,74,67,68,25,30,23,16,5,2,11,12,33,38,47,40,61,58,51,52,78,73,64,71,82,85,92,91,118,113,120,127,106,109,100,99,62,57,48,55,34,37,44,43,6,1,8,15,26,29,20,19,174,169,160,167,178,181,188,187,150,145,152,159,138,141,132,131,222,217,208,215,194,197,204,203,230,225,232,239,250,253,244,243,114,101,102,101,114,101,110,99,101,32,108,105,98,70,76,65,67,32,49,46,51,46,50,32,50,48,49,55,48,49,48,49,0,102,76,97,67,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,109,117,115,116,32,104,97,118,101,32,97,32,108,101,97,100,45,105,110,32,108,101,110,103,116,104,32,111,102,32,97,116,32,108,101,97,115,116,32,50,32,115,101,99,111,110,100,115,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,108,101,97,100,45,105,110,32,108,101,110,103,116,104,32,109,117,115,116,32,98,101,32,101,118,101,110,108,121,32,100,105,118,105,115,105,98,108,101,32,98,121,32,53,56,56,32,115,97,109,112,108,101,115,0,99,117,101,32,115,104,101,101,116,32,109,117,115,116,32,104,97,118,101,32,97,116,32,108,101,97,115,116,32,111,110,101,32,116,114,97,99,107,32,40,116,104,101,32,108,101,97,100,45,111,117,116,41,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,109,117,115,116,32,104,97,118,101,32,97,32,108,101,97,100,45,111,117,116,32,116,114,97,99,107,32,110,117,109,98,101,114,32,49,55,48,32,40,48,120,65,65,41,0,99,117,101,32,115,104,101,101,116,32,109,97,121,32,110,111,116,32,104,97,118,101,32,97,32,116,114,97,99,107,32,110,117,109,98,101,114,32,48,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,110,117,109,98,101,114,32,109,117,115,116,32,98,101,32,49,45,57,57,32,111,114,32,49,55,48,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,108,101,97,100,45,111,117,116,32,111,102,102,115,101,116,32,109,117,115,116,32,98,101,32,101,118,101,110,108,121,32,100,105,118,105,115,105,98,108,101,32,98,121,32,53,56,56,32,115,97,109,112,108,101,115,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,111,102,102,115,101,116,32,109,117,115,116,32,98,101,32,101,118,101,110,108,121,32,100,105,118,105,115,105,98,108,101,32,98,121,32,53,56,56,32,115,97,109,112,108,101,115,0,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,109,117,115,116,32,104,97,118,101,32,97,116,32,108,101,97,115,116,32,111,110,101,32,105,110,100,101,120,32,112,111,105,110,116,0,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,39,115,32,102,105,114,115,116,32,105,110,100,101,120,32,110,117,109,98,101,114,32,109,117,115,116,32,98,101,32,48,32,111,114,32,49,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,105,110,100,101,120,32,111,102,102,115,101,116,32,109,117,115,116,32,98,101,32,101,118,101,110,108,121,32,100,105,118,105,115,105,98,108,101,32,98,121,32,53,56,56,32,115,97,109,112,108,101,115,0,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,105,110,100,101,120,32,110,117,109,98,101,114,115,32,109,117,115,116,32,105,110,99,114,101,97,115,101,32,98,121,32,49,0,77,73,77,69,32,116,121,112,101,32,115,116,114,105,110,103,32,109,117,115,116,32,99,111,110,116,97,105,110,32,111,110,108,121,32,112,114,105,110,116,97,98,108,101,32,65,83,67,73,73,32,99,104,97,114,97,99,116,101,114,115,32,40,48,120,50,48,45,48,120,55,101,41,0,100,101,115,99,114,105,112,116,105,111,110,32,115,116,114,105,110,103,32,109,117,115,116,32,98,101,32,118,97,108,105,100,32,85,84,70,45,56,0,73,68,51,98,97,114,116,108,101,116,116,0,98,97,114,116,108,101,116,116,95,104,97,110,110,0,98,108,97,99,107,109,97,110,0,98,108,97,99,107,109,97,110,95,104,97,114,114,105,115,95,52,116,101,114,109,95,57,50,100,98,0,99,111,110,110,101,115,0,102,108,97,116,116,111,112,0,103,97,117,115,115,40,0,104,97,109,109,105,110,103,0,104,97,110,110,0,107,97,105,115,101,114,95,98,101,115,115,101,108,0,110,117,116,116,97,108,108,0,114,101,99,116,97,110,103,108,101,0,116,114,105,97,110,103,108,101,0,116,117,107,101,121,40,0,112,97,114,116,105,97,108,95,116,117,107,101,121,40,0,112,117,110,99,104,111,117,116,95,116,117,107,101,121,40,0,119,101,108,99,104,0,116,117,107,101,121,40,53,101,45,49,41,0,116,117,107,101,121,40,53,101,45,49,41,59,112,97,114,116,105,97,108,95,116,117,107,101,121,40,50,41,0,116,117,107,101,121,40,53,101,45,49,41,59,112,97,114,116,105,97,108,95,116,117,107,101,121,40,50,41,59,112,117,110,99,104,111,117,116,95,116,117,107,101,121,40,51,41,0,105,109,97,103,101,47,112,110,103,0,45,45,62,0,105,110,102,105,110,105,116,121,0,110,97,110,0], "i8", ALLOC_NONE, GLOBAL_BASE);
+/* memory initializer */ allocate([0,0,0,0,0,0,0,0,10,0,0,0,100,0,0,0,232,3,0,0,16,39,0,0,160,134,1,0,64,66,15,0,128,150,152,0,0,225,245,5,0,0,0,0,5,128,0,0,15,128,0,0,10,0,0,0,27,128,0,0,30,0,0,0,20,0,0,0,17,128,0,0,51,128,0,0,54,0,0,0,60,0,0,0,57,128,0,0,40,0,0,0,45,128,0,0,39,128,0,0,34,0,0,0,99,128,0,0,102,0,0,0,108,0,0,0,105,128,0,0,120,0,0,0,125,128,0,0,119,128,0,0,114,0,0,0,80,0,0,0,85,128,0,0,95,128,0,0,90,0,0,0,75,128,0,0,78,0,0,0,68,0,0,0,65,128,0,0,195,128,0,0,198,0,0,0,204,0,0,0,201,128,0,0,216,0,0,0,221,128,0,0,215,128,0,0,210,0,0,0,240,0,0,0,245,128,0,0,255,128,0,0,250,0,0,0,235,128,0,0,238,0,0,0,228,0,0,0,225,128,0,0,160,0,0,0,165,128,0,0,175,128,0,0,170,0,0,0,187,128,0,0,190,0,0,0,180,0,0,0,177,128,0,0,147,128,0,0,150,0,0,0,156,0,0,0,153,128,0,0,136,0,0,0,141,128,0,0,135,128,0,0,130,0,0,0,131,129,0,0,134,1,0,0,140,1,0,0,137,129,0,0,152,1,0,0,157,129,0,0,151,129,0,0,146,1,0,0,176,1,0,0,181,129,0,0,191,129,0,0,186,1,0,0,171,129,0,0,174,1,0,0,164,1,0,0,161,129,0,0,224,1,0,0,229,129,0,0,239,129,0,0,234,1,0,0,251,129,0,0,254,1,0,0,244,1,0,0,241,129,0,0,211,129,0,0,214,1,0,0,220,1,0,0,217,129,0,0,200,1,0,0,205,129,0,0,199,129,0,0,194,1,0,0,64,1,0,0,69,129,0,0,79,129,0,0,74,1,0,0,91,129,0,0,94,1,0,0,84,1,0,0,81,129,0,0,115,129,0,0,118,1,0,0,124,1,0,0,121,129,0,0,104,1,0,0,109,129,0,0,103,129,0,0,98,1,0,0,35,129,0,0,38,1,0,0,44,1,0,0,41,129,0,0,56,1,0,0,61,129,0,0,55,129,0,0,50,1,0,0,16,1,0,0,21,129,0,0,31,129,0,0,26,1,0,0,11,129,0,0,14,1,0,0,4,1,0,0,1,129,0,0,3,131,0,0,6,3,0,0,12,3,0,0,9,131,0,0,24,3,0,0,29,131,0,0,23,131,0,0,18,3,0,0,48,3,0,0,53,131,0,0,63,131,0,0,58,3,0,0,43,131,0,0,46,3,0,0,36,3,0,0,33,131,0,0,96,3,0,0,101,131,0,0,111,131,0,0,106,3,0,0,123,131,0,0,126,3,0,0,116,3,0,0,113,131,0,0,83,131,0,0,86,3,0,0,92,3,0,0,89,131,0,0,72,3,0,0,77,131,0,0,71,131,0,0,66,3,0,0,192,3,0,0,197,131,0,0,207,131,0,0,202,3,0,0,219,131,0,0,222,3,0,0,212,3,0,0,209,131,0,0,243,131,0,0,246,3,0,0,252,3,0,0,249,131,0,0,232,3,0,0,237,131,0,0,231,131,0,0,226,3,0,0,163,131,0,0,166,3,0,0,172,3,0,0,169,131,0,0,184,3,0,0,189,131,0,0,183,131,0,0,178,3,0,0,144,3,0,0,149,131,0,0,159,131,0,0,154,3,0,0,139,131,0,0,142,3,0,0,132,3,0,0,129,131,0,0,128,2,0,0,133,130,0,0,143,130,0,0,138,2,0,0,155,130,0,0,158,2,0,0,148,2,0,0,145,130,0,0,179,130,0,0,182,2,0,0,188,2,0,0,185,130,0,0,168,2,0,0,173,130,0,0,167,130,0,0,162,2,0,0,227,130,0,0,230,2,0,0,236,2,0,0,233,130,0,0,248,2,0,0,253,130,0,0,247,130,0,0,242,2,0,0,208,2,0,0,213,130,0,0,223,130,0,0,218,2,0,0,203,130,0,0,206,2,0,0,196,2,0,0,193,130,0,0,67,130,0,0,70,2,0,0,76,2,0,0,73,130,0,0,88,2,0,0,93,130,0,0,87,130,0,0,82,2,0,0,112,2,0,0,117,130,0,0,127,130,0,0,122,2,0,0,107,130,0,0,110,2,0,0,100,2,0,0,97,130,0,0,32,2,0,0,37,130,0,0,47,130,0,0,42,2,0,0,59,130,0,0,62,2,0,0,52,2,0,0,49,130,0,0,19,130,0,0,22,2,0,0,28,2,0,0,25,130,0,0,8,2,0,0,13,130,0,0,7,130,0,0,2,2,0,0,67,97,76,102,20,0,0,0,36,0,0,0,96,0,0,0,110,0,0,0,0,4,0,0,23,8,0,0,32,0,0,0,7,0,0,0,24,0,0,0,254,63,0,0,14,0,0,0,3,0,0,0,8,0,0,0,15,0,0,0,31,0,0,0,4,0,0,0,5,0,0,0,6,0,0,0,1,0,0,0,2,0,0,0,16,0,0,0,64,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,40,13,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,40,13,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,40,13,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,40,13,0,0,1,0,0,0,1,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,40,13,0,0,1,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0,0,0,0,0,0,0,40,13,0,0,1,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,52,13,0,0,1,0,0,0,0,0,0,0,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,52,13,0,0,1,0,0,0,0,0,0,0,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,81,13,0,0,28,6,0,0,9,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,8,0,0,0,168,13,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,255,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,156,6,0,0,5,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,8,0,0,0,184,17,0,0,0,4,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,255,255,255,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,156,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,220,23,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,95,112,137,0,255,9,47,15,0,7,14,9,28,27,18,21,56,63,54,49,36,35,42,45,112,119,126,121,108,107,98,101,72,79,70,65,84,83,90,93,224,231,238,233,252,251,242,245,216,223,214,209,196,195,202,205,144,151,158,153,140,139,130,133,168,175,166,161,180,179,186,189,199,192,201,206,219,220,213,210,255,248,241,246,227,228,237,234,183,176,185,190,171,172,165,162,143,136,129,134,147,148,157,154,39,32,41,46,59,60,53,50,31,24,17,22,3,4,13,10,87,80,89,94,75,76,69,66,111,104,97,102,115,116,125,122,137,142,135,128,149,146,155,156,177,182,191,184,173,170,163,164,249,254,247,240,229,226,235,236,193,198,207,200,221,218,211,212,105,110,103,96,117,114,123,124,81,86,95,88,77,74,67,68,25,30,23,16,5,2,11,12,33,38,47,40,61,58,51,52,78,73,64,71,82,85,92,91,118,113,120,127,106,109,100,99,62,57,48,55,34,37,44,43,6,1,8,15,26,29,20,19,174,169,160,167,178,181,188,187,150,145,152,159,138,141,132,131,222,217,208,215,194,197,204,203,230,225,232,239,250,253,244,243,114,101,102,101,114,101,110,99,101,32,108,105,98,70,76,65,67,32,49,46,51,46,50,32,50,48,49,55,48,49,48,49,0,102,76,97,67,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,109,117,115,116,32,104,97,118,101,32,97,32,108,101,97,100,45,105,110,32,108,101,110,103,116,104,32,111,102,32,97,116,32,108,101,97,115,116,32,50,32,115,101,99,111,110,100,115,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,108,101,97,100,45,105,110,32,108,101,110,103,116,104,32,109,117,115,116,32,98,101,32,101,118,101,110,108,121,32,100,105,118,105,115,105,98,108,101,32,98,121,32,53,56,56,32,115,97,109,112,108,101,115,0,99,117,101,32,115,104,101,101,116,32,109,117,115,116,32,104,97,118,101,32,97,116,32,108,101,97,115,116,32,111,110,101,32,116,114,97,99,107,32,40,116,104,101,32,108,101,97,100,45,111,117,116,41,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,109,117,115,116,32,104,97,118,101,32,97,32,108,101,97,100,45,111,117,116,32,116,114,97,99,107,32,110,117,109,98,101,114,32,49,55,48,32,40,48,120,65,65,41,0,99,117,101,32,115,104,101,101,116,32,109,97,121,32,110,111,116,32,104,97,118,101,32,97,32,116,114,97,99,107,32,110,117,109,98,101,114,32,48,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,110,117,109,98,101,114,32,109,117,115,116,32,98,101,32,49,45,57,57,32,111,114,32,49,55,48,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,108,101,97,100,45,111,117,116,32,111,102,102,115,101,116,32,109,117,115,116,32,98,101,32,101,118,101,110,108,121,32,100,105,118,105,115,105,98,108,101,32,98,121,32,53,56,56,32,115,97,109,112,108,101,115,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,111,102,102,115,101,116,32,109,117,115,116,32,98,101,32,101,118,101,110,108,121,32,100,105,118,105,115,105,98,108,101,32,98,121,32,53,56,56,32,115,97,109,112,108,101,115,0,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,109,117,115,116,32,104,97,118,101,32,97,116,32,108,101,97,115,116,32,111,110,101,32,105,110,100,101,120,32,112,111,105,110,116,0,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,39,115,32,102,105,114,115,116,32,105,110,100,101,120,32,110,117,109,98,101,114,32,109,117,115,116,32,98,101,32,48,32,111,114,32,49,0,67,68,45,68,65,32,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,105,110,100,101,120,32,111,102,102,115,101,116,32,109,117,115,116,32,98,101,32,101,118,101,110,108,121,32,100,105,118,105,115,105,98,108,101,32,98,121,32,53,56,56,32,115,97,109,112,108,101,115,0,99,117,101,32,115,104,101,101,116,32,116,114,97,99,107,32,105,110,100,101,120,32,110,117,109,98,101,114,115,32,109,117,115,116,32,105,110,99,114,101,97,115,101,32,98,121,32,49,0,77,73,77,69,32,116,121,112,101,32,115,116,114,105,110,103,32,109,117,115,116,32,99,111,110,116,97,105,110,32,111,110,108,121,32,112,114,105,110,116,97,98,108,101,32,65,83,67,73,73,32,99,104,97,114,97,99,116,101,114,115,32,40,48,120,50,48,45,48,120,55,101,41,0,100,101,115,99,114,105,112,116,105,111,110,32,115,116,114,105,110,103,32,109,117,115,116,32,98,101,32,118,97,108,105,100,32,85,84,70,45,56,0,73,68,51,98,97,114,116,108,101,116,116,0,98,97,114,116,108,101,116,116,95,104,97,110,110,0,98,108,97,99,107,109,97,110,0,98,108,97,99,107,109,97,110,95,104,97,114,114,105,115,95,52,116,101,114,109,95,57,50,100,98,0,99,111,110,110,101,115,0,102,108,97,116,116,111,112,0,103,97,117,115,115,40,0,104,97,109,109,105,110,103,0,104,97,110,110,0,107,97,105,115,101,114,95,98,101,115,115,101,108,0,110,117,116,116,97,108,108,0,114,101,99,116,97,110,103,108,101,0,116,114,105,97,110,103,108,101,0,116,117,107,101,121,40,0,112,97,114,116,105,97,108,95,116,117,107,101,121,40,0,112,117,110,99,104,111,117,116,95,116,117,107,101,121,40,0,119,101,108,99,104,0,116,117,107,101,121,40,53,101,45,49,41,0,116,117,107,101,121,40,53,101,45,49,41,59,112,97,114,116,105,97,108,95,116,117,107,101,121,40,50,41,0,116,117,107,101,121,40,53,101,45,49,41,59,112,97,114,116,105,97,108,95,116,117,107,101,121,40,50,41,59,112,117,110,99,104,111,117,116,95,116,117,107,101,121,40,51,41,0,105,109,97,103,101,47,112,110,103,0,45,45,62,0,105,110,102,105,110,105,116,121,0,110,97,110,0], "i8", ALLOC_NONE, GLOBAL_BASE);
 
 
 
@@ -1606,39 +1666,24 @@ STATICTOP = STATIC_BASE + 6144;
 
 /* no memory initializer */
 var tempDoublePtr = STATICTOP; STATICTOP += 16;
-
 assert(tempDoublePtr % 8 == 0);
 
 function copyTempFloat(ptr) { // functions, because inlining this code increases code size too much
-
   HEAP8[tempDoublePtr] = HEAP8[ptr];
-
   HEAP8[tempDoublePtr+1] = HEAP8[ptr+1];
-
   HEAP8[tempDoublePtr+2] = HEAP8[ptr+2];
-
   HEAP8[tempDoublePtr+3] = HEAP8[ptr+3];
-
 }
 
 function copyTempDouble(ptr) {
-
   HEAP8[tempDoublePtr] = HEAP8[ptr];
-
   HEAP8[tempDoublePtr+1] = HEAP8[ptr+1];
-
   HEAP8[tempDoublePtr+2] = HEAP8[ptr+2];
-
   HEAP8[tempDoublePtr+3] = HEAP8[ptr+3];
-
   HEAP8[tempDoublePtr+4] = HEAP8[ptr+4];
-
   HEAP8[tempDoublePtr+5] = HEAP8[ptr+5];
-
   HEAP8[tempDoublePtr+6] = HEAP8[ptr+6];
-
   HEAP8[tempDoublePtr+7] = HEAP8[ptr+7];
-
 }
 
 // {{PRE_LIBRARY}}
@@ -1841,12 +1886,19 @@ function copyTempDouble(ptr) {
           if (!stream.tty || !stream.tty.ops.put_char) {
             throw new FS.ErrnoError(ERRNO_CODES.ENXIO);
           }
-          for (var i = 0; i < length; i++) {
-            try {
-              stream.tty.ops.put_char(stream.tty, buffer[offset+i]);
-            } catch (e) {
-              throw new FS.ErrnoError(ERRNO_CODES.EIO);
+          var i = 0;
+          try {
+            if (offset === 0 && length === 0) {
+              // musl implements an fflush using a write of a NULL buffer of size 0
+              stream.tty.ops.flush(stream.tty);
+            } else {
+              while (i < length) {
+                stream.tty.ops.put_char(stream.tty, buffer[offset+i]);
+                i++;
+              }
             }
+          } catch (e) {
+            throw new FS.ErrnoError(ERRNO_CODES.EIO);
           }
           if (length) {
             stream.node.timestamp = Date.now();
@@ -2173,6 +2225,18 @@ function copyTempDouble(ptr) {
           }
           return size;
         },write:function (stream, buffer, offset, length, position, canOwn) {
+          // If memory can grow, we don't want to hold on to references of
+          // the memory Buffer, as they may get invalidated. That means
+          // we need to do a copy here.
+          // FIXME: this is inefficient as the file packager may have
+          //        copied the data into memory already - we may want to
+          //        integrate more there and let the file packager loading
+          //        code be able to query if memory growth is on or off.
+          if (canOwn) {
+            warnOnce('file packager has copied file data into memory, but in memory growth we are forced to copy it again (see --no-heap-copy)');
+          }
+          canOwn = false;
+  
           if (!length) return 0;
           var node = stream.node;
           node.timestamp = Date.now();
@@ -3810,7 +3874,7 @@ function copyTempDouble(ptr) {
           if (!FS.readFiles) FS.readFiles = {};
           if (!(path in FS.readFiles)) {
             FS.readFiles[path] = 1;
-            err('read file: ' + path);
+            console.log("FS.trackingDelegate error on read file: " + path);
           }
         }
         try {
@@ -4032,7 +4096,7 @@ function copyTempDouble(ptr) {
           random_device = function() { return require('crypto')['randomBytes'](1)[0]; };
         } else {
           // default for ES5 platforms
-          random_device = function() { return (Math.random()*256)|0; };
+          random_device = function() { abort("random_device"); /*Math.random() is not safe for random number generation, so this fallback random_device implementation aborts... see kripken/emscripten/pull/7096 */ };
         }
         FS.createDevice('/dev', 'random', random_device);
         FS.createDevice('/dev', 'urandom', random_device);
@@ -4102,7 +4166,6 @@ function copyTempDouble(ptr) {
       },ensureErrnoError:function () {
         if (FS.ErrnoError) return;
         FS.ErrnoError = function ErrnoError(errno, node) {
-          //err(stackTrace()); // useful for debugging
           this.node = node;
           this.setErrno = function(errno) {
             this.errno = errno;
@@ -4876,16 +4939,6 @@ function copyTempDouble(ptr) {
 
 
 
-  var _llvm_cos_f64=Math_cos;
-
-  var _llvm_ctlz_i32=true;
-
-  var _llvm_exp_f64=Math_exp;
-
-  var _llvm_fabs_f64=Math_abs;
-
-  var _llvm_log_f64=Math_log;
-
   
   function _emscripten_memcpy_big(dest, src, num) {
       HEAPU8.set(HEAPU8.subarray(src, src+num), dest);
@@ -4917,6 +4970,11 @@ staticSealed = true; // seal the static portion of memory
 assert(DYNAMIC_BASE < TOTAL_MEMORY, "TOTAL_MEMORY not big enough for stack");
 
 var ASSERTIONS = true;
+
+// Copyright 2017 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 /** @type {function(string, boolean=, number=)} */
 function intArrayFromString(stringy, dontAddNull, length) {
@@ -4962,135 +5020,36 @@ function nullFunc_viiiiii(x) { err("Invalid function pointer called with signatu
 
 function nullFunc_viiiiiii(x) { err("Invalid function pointer called with signature 'viiiiiii'. Perhaps this is an invalid value (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an incorrect type, which will fail? (it is worth building your source files with -Werror (warnings are errors), as warnings can indicate undefined behavior which can cause this)");  err("Build with ASSERTIONS=2 for more info.");abort(x) }
 
-function invoke_ii(index,a1) {
-  var sp = stackSave();
-  try {
-    return Module["dynCall_ii"](index,a1);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
-}
-
 function jsCall_ii(index,a1) {
     return functionPointers[index](a1);
-}
-
-function invoke_iii(index,a1,a2) {
-  var sp = stackSave();
-  try {
-    return Module["dynCall_iii"](index,a1,a2);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
 }
 
 function jsCall_iii(index,a1,a2) {
     return functionPointers[index](a1,a2);
 }
 
-function invoke_iiii(index,a1,a2,a3) {
-  var sp = stackSave();
-  try {
-    return Module["dynCall_iiii"](index,a1,a2,a3);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
-}
-
 function jsCall_iiii(index,a1,a2,a3) {
     return functionPointers[index](a1,a2,a3);
-}
-
-function invoke_iiiii(index,a1,a2,a3,a4) {
-  var sp = stackSave();
-  try {
-    return Module["dynCall_iiiii"](index,a1,a2,a3,a4);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
 }
 
 function jsCall_iiiii(index,a1,a2,a3,a4) {
     return functionPointers[index](a1,a2,a3,a4);
 }
 
-function invoke_iiiiiii(index,a1,a2,a3,a4,a5,a6) {
-  var sp = stackSave();
-  try {
-    return Module["dynCall_iiiiiii"](index,a1,a2,a3,a4,a5,a6);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
-}
-
 function jsCall_iiiiiii(index,a1,a2,a3,a4,a5,a6) {
     return functionPointers[index](a1,a2,a3,a4,a5,a6);
-}
-
-function invoke_viii(index,a1,a2,a3) {
-  var sp = stackSave();
-  try {
-    Module["dynCall_viii"](index,a1,a2,a3);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
 }
 
 function jsCall_viii(index,a1,a2,a3) {
     functionPointers[index](a1,a2,a3);
 }
 
-function invoke_viiii(index,a1,a2,a3,a4) {
-  var sp = stackSave();
-  try {
-    Module["dynCall_viiii"](index,a1,a2,a3,a4);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
-}
-
 function jsCall_viiii(index,a1,a2,a3,a4) {
     functionPointers[index](a1,a2,a3,a4);
 }
 
-function invoke_viiiiii(index,a1,a2,a3,a4,a5,a6) {
-  var sp = stackSave();
-  try {
-    Module["dynCall_viiiiii"](index,a1,a2,a3,a4,a5,a6);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
-}
-
 function jsCall_viiiiii(index,a1,a2,a3,a4,a5,a6) {
     functionPointers[index](a1,a2,a3,a4,a5,a6);
-}
-
-function invoke_viiiiiii(index,a1,a2,a3,a4,a5,a6,a7) {
-  var sp = stackSave();
-  try {
-    Module["dynCall_viiiiiii"](index,a1,a2,a3,a4,a5,a6,a7);
-  } catch(e) {
-    stackRestore(sp);
-    if (typeof e !== 'number' && e !== 'longjmp') throw e;
-    Module["setThrew"](1, 0);
-  }
 }
 
 function jsCall_viiiiiii(index,a1,a2,a3,a4,a5,a6,a7) {
@@ -5099,7 +5058,7 @@ function jsCall_viiiiiii(index,a1,a2,a3,a4,a5,a6,a7) {
 
 Module.asmGlobalArg = { "Math": Math, "Int8Array": Int8Array, "Int16Array": Int16Array, "Int32Array": Int32Array, "Uint8Array": Uint8Array, "Uint16Array": Uint16Array, "Uint32Array": Uint32Array, "Float32Array": Float32Array, "Float64Array": Float64Array, "NaN": NaN, "Infinity": Infinity, "byteLength": byteLength };
 
-Module.asmLibraryArg = { "abort": abort, "assert": assert, "enlargeMemory": enlargeMemory, "getTotalMemory": getTotalMemory, "abortOnCannotGrowMemory": abortOnCannotGrowMemory, "abortStackOverflow": abortStackOverflow, "nullFunc_ii": nullFunc_ii, "nullFunc_iii": nullFunc_iii, "nullFunc_iiii": nullFunc_iiii, "nullFunc_iiiii": nullFunc_iiiii, "nullFunc_iiiiiii": nullFunc_iiiiiii, "nullFunc_viii": nullFunc_viii, "nullFunc_viiii": nullFunc_viiii, "nullFunc_viiiiii": nullFunc_viiiiii, "nullFunc_viiiiiii": nullFunc_viiiiiii, "invoke_ii": invoke_ii, "jsCall_ii": jsCall_ii, "invoke_iii": invoke_iii, "jsCall_iii": jsCall_iii, "invoke_iiii": invoke_iiii, "jsCall_iiii": jsCall_iiii, "invoke_iiiii": invoke_iiiii, "jsCall_iiiii": jsCall_iiiii, "invoke_iiiiiii": invoke_iiiiiii, "jsCall_iiiiiii": jsCall_iiiiiii, "invoke_viii": invoke_viii, "jsCall_viii": jsCall_viii, "invoke_viiii": invoke_viiii, "jsCall_viiii": jsCall_viiii, "invoke_viiiiii": invoke_viiiiii, "jsCall_viiiiii": jsCall_viiiiii, "invoke_viiiiiii": invoke_viiiiiii, "jsCall_viiiiiii": jsCall_viiiiiii, "___lock": ___lock, "___setErrNo": ___setErrNo, "___syscall140": ___syscall140, "___syscall145": ___syscall145, "___syscall146": ___syscall146, "___syscall54": ___syscall54, "___syscall6": ___syscall6, "___unlock": ___unlock, "_abort": _abort, "_emscripten_memcpy_big": _emscripten_memcpy_big, "_llvm_cos_f64": _llvm_cos_f64, "_llvm_exp_f64": _llvm_exp_f64, "_llvm_fabs_f64": _llvm_fabs_f64, "_llvm_log_f64": _llvm_log_f64, "DYNAMICTOP_PTR": DYNAMICTOP_PTR, "tempDoublePtr": tempDoublePtr, "ABORT": ABORT, "STACKTOP": STACKTOP, "STACK_MAX": STACK_MAX };
+Module.asmLibraryArg = { "abort": abort, "assert": assert, "enlargeMemory": enlargeMemory, "getTotalMemory": getTotalMemory, "setTempRet0": setTempRet0, "getTempRet0": getTempRet0, "abortOnCannotGrowMemory": abortOnCannotGrowMemory, "abortStackOverflow": abortStackOverflow, "nullFunc_ii": nullFunc_ii, "nullFunc_iii": nullFunc_iii, "nullFunc_iiii": nullFunc_iiii, "nullFunc_iiiii": nullFunc_iiiii, "nullFunc_iiiiiii": nullFunc_iiiiiii, "nullFunc_viii": nullFunc_viii, "nullFunc_viiii": nullFunc_viiii, "nullFunc_viiiiii": nullFunc_viiiiii, "nullFunc_viiiiiii": nullFunc_viiiiiii, "jsCall_ii": jsCall_ii, "jsCall_iii": jsCall_iii, "jsCall_iiii": jsCall_iiii, "jsCall_iiiii": jsCall_iiiii, "jsCall_iiiiiii": jsCall_iiiiiii, "jsCall_viii": jsCall_viii, "jsCall_viiii": jsCall_viiii, "jsCall_viiiiii": jsCall_viiiiii, "jsCall_viiiiiii": jsCall_viiiiiii, "___lock": ___lock, "___setErrNo": ___setErrNo, "___syscall140": ___syscall140, "___syscall145": ___syscall145, "___syscall146": ___syscall146, "___syscall54": ___syscall54, "___syscall6": ___syscall6, "___unlock": ___unlock, "_abort": _abort, "_emscripten_memcpy_big": _emscripten_memcpy_big, "DYNAMICTOP_PTR": DYNAMICTOP_PTR, "tempDoublePtr": tempDoublePtr, "STACKTOP": STACKTOP, "STACK_MAX": STACK_MAX };
 // EMSCRIPTEN_START_ASM
 var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {
 'almost asm';
@@ -5125,7 +5084,6 @@ var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {
 
   var DYNAMICTOP_PTR=env.DYNAMICTOP_PTR|0;
   var tempDoublePtr=env.tempDoublePtr|0;
-  var ABORT=env.ABORT|0;
   var STACKTOP=env.STACKTOP|0;
   var STACK_MAX=env.STACK_MAX|0;
 
@@ -5135,7 +5093,6 @@ var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {
   var undef = 0;
   var nan = global.NaN, inf = global.Infinity;
   var tempInt = 0, tempBigInt = 0, tempBigIntS = 0, tempValue = 0, tempDouble = 0.0;
-  var tempRet0 = 0;
 
   var Math_floor=global.Math.floor;
   var Math_abs=global.Math.abs;
@@ -5159,6 +5116,8 @@ var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {
   var assert=env.assert;
   var enlargeMemory=env.enlargeMemory;
   var getTotalMemory=env.getTotalMemory;
+  var setTempRet0=env.setTempRet0;
+  var getTempRet0=env.getTempRet0;
   var abortOnCannotGrowMemory=env.abortOnCannotGrowMemory;
   var abortStackOverflow=env.abortStackOverflow;
   var nullFunc_ii=env.nullFunc_ii;
@@ -5170,23 +5129,14 @@ var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {
   var nullFunc_viiii=env.nullFunc_viiii;
   var nullFunc_viiiiii=env.nullFunc_viiiiii;
   var nullFunc_viiiiiii=env.nullFunc_viiiiiii;
-  var invoke_ii=env.invoke_ii;
   var jsCall_ii=env.jsCall_ii;
-  var invoke_iii=env.invoke_iii;
   var jsCall_iii=env.jsCall_iii;
-  var invoke_iiii=env.invoke_iiii;
   var jsCall_iiii=env.jsCall_iiii;
-  var invoke_iiiii=env.invoke_iiiii;
   var jsCall_iiiii=env.jsCall_iiiii;
-  var invoke_iiiiiii=env.invoke_iiiiiii;
   var jsCall_iiiiiii=env.jsCall_iiiiiii;
-  var invoke_viii=env.invoke_viii;
   var jsCall_viii=env.jsCall_viii;
-  var invoke_viiii=env.invoke_viiii;
   var jsCall_viiii=env.jsCall_viiii;
-  var invoke_viiiiii=env.invoke_viiiiii;
   var jsCall_viiiiii=env.jsCall_viiiiii;
-  var invoke_viiiiiii=env.invoke_viiiiiii;
   var jsCall_viiiiiii=env.jsCall_viiiiiii;
   var ___lock=env.___lock;
   var ___setErrNo=env.___setErrNo;
@@ -5198,10 +5148,6 @@ var asm = (/** @suppress {uselessCode} */ function(global, env, buffer) {
   var ___unlock=env.___unlock;
   var _abort=env._abort;
   var _emscripten_memcpy_big=env._emscripten_memcpy_big;
-  var _llvm_cos_f64=env._llvm_cos_f64;
-  var _llvm_exp_f64=env._llvm_exp_f64;
-  var _llvm_fabs_f64=env._llvm_fabs_f64;
-  var _llvm_log_f64=env._llvm_log_f64;
   var tempFloat = 0.0;
 
 function _emscripten_replace_memory(newBuffer) {
@@ -5226,7 +5172,7 @@ function stackAlloc(size) {
   ret = STACKTOP;
   STACKTOP = (STACKTOP + size)|0;
   STACKTOP = (STACKTOP + 15)&-16;
-  if ((STACKTOP|0) >= (STACK_MAX|0)) abortStackOverflow(size|0);
+    if ((STACKTOP|0) >= (STACK_MAX|0)) abortStackOverflow(size|0);
 
   return ret|0;
 }
@@ -5243,7 +5189,6 @@ function establishStackSpace(stackBase, stackMax) {
   STACKTOP = stackBase;
   STACK_MAX = stackMax;
 }
-
 function setThrew(threw, value) {
   threw = threw|0;
   value = value|0;
@@ -5251,14 +5196,6 @@ function setThrew(threw, value) {
     __THREW__ = threw;
     threwValue = value;
   }
-}
-
-function setTempRet0(value) {
-  value = value|0;
-  tempRet0 = value;
-}
-function getTempRet0() {
-  return tempRet0|0;
 }
 
 function _FLAC__bitreader_new() {
@@ -5473,7 +5410,7 @@ function _FLAC__bitreader_get_read_crc16($0) {
   $35 = $30 >>> $34; //@line 345 "bitreader.c"
   $36 = $35 & 255; //@line 345 "bitreader.c"
   $37 = $29 ^ $36; //@line 345 "bitreader.c"
-  $38 = (8 + ($37<<2)|0); //@line 345 "bitreader.c"
+  $38 = (48 + ($37<<2)|0); //@line 345 "bitreader.c"
   $39 = HEAP32[$38>>2]|0; //@line 345 "bitreader.c"
   $40 = $25 ^ $39; //@line 345 "bitreader.c"
   $41 = $1; //@line 345 "bitreader.c"
@@ -6064,7 +6001,7 @@ function _crc16_update_word_($0,$1) {
   $20 = $3; //@line 122 "bitreader.c"
   $21 = $20 >>> 24; //@line 122 "bitreader.c"
   $22 = $19 ^ $21; //@line 122 "bitreader.c"
-  $23 = (8 + ($22<<2)|0); //@line 122 "bitreader.c"
+  $23 = (48 + ($22<<2)|0); //@line 122 "bitreader.c"
   $24 = HEAP32[$23>>2]|0; //@line 122 "bitreader.c"
   $25 = $17 ^ $24; //@line 122 "bitreader.c"
   $4 = $25; //@line 122 "bitreader.c"
@@ -6099,7 +6036,7 @@ function _crc16_update_word_($0,$1) {
   $32 = $31 >>> 16; //@line 123 "bitreader.c"
   $33 = $32 & 255; //@line 123 "bitreader.c"
   $34 = $30 ^ $33; //@line 123 "bitreader.c"
-  $35 = (8 + ($34<<2)|0); //@line 123 "bitreader.c"
+  $35 = (48 + ($34<<2)|0); //@line 123 "bitreader.c"
   $36 = HEAP32[$35>>2]|0; //@line 123 "bitreader.c"
   $37 = $28 ^ $36; //@line 123 "bitreader.c"
   $4 = $37; //@line 123 "bitreader.c"
@@ -6115,7 +6052,7 @@ function _crc16_update_word_($0,$1) {
   $44 = $43 >>> 8; //@line 124 "bitreader.c"
   $45 = $44 & 255; //@line 124 "bitreader.c"
   $46 = $42 ^ $45; //@line 124 "bitreader.c"
-  $47 = (8 + ($46<<2)|0); //@line 124 "bitreader.c"
+  $47 = (48 + ($46<<2)|0); //@line 124 "bitreader.c"
   $48 = HEAP32[$47>>2]|0; //@line 124 "bitreader.c"
   $49 = $40 ^ $48; //@line 124 "bitreader.c"
   $4 = $49; //@line 124 "bitreader.c"
@@ -6128,7 +6065,7 @@ function _crc16_update_word_($0,$1) {
  $55 = $3; //@line 125 "bitreader.c"
  $56 = $55 & 255; //@line 125 "bitreader.c"
  $57 = $54 ^ $56; //@line 125 "bitreader.c"
- $58 = (8 + ($57<<2)|0); //@line 125 "bitreader.c"
+ $58 = (48 + ($57<<2)|0); //@line 125 "bitreader.c"
  $59 = HEAP32[$58>>2]|0; //@line 125 "bitreader.c"
  $60 = $52 ^ $59; //@line 125 "bitreader.c"
  $61 = $2; //@line 125 "bitreader.c"
@@ -7778,7 +7715,7 @@ function _FLAC__bitreader_read_utf8_uint64($0,$1,$2,$3) {
   $139 = $138; //@line 1069 "bitreader.c"
   $140 = HEAP32[$139>>2]|0; //@line 1069 "bitreader.c"
   $141 = (_bitshift64Shl(($137|0),($140|0),6)|0); //@line 1069 "bitreader.c"
-  $142 = tempRet0; //@line 1069 "bitreader.c"
+  $142 = (getTempRet0() | 0); //@line 1069 "bitreader.c"
   $143 = $9; //@line 1069 "bitreader.c"
   $144 = $143; //@line 1069 "bitreader.c"
   HEAP32[$144>>2] = $141; //@line 1069 "bitreader.c"
@@ -9562,7 +9499,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
    $56 = $55; //@line 817 "bitwriter.c"
    $57 = HEAP32[$56>>2]|0; //@line 817 "bitwriter.c"
    $58 = (_bitshift64Lshr(($54|0),($57|0),6)|0); //@line 817 "bitwriter.c"
-   $59 = tempRet0; //@line 817 "bitwriter.c"
+   $59 = (getTempRet0() | 0); //@line 817 "bitwriter.c"
    $60 = 192 | $58; //@line 817 "bitwriter.c"
    $61 = (_FLAC__bitwriter_write_raw_uint32_nocheck($51,$60,8)|0); //@line 817 "bitwriter.c"
    $62 = $6; //@line 817 "bitwriter.c"
@@ -9602,7 +9539,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $92 = $91; //@line 821 "bitwriter.c"
     $93 = HEAP32[$92>>2]|0; //@line 821 "bitwriter.c"
     $94 = (_bitshift64Lshr(($90|0),($93|0),12)|0); //@line 821 "bitwriter.c"
-    $95 = tempRet0; //@line 821 "bitwriter.c"
+    $95 = (getTempRet0() | 0); //@line 821 "bitwriter.c"
     $96 = 224 | $94; //@line 821 "bitwriter.c"
     $97 = (_FLAC__bitwriter_write_raw_uint32_nocheck($87,$96,8)|0); //@line 821 "bitwriter.c"
     $98 = $6; //@line 821 "bitwriter.c"
@@ -9616,7 +9553,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $105 = $104; //@line 822 "bitwriter.c"
     $106 = HEAP32[$105>>2]|0; //@line 822 "bitwriter.c"
     $107 = (_bitshift64Lshr(($103|0),($106|0),6)|0); //@line 822 "bitwriter.c"
-    $108 = tempRet0; //@line 822 "bitwriter.c"
+    $108 = (getTempRet0() | 0); //@line 822 "bitwriter.c"
     $109 = $107 & 63; //@line 822 "bitwriter.c"
     $110 = 128 | $109; //@line 822 "bitwriter.c"
     $111 = (_FLAC__bitwriter_write_raw_uint32_nocheck($100,$110,8)|0); //@line 822 "bitwriter.c"
@@ -9658,7 +9595,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $142 = $141; //@line 826 "bitwriter.c"
     $143 = HEAP32[$142>>2]|0; //@line 826 "bitwriter.c"
     $144 = (_bitshift64Lshr(($140|0),($143|0),18)|0); //@line 826 "bitwriter.c"
-    $145 = tempRet0; //@line 826 "bitwriter.c"
+    $145 = (getTempRet0() | 0); //@line 826 "bitwriter.c"
     $146 = 240 | $144; //@line 826 "bitwriter.c"
     $147 = (_FLAC__bitwriter_write_raw_uint32_nocheck($137,$146,8)|0); //@line 826 "bitwriter.c"
     $148 = $6; //@line 826 "bitwriter.c"
@@ -9672,7 +9609,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $155 = $154; //@line 827 "bitwriter.c"
     $156 = HEAP32[$155>>2]|0; //@line 827 "bitwriter.c"
     $157 = (_bitshift64Lshr(($153|0),($156|0),12)|0); //@line 827 "bitwriter.c"
-    $158 = tempRet0; //@line 827 "bitwriter.c"
+    $158 = (getTempRet0() | 0); //@line 827 "bitwriter.c"
     $159 = $157 & 63; //@line 827 "bitwriter.c"
     $160 = 128 | $159; //@line 827 "bitwriter.c"
     $161 = (_FLAC__bitwriter_write_raw_uint32_nocheck($150,$160,8)|0); //@line 827 "bitwriter.c"
@@ -9687,7 +9624,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $169 = $168; //@line 828 "bitwriter.c"
     $170 = HEAP32[$169>>2]|0; //@line 828 "bitwriter.c"
     $171 = (_bitshift64Lshr(($167|0),($170|0),6)|0); //@line 828 "bitwriter.c"
-    $172 = tempRet0; //@line 828 "bitwriter.c"
+    $172 = (getTempRet0() | 0); //@line 828 "bitwriter.c"
     $173 = $171 & 63; //@line 828 "bitwriter.c"
     $174 = 128 | $173; //@line 828 "bitwriter.c"
     $175 = (_FLAC__bitwriter_write_raw_uint32_nocheck($164,$174,8)|0); //@line 828 "bitwriter.c"
@@ -9729,7 +9666,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $206 = $205; //@line 832 "bitwriter.c"
     $207 = HEAP32[$206>>2]|0; //@line 832 "bitwriter.c"
     $208 = (_bitshift64Lshr(($204|0),($207|0),24)|0); //@line 832 "bitwriter.c"
-    $209 = tempRet0; //@line 832 "bitwriter.c"
+    $209 = (getTempRet0() | 0); //@line 832 "bitwriter.c"
     $210 = 248 | $208; //@line 832 "bitwriter.c"
     $211 = (_FLAC__bitwriter_write_raw_uint32_nocheck($201,$210,8)|0); //@line 832 "bitwriter.c"
     $212 = $6; //@line 832 "bitwriter.c"
@@ -9743,7 +9680,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $219 = $218; //@line 833 "bitwriter.c"
     $220 = HEAP32[$219>>2]|0; //@line 833 "bitwriter.c"
     $221 = (_bitshift64Lshr(($217|0),($220|0),18)|0); //@line 833 "bitwriter.c"
-    $222 = tempRet0; //@line 833 "bitwriter.c"
+    $222 = (getTempRet0() | 0); //@line 833 "bitwriter.c"
     $223 = $221 & 63; //@line 833 "bitwriter.c"
     $224 = 128 | $223; //@line 833 "bitwriter.c"
     $225 = (_FLAC__bitwriter_write_raw_uint32_nocheck($214,$224,8)|0); //@line 833 "bitwriter.c"
@@ -9758,7 +9695,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $233 = $232; //@line 834 "bitwriter.c"
     $234 = HEAP32[$233>>2]|0; //@line 834 "bitwriter.c"
     $235 = (_bitshift64Lshr(($231|0),($234|0),12)|0); //@line 834 "bitwriter.c"
-    $236 = tempRet0; //@line 834 "bitwriter.c"
+    $236 = (getTempRet0() | 0); //@line 834 "bitwriter.c"
     $237 = $235 & 63; //@line 834 "bitwriter.c"
     $238 = 128 | $237; //@line 834 "bitwriter.c"
     $239 = (_FLAC__bitwriter_write_raw_uint32_nocheck($228,$238,8)|0); //@line 834 "bitwriter.c"
@@ -9773,7 +9710,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $247 = $246; //@line 835 "bitwriter.c"
     $248 = HEAP32[$247>>2]|0; //@line 835 "bitwriter.c"
     $249 = (_bitshift64Lshr(($245|0),($248|0),6)|0); //@line 835 "bitwriter.c"
-    $250 = tempRet0; //@line 835 "bitwriter.c"
+    $250 = (getTempRet0() | 0); //@line 835 "bitwriter.c"
     $251 = $249 & 63; //@line 835 "bitwriter.c"
     $252 = 128 | $251; //@line 835 "bitwriter.c"
     $253 = (_FLAC__bitwriter_write_raw_uint32_nocheck($242,$252,8)|0); //@line 835 "bitwriter.c"
@@ -9815,7 +9752,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $284 = $283; //@line 839 "bitwriter.c"
     $285 = HEAP32[$284>>2]|0; //@line 839 "bitwriter.c"
     $286 = (_bitshift64Lshr(($282|0),($285|0),30)|0); //@line 839 "bitwriter.c"
-    $287 = tempRet0; //@line 839 "bitwriter.c"
+    $287 = (getTempRet0() | 0); //@line 839 "bitwriter.c"
     $288 = 252 | $286; //@line 839 "bitwriter.c"
     $289 = (_FLAC__bitwriter_write_raw_uint32_nocheck($279,$288,8)|0); //@line 839 "bitwriter.c"
     $290 = $6; //@line 839 "bitwriter.c"
@@ -9829,7 +9766,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $297 = $296; //@line 840 "bitwriter.c"
     $298 = HEAP32[$297>>2]|0; //@line 840 "bitwriter.c"
     $299 = (_bitshift64Lshr(($295|0),($298|0),24)|0); //@line 840 "bitwriter.c"
-    $300 = tempRet0; //@line 840 "bitwriter.c"
+    $300 = (getTempRet0() | 0); //@line 840 "bitwriter.c"
     $301 = $299 & 63; //@line 840 "bitwriter.c"
     $302 = 128 | $301; //@line 840 "bitwriter.c"
     $303 = (_FLAC__bitwriter_write_raw_uint32_nocheck($292,$302,8)|0); //@line 840 "bitwriter.c"
@@ -9844,7 +9781,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $311 = $310; //@line 841 "bitwriter.c"
     $312 = HEAP32[$311>>2]|0; //@line 841 "bitwriter.c"
     $313 = (_bitshift64Lshr(($309|0),($312|0),18)|0); //@line 841 "bitwriter.c"
-    $314 = tempRet0; //@line 841 "bitwriter.c"
+    $314 = (getTempRet0() | 0); //@line 841 "bitwriter.c"
     $315 = $313 & 63; //@line 841 "bitwriter.c"
     $316 = 128 | $315; //@line 841 "bitwriter.c"
     $317 = (_FLAC__bitwriter_write_raw_uint32_nocheck($306,$316,8)|0); //@line 841 "bitwriter.c"
@@ -9859,7 +9796,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $325 = $324; //@line 842 "bitwriter.c"
     $326 = HEAP32[$325>>2]|0; //@line 842 "bitwriter.c"
     $327 = (_bitshift64Lshr(($323|0),($326|0),12)|0); //@line 842 "bitwriter.c"
-    $328 = tempRet0; //@line 842 "bitwriter.c"
+    $328 = (getTempRet0() | 0); //@line 842 "bitwriter.c"
     $329 = $327 & 63; //@line 842 "bitwriter.c"
     $330 = 128 | $329; //@line 842 "bitwriter.c"
     $331 = (_FLAC__bitwriter_write_raw_uint32_nocheck($320,$330,8)|0); //@line 842 "bitwriter.c"
@@ -9874,7 +9811,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $339 = $338; //@line 843 "bitwriter.c"
     $340 = HEAP32[$339>>2]|0; //@line 843 "bitwriter.c"
     $341 = (_bitshift64Lshr(($337|0),($340|0),6)|0); //@line 843 "bitwriter.c"
-    $342 = tempRet0; //@line 843 "bitwriter.c"
+    $342 = (getTempRet0() | 0); //@line 843 "bitwriter.c"
     $343 = $341 & 63; //@line 843 "bitwriter.c"
     $344 = 128 | $343; //@line 843 "bitwriter.c"
     $345 = (_FLAC__bitwriter_write_raw_uint32_nocheck($334,$344,8)|0); //@line 843 "bitwriter.c"
@@ -9908,7 +9845,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $368 = $367; //@line 848 "bitwriter.c"
     $369 = HEAP32[$368>>2]|0; //@line 848 "bitwriter.c"
     $370 = (_bitshift64Lshr(($366|0),($369|0),30)|0); //@line 848 "bitwriter.c"
-    $371 = tempRet0; //@line 848 "bitwriter.c"
+    $371 = (getTempRet0() | 0); //@line 848 "bitwriter.c"
     $372 = $370 & 63; //@line 848 "bitwriter.c"
     $373 = 128 | $372; //@line 848 "bitwriter.c"
     $374 = (_FLAC__bitwriter_write_raw_uint32_nocheck($363,$373,8)|0); //@line 848 "bitwriter.c"
@@ -9923,7 +9860,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $382 = $381; //@line 849 "bitwriter.c"
     $383 = HEAP32[$382>>2]|0; //@line 849 "bitwriter.c"
     $384 = (_bitshift64Lshr(($380|0),($383|0),24)|0); //@line 849 "bitwriter.c"
-    $385 = tempRet0; //@line 849 "bitwriter.c"
+    $385 = (getTempRet0() | 0); //@line 849 "bitwriter.c"
     $386 = $384 & 63; //@line 849 "bitwriter.c"
     $387 = 128 | $386; //@line 849 "bitwriter.c"
     $388 = (_FLAC__bitwriter_write_raw_uint32_nocheck($377,$387,8)|0); //@line 849 "bitwriter.c"
@@ -9938,7 +9875,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $396 = $395; //@line 850 "bitwriter.c"
     $397 = HEAP32[$396>>2]|0; //@line 850 "bitwriter.c"
     $398 = (_bitshift64Lshr(($394|0),($397|0),18)|0); //@line 850 "bitwriter.c"
-    $399 = tempRet0; //@line 850 "bitwriter.c"
+    $399 = (getTempRet0() | 0); //@line 850 "bitwriter.c"
     $400 = $398 & 63; //@line 850 "bitwriter.c"
     $401 = 128 | $400; //@line 850 "bitwriter.c"
     $402 = (_FLAC__bitwriter_write_raw_uint32_nocheck($391,$401,8)|0); //@line 850 "bitwriter.c"
@@ -9953,7 +9890,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $410 = $409; //@line 851 "bitwriter.c"
     $411 = HEAP32[$410>>2]|0; //@line 851 "bitwriter.c"
     $412 = (_bitshift64Lshr(($408|0),($411|0),12)|0); //@line 851 "bitwriter.c"
-    $413 = tempRet0; //@line 851 "bitwriter.c"
+    $413 = (getTempRet0() | 0); //@line 851 "bitwriter.c"
     $414 = $412 & 63; //@line 851 "bitwriter.c"
     $415 = 128 | $414; //@line 851 "bitwriter.c"
     $416 = (_FLAC__bitwriter_write_raw_uint32_nocheck($405,$415,8)|0); //@line 851 "bitwriter.c"
@@ -9968,7 +9905,7 @@ function _FLAC__bitwriter_write_utf8_uint64($0,$1,$2) {
     $424 = $423; //@line 852 "bitwriter.c"
     $425 = HEAP32[$424>>2]|0; //@line 852 "bitwriter.c"
     $426 = (_bitshift64Lshr(($422|0),($425|0),6)|0); //@line 852 "bitwriter.c"
-    $427 = tempRet0; //@line 852 "bitwriter.c"
+    $427 = (getTempRet0() | 0); //@line 852 "bitwriter.c"
     $428 = $426 & 63; //@line 852 "bitwriter.c"
     $429 = 128 | $428; //@line 852 "bitwriter.c"
     $430 = (_FLAC__bitwriter_write_raw_uint32_nocheck($419,$429,8)|0); //@line 852 "bitwriter.c"
@@ -10103,7 +10040,7 @@ function _FLAC__crc8($0,$1) {
   $12 = HEAP8[$10>>0]|0; //@line 130 "crc.c"
   $13 = $12&255; //@line 130 "crc.c"
   $14 = $9 ^ $13; //@line 130 "crc.c"
-  $15 = (2064 + ($14)|0); //@line 130 "crc.c"
+  $15 = (2072 + ($14)|0); //@line 130 "crc.c"
   $16 = HEAP8[$15>>0]|0; //@line 130 "crc.c"
   $4 = $16; //@line 130 "crc.c"
  }
@@ -10137,7 +10074,7 @@ function _FLAC__crc16($0,$1) {
   $14 = HEAP8[$12>>0]|0; //@line 140 "crc.c"
   $15 = $14&255; //@line 140 "crc.c"
   $16 = $11 ^ $15; //@line 140 "crc.c"
-  $17 = (8 + ($16<<2)|0); //@line 140 "crc.c"
+  $17 = (48 + ($16<<2)|0); //@line 140 "crc.c"
   $18 = HEAP32[$17>>2]|0; //@line 140 "crc.c"
   $19 = $9 ^ $18; //@line 140 "crc.c"
   $20 = $19 & 65535; //@line 140 "crc.c"
@@ -10314,15 +10251,15 @@ function _FLAC__fixed_compute_best_predictor($0,$1,$2) {
   $128 = $13; //@line 238 "fixed.c"
   $129 = $14; //@line 238 "fixed.c"
   $130 = $127 ? $128 : $129; //@line 238 "fixed.c"
-  $134 = $130;
+  $133 = $130;
  } else {
   $131 = $15; //@line 238 "fixed.c"
-  $134 = $131;
+  $133 = $131;
  }
  $132 = $16; //@line 238 "fixed.c"
- $133 = ($134>>>0)<($132>>>0); //@line 238 "fixed.c"
+ $134 = ($133>>>0)<($132>>>0); //@line 238 "fixed.c"
  do {
-  if ($133) {
+  if ($134) {
    $135 = $13; //@line 238 "fixed.c"
    $136 = $14; //@line 238 "fixed.c"
    $137 = ($135>>>0)<($136>>>0); //@line 238 "fixed.c"
@@ -10647,7 +10584,7 @@ function _FLAC__fixed_compute_best_predictor_wide($0,$1,$2) {
   $88 = $87; //@line 293 "fixed.c"
   $89 = HEAP32[$88>>2]|0; //@line 293 "fixed.c"
   $90 = (_i64Add(($86|0),($89|0),($83|0),0)|0); //@line 293 "fixed.c"
-  $91 = tempRet0; //@line 293 "fixed.c"
+  $91 = (getTempRet0() | 0); //@line 293 "fixed.c"
   $92 = $12; //@line 293 "fixed.c"
   $93 = $92; //@line 293 "fixed.c"
   HEAP32[$93>>2] = $90; //@line 293 "fixed.c"
@@ -10672,7 +10609,7 @@ function _FLAC__fixed_compute_best_predictor_wide($0,$1,$2) {
   $109 = $108; //@line 294 "fixed.c"
   $110 = HEAP32[$109>>2]|0; //@line 294 "fixed.c"
   $111 = (_i64Add(($107|0),($110|0),($104|0),0)|0); //@line 294 "fixed.c"
-  $112 = tempRet0; //@line 294 "fixed.c"
+  $112 = (getTempRet0() | 0); //@line 294 "fixed.c"
   $113 = $13; //@line 294 "fixed.c"
   $114 = $113; //@line 294 "fixed.c"
   HEAP32[$114>>2] = $111; //@line 294 "fixed.c"
@@ -10699,7 +10636,7 @@ function _FLAC__fixed_compute_best_predictor_wide($0,$1,$2) {
   $131 = $130; //@line 295 "fixed.c"
   $132 = HEAP32[$131>>2]|0; //@line 295 "fixed.c"
   $133 = (_i64Add(($129|0),($132|0),($126|0),0)|0); //@line 295 "fixed.c"
-  $134 = tempRet0; //@line 295 "fixed.c"
+  $134 = (getTempRet0() | 0); //@line 295 "fixed.c"
   $135 = $14; //@line 295 "fixed.c"
   $136 = $135; //@line 295 "fixed.c"
   HEAP32[$136>>2] = $133; //@line 295 "fixed.c"
@@ -10726,7 +10663,7 @@ function _FLAC__fixed_compute_best_predictor_wide($0,$1,$2) {
   $153 = $152; //@line 296 "fixed.c"
   $154 = HEAP32[$153>>2]|0; //@line 296 "fixed.c"
   $155 = (_i64Add(($151|0),($154|0),($148|0),0)|0); //@line 296 "fixed.c"
-  $156 = tempRet0; //@line 296 "fixed.c"
+  $156 = (getTempRet0() | 0); //@line 296 "fixed.c"
   $157 = $15; //@line 296 "fixed.c"
   $158 = $157; //@line 296 "fixed.c"
   HEAP32[$158>>2] = $155; //@line 296 "fixed.c"
@@ -10753,7 +10690,7 @@ function _FLAC__fixed_compute_best_predictor_wide($0,$1,$2) {
   $175 = $174; //@line 297 "fixed.c"
   $176 = HEAP32[$175>>2]|0; //@line 297 "fixed.c"
   $177 = (_i64Add(($173|0),($176|0),($170|0),0)|0); //@line 297 "fixed.c"
-  $178 = tempRet0; //@line 297 "fixed.c"
+  $178 = (getTempRet0() | 0); //@line 297 "fixed.c"
   $179 = $16; //@line 297 "fixed.c"
   $180 = $179; //@line 297 "fixed.c"
   HEAP32[$180>>2] = $177; //@line 297 "fixed.c"
@@ -10846,7 +10783,7 @@ function _FLAC__fixed_compute_best_predictor_wide($0,$1,$2) {
   $262 = HEAP32[$261>>2]|0; //@line 300 "fixed.c"
   $263 = $250 ? $253 : $259; //@line 300 "fixed.c"
   $264 = $250 ? $256 : $262; //@line 300 "fixed.c"
-  $278 = $264;$280 = $263;
+  $277 = $264;$279 = $263;
  } else {
   $265 = $15; //@line 300 "fixed.c"
   $266 = $265; //@line 300 "fixed.c"
@@ -10854,7 +10791,7 @@ function _FLAC__fixed_compute_best_predictor_wide($0,$1,$2) {
   $268 = (($265) + 4)|0; //@line 300 "fixed.c"
   $269 = $268; //@line 300 "fixed.c"
   $270 = HEAP32[$269>>2]|0; //@line 300 "fixed.c"
-  $278 = $270;$280 = $267;
+  $277 = $270;$279 = $267;
  }
  $271 = $16; //@line 300 "fixed.c"
  $272 = $271; //@line 300 "fixed.c"
@@ -10862,11 +10799,11 @@ function _FLAC__fixed_compute_best_predictor_wide($0,$1,$2) {
  $274 = (($271) + 4)|0; //@line 300 "fixed.c"
  $275 = $274; //@line 300 "fixed.c"
  $276 = HEAP32[$275>>2]|0; //@line 300 "fixed.c"
- $277 = ($278>>>0)<($276>>>0); //@line 300 "fixed.c"
- $279 = ($280>>>0)<($273>>>0); //@line 300 "fixed.c"
- $281 = ($278|0)==($276|0); //@line 300 "fixed.c"
- $282 = $281 & $279; //@line 300 "fixed.c"
- $283 = $277 | $282; //@line 300 "fixed.c"
+ $278 = ($277>>>0)<($276>>>0); //@line 300 "fixed.c"
+ $280 = ($279>>>0)<($273>>>0); //@line 300 "fixed.c"
+ $281 = ($277|0)==($276|0); //@line 300 "fixed.c"
+ $282 = $281 & $280; //@line 300 "fixed.c"
+ $283 = $278 | $282; //@line 300 "fixed.c"
  do {
   if ($283) {
    $284 = $13; //@line 300 "fixed.c"
@@ -12485,7 +12422,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
    $25 = ($24|0)!=(0|0); //@line 420 "format.c"
    if ($25) {
     $26 = $6; //@line 420 "format.c"
-    HEAP32[$26>>2] = 2357; //@line 420 "format.c"
+    HEAP32[$26>>2] = 2365; //@line 420 "format.c"
    }
    $3 = 0; //@line 421 "format.c"
    $246 = $3; //@line 490 "format.c"
@@ -12500,7 +12437,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
   $33 = $32; //@line 423 "format.c"
   $34 = HEAP32[$33>>2]|0; //@line 423 "format.c"
   $35 = (___uremdi3(($31|0),($34|0),588,0)|0); //@line 423 "format.c"
-  $36 = tempRet0; //@line 423 "format.c"
+  $36 = (getTempRet0() | 0); //@line 423 "format.c"
   $37 = ($35|0)!=(0); //@line 423 "format.c"
   $38 = ($36|0)!=(0); //@line 423 "format.c"
   $39 = $37 | $38; //@line 423 "format.c"
@@ -12509,7 +12446,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
    $41 = ($40|0)!=(0|0); //@line 424 "format.c"
    if ($41) {
     $42 = $6; //@line 424 "format.c"
-    HEAP32[$42>>2] = 2422; //@line 424 "format.c"
+    HEAP32[$42>>2] = 2430; //@line 424 "format.c"
    }
    $3 = 0; //@line 425 "format.c"
    $246 = $3; //@line 490 "format.c"
@@ -12525,7 +12462,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
   $48 = ($47|0)!=(0|0); //@line 430 "format.c"
   if ($48) {
    $49 = $6; //@line 430 "format.c"
-   HEAP32[$49>>2] = 2493; //@line 430 "format.c"
+   HEAP32[$49>>2] = 2501; //@line 430 "format.c"
   }
   $3 = 0; //@line 431 "format.c"
   $246 = $3; //@line 490 "format.c"
@@ -12551,7 +12488,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
    $65 = ($64|0)!=(0|0); //@line 435 "format.c"
    if ($65) {
     $66 = $6; //@line 435 "format.c"
-    HEAP32[$66>>2] = 2547; //@line 435 "format.c"
+    HEAP32[$66>>2] = 2555; //@line 435 "format.c"
    }
    $3 = 0; //@line 436 "format.c"
    $246 = $3; //@line 490 "format.c"
@@ -12639,7 +12576,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
    $127 = $126; //@line 452 "format.c"
    $128 = HEAP32[$127>>2]|0; //@line 452 "format.c"
    $129 = (___uremdi3(($125|0),($128|0),588,0)|0); //@line 452 "format.c"
-   $130 = tempRet0; //@line 452 "format.c"
+   $130 = (getTempRet0() | 0); //@line 452 "format.c"
    $131 = ($129|0)!=(0); //@line 452 "format.c"
    $132 = ($130|0)!=(0); //@line 452 "format.c"
    $133 = $131 | $132; //@line 452 "format.c"
@@ -12718,7 +12655,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
     $200 = $199; //@line 475 "format.c"
     $201 = HEAP32[$200>>2]|0; //@line 475 "format.c"
     $202 = (___uremdi3(($198|0),($201|0),588,0)|0); //@line 475 "format.c"
-    $203 = tempRet0; //@line 475 "format.c"
+    $203 = (getTempRet0() | 0); //@line 475 "format.c"
     $204 = ($202|0)!=(0); //@line 475 "format.c"
     $205 = ($203|0)!=(0); //@line 475 "format.c"
     $206 = $204 | $205; //@line 475 "format.c"
@@ -12775,7 +12712,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
   $82 = ($81|0)!=(0|0); //@line 441 "format.c"
   if ($82) {
    $83 = $6; //@line 441 "format.c"
-   HEAP32[$83>>2] = 2608; //@line 441 "format.c"
+   HEAP32[$83>>2] = 2616; //@line 441 "format.c"
   }
   $3 = 0; //@line 442 "format.c"
   $246 = $3; //@line 490 "format.c"
@@ -12786,7 +12723,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
   $114 = ($113|0)!=(0|0); //@line 447 "format.c"
   if ($114) {
    $115 = $6; //@line 447 "format.c"
-   HEAP32[$115>>2] = 2648; //@line 447 "format.c"
+   HEAP32[$115>>2] = 2656; //@line 447 "format.c"
   }
   $3 = 0; //@line 448 "format.c"
   $246 = $3; //@line 490 "format.c"
@@ -12805,10 +12742,10 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
     $141 = ($136|0)==($140|0); //@line 454 "format.c"
     $142 = $6;
     if ($141) {
-     HEAP32[$142>>2] = 2697; //@line 455 "format.c"
+     HEAP32[$142>>2] = 2705; //@line 455 "format.c"
      break;
     } else {
-     HEAP32[$142>>2] = 2769; //@line 457 "format.c"
+     HEAP32[$142>>2] = 2777; //@line 457 "format.c"
      break;
     }
    }
@@ -12822,7 +12759,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
   $159 = ($158|0)!=(0|0); //@line 464 "format.c"
   if ($159) {
    $160 = $6; //@line 464 "format.c"
-   HEAP32[$160>>2] = 2838; //@line 464 "format.c"
+   HEAP32[$160>>2] = 2846; //@line 464 "format.c"
   }
   $3 = 0; //@line 465 "format.c"
   $246 = $3; //@line 490 "format.c"
@@ -12833,7 +12770,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
   $173 = ($172|0)!=(0|0); //@line 469 "format.c"
   if ($173) {
    $174 = $6; //@line 469 "format.c"
-   HEAP32[$174>>2] = 2889; //@line 469 "format.c"
+   HEAP32[$174>>2] = 2897; //@line 469 "format.c"
   }
   $3 = 0; //@line 470 "format.c"
   $246 = $3; //@line 490 "format.c"
@@ -12844,7 +12781,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
   $208 = ($207|0)!=(0|0); //@line 476 "format.c"
   if ($208) {
    $209 = $6; //@line 476 "format.c"
-   HEAP32[$209>>2] = 2941; //@line 476 "format.c"
+   HEAP32[$209>>2] = 2949; //@line 476 "format.c"
   }
   $3 = 0; //@line 477 "format.c"
   $246 = $3; //@line 490 "format.c"
@@ -12855,7 +12792,7 @@ function _FLAC__format_cuesheet_is_legal($0,$1,$2) {
   $240 = ($239|0)!=(0|0); //@line 482 "format.c"
   if ($240) {
    $241 = $6; //@line 482 "format.c"
-   HEAP32[$241>>2] = 3016; //@line 482 "format.c"
+   HEAP32[$241>>2] = 3024; //@line 482 "format.c"
   }
   $3 = 0; //@line 483 "format.c"
   $246 = $3; //@line 490 "format.c"
@@ -12914,7 +12851,7 @@ function _FLAC__format_picture_is_legal($0,$1) {
   $23 = ($22|0)!=(0|0); //@line 500 "format.c"
   if ($23) {
    $24 = $4; //@line 500 "format.c"
-   HEAP32[$24>>2] = 3065; //@line 500 "format.c"
+   HEAP32[$24>>2] = 3073; //@line 500 "format.c"
   }
   $2 = 0; //@line 501 "format.c"
   $43 = $2; //@line 515 "format.c"
@@ -12954,7 +12891,7 @@ function _FLAC__format_picture_is_legal($0,$1) {
  $38 = ($37|0)!=(0|0); //@line 508 "format.c"
  if ($38) {
   $39 = $4; //@line 508 "format.c"
-  HEAP32[$39>>2] = 3139; //@line 508 "format.c"
+  HEAP32[$39>>2] = 3147; //@line 508 "format.c"
  }
  $2 = 0; //@line 509 "format.c"
  $43 = $2; //@line 515 "format.c"
@@ -13572,7 +13509,7 @@ function _FLAC__lpc_quantize_coefficients($0,$1,$2,$3,$4) {
   $150 = $5; //@line 260 "lpc.c"
   STACKTOP = sp;return ($150|0); //@line 260 "lpc.c"
  }
- $49 = HEAP32[275]|0; //@line 194 "lpc.c"
+ $49 = HEAP32[285]|0; //@line 194 "lpc.c"
  $50 = (($49) - 1)|0; //@line 194 "lpc.c"
  $51 = 1 << $50; //@line 194 "lpc.c"
  $52 = (($51) - 1)|0; //@line 194 "lpc.c"
@@ -15880,7 +15817,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2357 = ($2356|0)<(0); //@line 743 "lpc.c"
     $2358 = $2357 << 31 >> 31; //@line 743 "lpc.c"
     $2359 = (___muldi3(($2349|0),($2351|0),($2356|0),($2358|0))|0); //@line 743 "lpc.c"
-    $2360 = tempRet0; //@line 743 "lpc.c"
+    $2360 = (getTempRet0() | 0); //@line 743 "lpc.c"
     $2361 = $13; //@line 743 "lpc.c"
     $2362 = $2361; //@line 743 "lpc.c"
     $2363 = HEAP32[$2362>>2]|0; //@line 743 "lpc.c"
@@ -15888,7 +15825,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2365 = $2364; //@line 743 "lpc.c"
     $2366 = HEAP32[$2365>>2]|0; //@line 743 "lpc.c"
     $2367 = (_i64Add(($2363|0),($2366|0),($2359|0),($2360|0))|0); //@line 743 "lpc.c"
-    $2368 = tempRet0; //@line 743 "lpc.c"
+    $2368 = (getTempRet0() | 0); //@line 743 "lpc.c"
     $2369 = $13; //@line 743 "lpc.c"
     $2370 = $2369; //@line 743 "lpc.c"
     HEAP32[$2370>>2] = $2367; //@line 743 "lpc.c"
@@ -15992,7 +15929,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2383 = ($2382|0)<(0); //@line 744 "lpc.c"
     $2384 = $2383 << 31 >> 31; //@line 744 "lpc.c"
     $2385 = (___muldi3(($2375|0),($2377|0),($2382|0),($2384|0))|0); //@line 744 "lpc.c"
-    $2386 = tempRet0; //@line 744 "lpc.c"
+    $2386 = (getTempRet0() | 0); //@line 744 "lpc.c"
     $2387 = $13; //@line 744 "lpc.c"
     $2388 = $2387; //@line 744 "lpc.c"
     $2389 = HEAP32[$2388>>2]|0; //@line 744 "lpc.c"
@@ -16000,7 +15937,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2391 = $2390; //@line 744 "lpc.c"
     $2392 = HEAP32[$2391>>2]|0; //@line 744 "lpc.c"
     $2393 = (_i64Add(($2389|0),($2392|0),($2385|0),($2386|0))|0); //@line 744 "lpc.c"
-    $2394 = tempRet0; //@line 744 "lpc.c"
+    $2394 = (getTempRet0() | 0); //@line 744 "lpc.c"
     $2395 = $13; //@line 744 "lpc.c"
     $2396 = $2395; //@line 744 "lpc.c"
     HEAP32[$2396>>2] = $2393; //@line 744 "lpc.c"
@@ -16024,7 +15961,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2409 = ($2408|0)<(0); //@line 745 "lpc.c"
     $2410 = $2409 << 31 >> 31; //@line 745 "lpc.c"
     $2411 = (___muldi3(($2401|0),($2403|0),($2408|0),($2410|0))|0); //@line 745 "lpc.c"
-    $2412 = tempRet0; //@line 745 "lpc.c"
+    $2412 = (getTempRet0() | 0); //@line 745 "lpc.c"
     $2413 = $13; //@line 745 "lpc.c"
     $2414 = $2413; //@line 745 "lpc.c"
     $2415 = HEAP32[$2414>>2]|0; //@line 745 "lpc.c"
@@ -16032,7 +15969,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2417 = $2416; //@line 745 "lpc.c"
     $2418 = HEAP32[$2417>>2]|0; //@line 745 "lpc.c"
     $2419 = (_i64Add(($2415|0),($2418|0),($2411|0),($2412|0))|0); //@line 745 "lpc.c"
-    $2420 = tempRet0; //@line 745 "lpc.c"
+    $2420 = (getTempRet0() | 0); //@line 745 "lpc.c"
     $2421 = $13; //@line 745 "lpc.c"
     $2422 = $2421; //@line 745 "lpc.c"
     HEAP32[$2422>>2] = $2419; //@line 745 "lpc.c"
@@ -16056,7 +15993,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2435 = ($2434|0)<(0); //@line 746 "lpc.c"
     $2436 = $2435 << 31 >> 31; //@line 746 "lpc.c"
     $2437 = (___muldi3(($2427|0),($2429|0),($2434|0),($2436|0))|0); //@line 746 "lpc.c"
-    $2438 = tempRet0; //@line 746 "lpc.c"
+    $2438 = (getTempRet0() | 0); //@line 746 "lpc.c"
     $2439 = $13; //@line 746 "lpc.c"
     $2440 = $2439; //@line 746 "lpc.c"
     $2441 = HEAP32[$2440>>2]|0; //@line 746 "lpc.c"
@@ -16064,7 +16001,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2443 = $2442; //@line 746 "lpc.c"
     $2444 = HEAP32[$2443>>2]|0; //@line 746 "lpc.c"
     $2445 = (_i64Add(($2441|0),($2444|0),($2437|0),($2438|0))|0); //@line 746 "lpc.c"
-    $2446 = tempRet0; //@line 746 "lpc.c"
+    $2446 = (getTempRet0() | 0); //@line 746 "lpc.c"
     $2447 = $13; //@line 746 "lpc.c"
     $2448 = $2447; //@line 746 "lpc.c"
     HEAP32[$2448>>2] = $2445; //@line 746 "lpc.c"
@@ -16088,7 +16025,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2461 = ($2460|0)<(0); //@line 747 "lpc.c"
     $2462 = $2461 << 31 >> 31; //@line 747 "lpc.c"
     $2463 = (___muldi3(($2453|0),($2455|0),($2460|0),($2462|0))|0); //@line 747 "lpc.c"
-    $2464 = tempRet0; //@line 747 "lpc.c"
+    $2464 = (getTempRet0() | 0); //@line 747 "lpc.c"
     $2465 = $13; //@line 747 "lpc.c"
     $2466 = $2465; //@line 747 "lpc.c"
     $2467 = HEAP32[$2466>>2]|0; //@line 747 "lpc.c"
@@ -16096,7 +16033,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2469 = $2468; //@line 747 "lpc.c"
     $2470 = HEAP32[$2469>>2]|0; //@line 747 "lpc.c"
     $2471 = (_i64Add(($2467|0),($2470|0),($2463|0),($2464|0))|0); //@line 747 "lpc.c"
-    $2472 = tempRet0; //@line 747 "lpc.c"
+    $2472 = (getTempRet0() | 0); //@line 747 "lpc.c"
     $2473 = $13; //@line 747 "lpc.c"
     $2474 = $2473; //@line 747 "lpc.c"
     HEAP32[$2474>>2] = $2471; //@line 747 "lpc.c"
@@ -16120,7 +16057,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2487 = ($2486|0)<(0); //@line 748 "lpc.c"
     $2488 = $2487 << 31 >> 31; //@line 748 "lpc.c"
     $2489 = (___muldi3(($2479|0),($2481|0),($2486|0),($2488|0))|0); //@line 748 "lpc.c"
-    $2490 = tempRet0; //@line 748 "lpc.c"
+    $2490 = (getTempRet0() | 0); //@line 748 "lpc.c"
     $2491 = $13; //@line 748 "lpc.c"
     $2492 = $2491; //@line 748 "lpc.c"
     $2493 = HEAP32[$2492>>2]|0; //@line 748 "lpc.c"
@@ -16128,7 +16065,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2495 = $2494; //@line 748 "lpc.c"
     $2496 = HEAP32[$2495>>2]|0; //@line 748 "lpc.c"
     $2497 = (_i64Add(($2493|0),($2496|0),($2489|0),($2490|0))|0); //@line 748 "lpc.c"
-    $2498 = tempRet0; //@line 748 "lpc.c"
+    $2498 = (getTempRet0() | 0); //@line 748 "lpc.c"
     $2499 = $13; //@line 748 "lpc.c"
     $2500 = $2499; //@line 748 "lpc.c"
     HEAP32[$2500>>2] = $2497; //@line 748 "lpc.c"
@@ -16152,7 +16089,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2513 = ($2512|0)<(0); //@line 749 "lpc.c"
     $2514 = $2513 << 31 >> 31; //@line 749 "lpc.c"
     $2515 = (___muldi3(($2505|0),($2507|0),($2512|0),($2514|0))|0); //@line 749 "lpc.c"
-    $2516 = tempRet0; //@line 749 "lpc.c"
+    $2516 = (getTempRet0() | 0); //@line 749 "lpc.c"
     $2517 = $13; //@line 749 "lpc.c"
     $2518 = $2517; //@line 749 "lpc.c"
     $2519 = HEAP32[$2518>>2]|0; //@line 749 "lpc.c"
@@ -16160,7 +16097,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2521 = $2520; //@line 749 "lpc.c"
     $2522 = HEAP32[$2521>>2]|0; //@line 749 "lpc.c"
     $2523 = (_i64Add(($2519|0),($2522|0),($2515|0),($2516|0))|0); //@line 749 "lpc.c"
-    $2524 = tempRet0; //@line 749 "lpc.c"
+    $2524 = (getTempRet0() | 0); //@line 749 "lpc.c"
     $2525 = $13; //@line 749 "lpc.c"
     $2526 = $2525; //@line 749 "lpc.c"
     HEAP32[$2526>>2] = $2523; //@line 749 "lpc.c"
@@ -16184,7 +16121,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2539 = ($2538|0)<(0); //@line 750 "lpc.c"
     $2540 = $2539 << 31 >> 31; //@line 750 "lpc.c"
     $2541 = (___muldi3(($2531|0),($2533|0),($2538|0),($2540|0))|0); //@line 750 "lpc.c"
-    $2542 = tempRet0; //@line 750 "lpc.c"
+    $2542 = (getTempRet0() | 0); //@line 750 "lpc.c"
     $2543 = $13; //@line 750 "lpc.c"
     $2544 = $2543; //@line 750 "lpc.c"
     $2545 = HEAP32[$2544>>2]|0; //@line 750 "lpc.c"
@@ -16192,7 +16129,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2547 = $2546; //@line 750 "lpc.c"
     $2548 = HEAP32[$2547>>2]|0; //@line 750 "lpc.c"
     $2549 = (_i64Add(($2545|0),($2548|0),($2541|0),($2542|0))|0); //@line 750 "lpc.c"
-    $2550 = tempRet0; //@line 750 "lpc.c"
+    $2550 = (getTempRet0() | 0); //@line 750 "lpc.c"
     $2551 = $13; //@line 750 "lpc.c"
     $2552 = $2551; //@line 750 "lpc.c"
     HEAP32[$2552>>2] = $2549; //@line 750 "lpc.c"
@@ -16216,7 +16153,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2565 = ($2564|0)<(0); //@line 751 "lpc.c"
     $2566 = $2565 << 31 >> 31; //@line 751 "lpc.c"
     $2567 = (___muldi3(($2557|0),($2559|0),($2564|0),($2566|0))|0); //@line 751 "lpc.c"
-    $2568 = tempRet0; //@line 751 "lpc.c"
+    $2568 = (getTempRet0() | 0); //@line 751 "lpc.c"
     $2569 = $13; //@line 751 "lpc.c"
     $2570 = $2569; //@line 751 "lpc.c"
     $2571 = HEAP32[$2570>>2]|0; //@line 751 "lpc.c"
@@ -16224,7 +16161,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2573 = $2572; //@line 751 "lpc.c"
     $2574 = HEAP32[$2573>>2]|0; //@line 751 "lpc.c"
     $2575 = (_i64Add(($2571|0),($2574|0),($2567|0),($2568|0))|0); //@line 751 "lpc.c"
-    $2576 = tempRet0; //@line 751 "lpc.c"
+    $2576 = (getTempRet0() | 0); //@line 751 "lpc.c"
     $2577 = $13; //@line 751 "lpc.c"
     $2578 = $2577; //@line 751 "lpc.c"
     HEAP32[$2578>>2] = $2575; //@line 751 "lpc.c"
@@ -16248,7 +16185,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2591 = ($2590|0)<(0); //@line 752 "lpc.c"
     $2592 = $2591 << 31 >> 31; //@line 752 "lpc.c"
     $2593 = (___muldi3(($2583|0),($2585|0),($2590|0),($2592|0))|0); //@line 752 "lpc.c"
-    $2594 = tempRet0; //@line 752 "lpc.c"
+    $2594 = (getTempRet0() | 0); //@line 752 "lpc.c"
     $2595 = $13; //@line 752 "lpc.c"
     $2596 = $2595; //@line 752 "lpc.c"
     $2597 = HEAP32[$2596>>2]|0; //@line 752 "lpc.c"
@@ -16256,7 +16193,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2599 = $2598; //@line 752 "lpc.c"
     $2600 = HEAP32[$2599>>2]|0; //@line 752 "lpc.c"
     $2601 = (_i64Add(($2597|0),($2600|0),($2593|0),($2594|0))|0); //@line 752 "lpc.c"
-    $2602 = tempRet0; //@line 752 "lpc.c"
+    $2602 = (getTempRet0() | 0); //@line 752 "lpc.c"
     $2603 = $13; //@line 752 "lpc.c"
     $2604 = $2603; //@line 752 "lpc.c"
     HEAP32[$2604>>2] = $2601; //@line 752 "lpc.c"
@@ -16280,7 +16217,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2617 = ($2616|0)<(0); //@line 753 "lpc.c"
     $2618 = $2617 << 31 >> 31; //@line 753 "lpc.c"
     $2619 = (___muldi3(($2609|0),($2611|0),($2616|0),($2618|0))|0); //@line 753 "lpc.c"
-    $2620 = tempRet0; //@line 753 "lpc.c"
+    $2620 = (getTempRet0() | 0); //@line 753 "lpc.c"
     $2621 = $13; //@line 753 "lpc.c"
     $2622 = $2621; //@line 753 "lpc.c"
     $2623 = HEAP32[$2622>>2]|0; //@line 753 "lpc.c"
@@ -16288,7 +16225,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2625 = $2624; //@line 753 "lpc.c"
     $2626 = HEAP32[$2625>>2]|0; //@line 753 "lpc.c"
     $2627 = (_i64Add(($2623|0),($2626|0),($2619|0),($2620|0))|0); //@line 753 "lpc.c"
-    $2628 = tempRet0; //@line 753 "lpc.c"
+    $2628 = (getTempRet0() | 0); //@line 753 "lpc.c"
     $2629 = $13; //@line 753 "lpc.c"
     $2630 = $2629; //@line 753 "lpc.c"
     HEAP32[$2630>>2] = $2627; //@line 753 "lpc.c"
@@ -16312,7 +16249,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2643 = ($2642|0)<(0); //@line 754 "lpc.c"
     $2644 = $2643 << 31 >> 31; //@line 754 "lpc.c"
     $2645 = (___muldi3(($2635|0),($2637|0),($2642|0),($2644|0))|0); //@line 754 "lpc.c"
-    $2646 = tempRet0; //@line 754 "lpc.c"
+    $2646 = (getTempRet0() | 0); //@line 754 "lpc.c"
     $2647 = $13; //@line 754 "lpc.c"
     $2648 = $2647; //@line 754 "lpc.c"
     $2649 = HEAP32[$2648>>2]|0; //@line 754 "lpc.c"
@@ -16320,7 +16257,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2651 = $2650; //@line 754 "lpc.c"
     $2652 = HEAP32[$2651>>2]|0; //@line 754 "lpc.c"
     $2653 = (_i64Add(($2649|0),($2652|0),($2645|0),($2646|0))|0); //@line 754 "lpc.c"
-    $2654 = tempRet0; //@line 754 "lpc.c"
+    $2654 = (getTempRet0() | 0); //@line 754 "lpc.c"
     $2655 = $13; //@line 754 "lpc.c"
     $2656 = $2655; //@line 754 "lpc.c"
     HEAP32[$2656>>2] = $2653; //@line 754 "lpc.c"
@@ -16344,7 +16281,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2669 = ($2668|0)<(0); //@line 755 "lpc.c"
     $2670 = $2669 << 31 >> 31; //@line 755 "lpc.c"
     $2671 = (___muldi3(($2661|0),($2663|0),($2668|0),($2670|0))|0); //@line 755 "lpc.c"
-    $2672 = tempRet0; //@line 755 "lpc.c"
+    $2672 = (getTempRet0() | 0); //@line 755 "lpc.c"
     $2673 = $13; //@line 755 "lpc.c"
     $2674 = $2673; //@line 755 "lpc.c"
     $2675 = HEAP32[$2674>>2]|0; //@line 755 "lpc.c"
@@ -16352,7 +16289,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2677 = $2676; //@line 755 "lpc.c"
     $2678 = HEAP32[$2677>>2]|0; //@line 755 "lpc.c"
     $2679 = (_i64Add(($2675|0),($2678|0),($2671|0),($2672|0))|0); //@line 755 "lpc.c"
-    $2680 = tempRet0; //@line 755 "lpc.c"
+    $2680 = (getTempRet0() | 0); //@line 755 "lpc.c"
     $2681 = $13; //@line 755 "lpc.c"
     $2682 = $2681; //@line 755 "lpc.c"
     HEAP32[$2682>>2] = $2679; //@line 755 "lpc.c"
@@ -16376,7 +16313,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2695 = ($2694|0)<(0); //@line 756 "lpc.c"
     $2696 = $2695 << 31 >> 31; //@line 756 "lpc.c"
     $2697 = (___muldi3(($2687|0),($2689|0),($2694|0),($2696|0))|0); //@line 756 "lpc.c"
-    $2698 = tempRet0; //@line 756 "lpc.c"
+    $2698 = (getTempRet0() | 0); //@line 756 "lpc.c"
     $2699 = $13; //@line 756 "lpc.c"
     $2700 = $2699; //@line 756 "lpc.c"
     $2701 = HEAP32[$2700>>2]|0; //@line 756 "lpc.c"
@@ -16384,7 +16321,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2703 = $2702; //@line 756 "lpc.c"
     $2704 = HEAP32[$2703>>2]|0; //@line 756 "lpc.c"
     $2705 = (_i64Add(($2701|0),($2704|0),($2697|0),($2698|0))|0); //@line 756 "lpc.c"
-    $2706 = tempRet0; //@line 756 "lpc.c"
+    $2706 = (getTempRet0() | 0); //@line 756 "lpc.c"
     $2707 = $13; //@line 756 "lpc.c"
     $2708 = $2707; //@line 756 "lpc.c"
     HEAP32[$2708>>2] = $2705; //@line 756 "lpc.c"
@@ -16408,7 +16345,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2721 = ($2720|0)<(0); //@line 757 "lpc.c"
     $2722 = $2721 << 31 >> 31; //@line 757 "lpc.c"
     $2723 = (___muldi3(($2713|0),($2715|0),($2720|0),($2722|0))|0); //@line 757 "lpc.c"
-    $2724 = tempRet0; //@line 757 "lpc.c"
+    $2724 = (getTempRet0() | 0); //@line 757 "lpc.c"
     $2725 = $13; //@line 757 "lpc.c"
     $2726 = $2725; //@line 757 "lpc.c"
     $2727 = HEAP32[$2726>>2]|0; //@line 757 "lpc.c"
@@ -16416,7 +16353,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2729 = $2728; //@line 757 "lpc.c"
     $2730 = HEAP32[$2729>>2]|0; //@line 757 "lpc.c"
     $2731 = (_i64Add(($2727|0),($2730|0),($2723|0),($2724|0))|0); //@line 757 "lpc.c"
-    $2732 = tempRet0; //@line 757 "lpc.c"
+    $2732 = (getTempRet0() | 0); //@line 757 "lpc.c"
     $2733 = $13; //@line 757 "lpc.c"
     $2734 = $2733; //@line 757 "lpc.c"
     HEAP32[$2734>>2] = $2731; //@line 757 "lpc.c"
@@ -16440,7 +16377,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2747 = ($2746|0)<(0); //@line 758 "lpc.c"
     $2748 = $2747 << 31 >> 31; //@line 758 "lpc.c"
     $2749 = (___muldi3(($2739|0),($2741|0),($2746|0),($2748|0))|0); //@line 758 "lpc.c"
-    $2750 = tempRet0; //@line 758 "lpc.c"
+    $2750 = (getTempRet0() | 0); //@line 758 "lpc.c"
     $2751 = $13; //@line 758 "lpc.c"
     $2752 = $2751; //@line 758 "lpc.c"
     $2753 = HEAP32[$2752>>2]|0; //@line 758 "lpc.c"
@@ -16448,7 +16385,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2755 = $2754; //@line 758 "lpc.c"
     $2756 = HEAP32[$2755>>2]|0; //@line 758 "lpc.c"
     $2757 = (_i64Add(($2753|0),($2756|0),($2749|0),($2750|0))|0); //@line 758 "lpc.c"
-    $2758 = tempRet0; //@line 758 "lpc.c"
+    $2758 = (getTempRet0() | 0); //@line 758 "lpc.c"
     $2759 = $13; //@line 758 "lpc.c"
     $2760 = $2759; //@line 758 "lpc.c"
     HEAP32[$2760>>2] = $2757; //@line 758 "lpc.c"
@@ -16472,7 +16409,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2773 = ($2772|0)<(0); //@line 759 "lpc.c"
     $2774 = $2773 << 31 >> 31; //@line 759 "lpc.c"
     $2775 = (___muldi3(($2765|0),($2767|0),($2772|0),($2774|0))|0); //@line 759 "lpc.c"
-    $2776 = tempRet0; //@line 759 "lpc.c"
+    $2776 = (getTempRet0() | 0); //@line 759 "lpc.c"
     $2777 = $13; //@line 759 "lpc.c"
     $2778 = $2777; //@line 759 "lpc.c"
     $2779 = HEAP32[$2778>>2]|0; //@line 759 "lpc.c"
@@ -16480,7 +16417,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2781 = $2780; //@line 759 "lpc.c"
     $2782 = HEAP32[$2781>>2]|0; //@line 759 "lpc.c"
     $2783 = (_i64Add(($2779|0),($2782|0),($2775|0),($2776|0))|0); //@line 759 "lpc.c"
-    $2784 = tempRet0; //@line 759 "lpc.c"
+    $2784 = (getTempRet0() | 0); //@line 759 "lpc.c"
     $2785 = $13; //@line 759 "lpc.c"
     $2786 = $2785; //@line 759 "lpc.c"
     HEAP32[$2786>>2] = $2783; //@line 759 "lpc.c"
@@ -16504,7 +16441,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2799 = ($2798|0)<(0); //@line 760 "lpc.c"
     $2800 = $2799 << 31 >> 31; //@line 760 "lpc.c"
     $2801 = (___muldi3(($2791|0),($2793|0),($2798|0),($2800|0))|0); //@line 760 "lpc.c"
-    $2802 = tempRet0; //@line 760 "lpc.c"
+    $2802 = (getTempRet0() | 0); //@line 760 "lpc.c"
     $2803 = $13; //@line 760 "lpc.c"
     $2804 = $2803; //@line 760 "lpc.c"
     $2805 = HEAP32[$2804>>2]|0; //@line 760 "lpc.c"
@@ -16512,7 +16449,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2807 = $2806; //@line 760 "lpc.c"
     $2808 = HEAP32[$2807>>2]|0; //@line 760 "lpc.c"
     $2809 = (_i64Add(($2805|0),($2808|0),($2801|0),($2802|0))|0); //@line 760 "lpc.c"
-    $2810 = tempRet0; //@line 760 "lpc.c"
+    $2810 = (getTempRet0() | 0); //@line 760 "lpc.c"
     $2811 = $13; //@line 760 "lpc.c"
     $2812 = $2811; //@line 760 "lpc.c"
     HEAP32[$2812>>2] = $2809; //@line 760 "lpc.c"
@@ -16536,7 +16473,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2825 = ($2824|0)<(0); //@line 761 "lpc.c"
     $2826 = $2825 << 31 >> 31; //@line 761 "lpc.c"
     $2827 = (___muldi3(($2817|0),($2819|0),($2824|0),($2826|0))|0); //@line 761 "lpc.c"
-    $2828 = tempRet0; //@line 761 "lpc.c"
+    $2828 = (getTempRet0() | 0); //@line 761 "lpc.c"
     $2829 = $13; //@line 761 "lpc.c"
     $2830 = $2829; //@line 761 "lpc.c"
     $2831 = HEAP32[$2830>>2]|0; //@line 761 "lpc.c"
@@ -16544,7 +16481,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2833 = $2832; //@line 761 "lpc.c"
     $2834 = HEAP32[$2833>>2]|0; //@line 761 "lpc.c"
     $2835 = (_i64Add(($2831|0),($2834|0),($2827|0),($2828|0))|0); //@line 761 "lpc.c"
-    $2836 = tempRet0; //@line 761 "lpc.c"
+    $2836 = (getTempRet0() | 0); //@line 761 "lpc.c"
     $2837 = $13; //@line 761 "lpc.c"
     $2838 = $2837; //@line 761 "lpc.c"
     HEAP32[$2838>>2] = $2835; //@line 761 "lpc.c"
@@ -16568,7 +16505,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2851 = ($2850|0)<(0); //@line 762 "lpc.c"
     $2852 = $2851 << 31 >> 31; //@line 762 "lpc.c"
     $2853 = (___muldi3(($2843|0),($2845|0),($2850|0),($2852|0))|0); //@line 762 "lpc.c"
-    $2854 = tempRet0; //@line 762 "lpc.c"
+    $2854 = (getTempRet0() | 0); //@line 762 "lpc.c"
     $2855 = $13; //@line 762 "lpc.c"
     $2856 = $2855; //@line 762 "lpc.c"
     $2857 = HEAP32[$2856>>2]|0; //@line 762 "lpc.c"
@@ -16576,7 +16513,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2859 = $2858; //@line 762 "lpc.c"
     $2860 = HEAP32[$2859>>2]|0; //@line 762 "lpc.c"
     $2861 = (_i64Add(($2857|0),($2860|0),($2853|0),($2854|0))|0); //@line 762 "lpc.c"
-    $2862 = tempRet0; //@line 762 "lpc.c"
+    $2862 = (getTempRet0() | 0); //@line 762 "lpc.c"
     $2863 = $13; //@line 762 "lpc.c"
     $2864 = $2863; //@line 762 "lpc.c"
     HEAP32[$2864>>2] = $2861; //@line 762 "lpc.c"
@@ -16596,7 +16533,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2877 = ($2876|0)<(0); //@line 763 "lpc.c"
     $2878 = $2877 << 31 >> 31; //@line 763 "lpc.c"
     $2879 = (___muldi3(($2869|0),($2871|0),($2876|0),($2878|0))|0); //@line 763 "lpc.c"
-    $2880 = tempRet0; //@line 763 "lpc.c"
+    $2880 = (getTempRet0() | 0); //@line 763 "lpc.c"
     $2881 = $13; //@line 763 "lpc.c"
     $2882 = $2881; //@line 763 "lpc.c"
     $2883 = HEAP32[$2882>>2]|0; //@line 763 "lpc.c"
@@ -16604,7 +16541,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2885 = $2884; //@line 763 "lpc.c"
     $2886 = HEAP32[$2885>>2]|0; //@line 763 "lpc.c"
     $2887 = (_i64Add(($2883|0),($2886|0),($2879|0),($2880|0))|0); //@line 763 "lpc.c"
-    $2888 = tempRet0; //@line 763 "lpc.c"
+    $2888 = (getTempRet0() | 0); //@line 763 "lpc.c"
     $2889 = $13; //@line 763 "lpc.c"
     $2890 = $2889; //@line 763 "lpc.c"
     HEAP32[$2890>>2] = $2887; //@line 763 "lpc.c"
@@ -16624,7 +16561,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2903 = ($2902|0)<(0); //@line 764 "lpc.c"
     $2904 = $2903 << 31 >> 31; //@line 764 "lpc.c"
     $2905 = (___muldi3(($2895|0),($2897|0),($2902|0),($2904|0))|0); //@line 764 "lpc.c"
-    $2906 = tempRet0; //@line 764 "lpc.c"
+    $2906 = (getTempRet0() | 0); //@line 764 "lpc.c"
     $2907 = $13; //@line 764 "lpc.c"
     $2908 = $2907; //@line 764 "lpc.c"
     $2909 = HEAP32[$2908>>2]|0; //@line 764 "lpc.c"
@@ -16632,7 +16569,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2911 = $2910; //@line 764 "lpc.c"
     $2912 = HEAP32[$2911>>2]|0; //@line 764 "lpc.c"
     $2913 = (_i64Add(($2909|0),($2912|0),($2905|0),($2906|0))|0); //@line 764 "lpc.c"
-    $2914 = tempRet0; //@line 764 "lpc.c"
+    $2914 = (getTempRet0() | 0); //@line 764 "lpc.c"
     $2915 = $13; //@line 764 "lpc.c"
     $2916 = $2915; //@line 764 "lpc.c"
     HEAP32[$2916>>2] = $2913; //@line 764 "lpc.c"
@@ -16652,7 +16589,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2929 = ($2928|0)<(0); //@line 765 "lpc.c"
     $2930 = $2929 << 31 >> 31; //@line 765 "lpc.c"
     $2931 = (___muldi3(($2921|0),($2923|0),($2928|0),($2930|0))|0); //@line 765 "lpc.c"
-    $2932 = tempRet0; //@line 765 "lpc.c"
+    $2932 = (getTempRet0() | 0); //@line 765 "lpc.c"
     $2933 = $13; //@line 765 "lpc.c"
     $2934 = $2933; //@line 765 "lpc.c"
     $2935 = HEAP32[$2934>>2]|0; //@line 765 "lpc.c"
@@ -16660,7 +16597,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2937 = $2936; //@line 765 "lpc.c"
     $2938 = HEAP32[$2937>>2]|0; //@line 765 "lpc.c"
     $2939 = (_i64Add(($2935|0),($2938|0),($2931|0),($2932|0))|0); //@line 765 "lpc.c"
-    $2940 = tempRet0; //@line 765 "lpc.c"
+    $2940 = (getTempRet0() | 0); //@line 765 "lpc.c"
     $2941 = $13; //@line 765 "lpc.c"
     $2942 = $2941; //@line 765 "lpc.c"
     HEAP32[$2942>>2] = $2939; //@line 765 "lpc.c"
@@ -16680,7 +16617,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2955 = ($2954|0)<(0); //@line 766 "lpc.c"
     $2956 = $2955 << 31 >> 31; //@line 766 "lpc.c"
     $2957 = (___muldi3(($2947|0),($2949|0),($2954|0),($2956|0))|0); //@line 766 "lpc.c"
-    $2958 = tempRet0; //@line 766 "lpc.c"
+    $2958 = (getTempRet0() | 0); //@line 766 "lpc.c"
     $2959 = $13; //@line 766 "lpc.c"
     $2960 = $2959; //@line 766 "lpc.c"
     $2961 = HEAP32[$2960>>2]|0; //@line 766 "lpc.c"
@@ -16688,7 +16625,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2963 = $2962; //@line 766 "lpc.c"
     $2964 = HEAP32[$2963>>2]|0; //@line 766 "lpc.c"
     $2965 = (_i64Add(($2961|0),($2964|0),($2957|0),($2958|0))|0); //@line 766 "lpc.c"
-    $2966 = tempRet0; //@line 766 "lpc.c"
+    $2966 = (getTempRet0() | 0); //@line 766 "lpc.c"
     $2967 = $13; //@line 766 "lpc.c"
     $2968 = $2967; //@line 766 "lpc.c"
     HEAP32[$2968>>2] = $2965; //@line 766 "lpc.c"
@@ -16708,7 +16645,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2981 = ($2980|0)<(0); //@line 767 "lpc.c"
     $2982 = $2981 << 31 >> 31; //@line 767 "lpc.c"
     $2983 = (___muldi3(($2973|0),($2975|0),($2980|0),($2982|0))|0); //@line 767 "lpc.c"
-    $2984 = tempRet0; //@line 767 "lpc.c"
+    $2984 = (getTempRet0() | 0); //@line 767 "lpc.c"
     $2985 = $13; //@line 767 "lpc.c"
     $2986 = $2985; //@line 767 "lpc.c"
     $2987 = HEAP32[$2986>>2]|0; //@line 767 "lpc.c"
@@ -16716,7 +16653,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $2989 = $2988; //@line 767 "lpc.c"
     $2990 = HEAP32[$2989>>2]|0; //@line 767 "lpc.c"
     $2991 = (_i64Add(($2987|0),($2990|0),($2983|0),($2984|0))|0); //@line 767 "lpc.c"
-    $2992 = tempRet0; //@line 767 "lpc.c"
+    $2992 = (getTempRet0() | 0); //@line 767 "lpc.c"
     $2993 = $13; //@line 767 "lpc.c"
     $2994 = $2993; //@line 767 "lpc.c"
     HEAP32[$2994>>2] = $2991; //@line 767 "lpc.c"
@@ -16736,7 +16673,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3007 = ($3006|0)<(0); //@line 768 "lpc.c"
     $3008 = $3007 << 31 >> 31; //@line 768 "lpc.c"
     $3009 = (___muldi3(($2999|0),($3001|0),($3006|0),($3008|0))|0); //@line 768 "lpc.c"
-    $3010 = tempRet0; //@line 768 "lpc.c"
+    $3010 = (getTempRet0() | 0); //@line 768 "lpc.c"
     $3011 = $13; //@line 768 "lpc.c"
     $3012 = $3011; //@line 768 "lpc.c"
     $3013 = HEAP32[$3012>>2]|0; //@line 768 "lpc.c"
@@ -16744,7 +16681,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3015 = $3014; //@line 768 "lpc.c"
     $3016 = HEAP32[$3015>>2]|0; //@line 768 "lpc.c"
     $3017 = (_i64Add(($3013|0),($3016|0),($3009|0),($3010|0))|0); //@line 768 "lpc.c"
-    $3018 = tempRet0; //@line 768 "lpc.c"
+    $3018 = (getTempRet0() | 0); //@line 768 "lpc.c"
     $3019 = $13; //@line 768 "lpc.c"
     $3020 = $3019; //@line 768 "lpc.c"
     HEAP32[$3020>>2] = $3017; //@line 768 "lpc.c"
@@ -16764,7 +16701,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3033 = ($3032|0)<(0); //@line 769 "lpc.c"
     $3034 = $3033 << 31 >> 31; //@line 769 "lpc.c"
     $3035 = (___muldi3(($3025|0),($3027|0),($3032|0),($3034|0))|0); //@line 769 "lpc.c"
-    $3036 = tempRet0; //@line 769 "lpc.c"
+    $3036 = (getTempRet0() | 0); //@line 769 "lpc.c"
     $3037 = $13; //@line 769 "lpc.c"
     $3038 = $3037; //@line 769 "lpc.c"
     $3039 = HEAP32[$3038>>2]|0; //@line 769 "lpc.c"
@@ -16772,7 +16709,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3041 = $3040; //@line 769 "lpc.c"
     $3042 = HEAP32[$3041>>2]|0; //@line 769 "lpc.c"
     $3043 = (_i64Add(($3039|0),($3042|0),($3035|0),($3036|0))|0); //@line 769 "lpc.c"
-    $3044 = tempRet0; //@line 769 "lpc.c"
+    $3044 = (getTempRet0() | 0); //@line 769 "lpc.c"
     $3045 = $13; //@line 769 "lpc.c"
     $3046 = $3045; //@line 769 "lpc.c"
     HEAP32[$3046>>2] = $3043; //@line 769 "lpc.c"
@@ -16792,7 +16729,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3059 = ($3058|0)<(0); //@line 770 "lpc.c"
     $3060 = $3059 << 31 >> 31; //@line 770 "lpc.c"
     $3061 = (___muldi3(($3051|0),($3053|0),($3058|0),($3060|0))|0); //@line 770 "lpc.c"
-    $3062 = tempRet0; //@line 770 "lpc.c"
+    $3062 = (getTempRet0() | 0); //@line 770 "lpc.c"
     $3063 = $13; //@line 770 "lpc.c"
     $3064 = $3063; //@line 770 "lpc.c"
     $3065 = HEAP32[$3064>>2]|0; //@line 770 "lpc.c"
@@ -16800,7 +16737,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3067 = $3066; //@line 770 "lpc.c"
     $3068 = HEAP32[$3067>>2]|0; //@line 770 "lpc.c"
     $3069 = (_i64Add(($3065|0),($3068|0),($3061|0),($3062|0))|0); //@line 770 "lpc.c"
-    $3070 = tempRet0; //@line 770 "lpc.c"
+    $3070 = (getTempRet0() | 0); //@line 770 "lpc.c"
     $3071 = $13; //@line 770 "lpc.c"
     $3072 = $3071; //@line 770 "lpc.c"
     HEAP32[$3072>>2] = $3069; //@line 770 "lpc.c"
@@ -16820,7 +16757,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3085 = ($3084|0)<(0); //@line 771 "lpc.c"
     $3086 = $3085 << 31 >> 31; //@line 771 "lpc.c"
     $3087 = (___muldi3(($3077|0),($3079|0),($3084|0),($3086|0))|0); //@line 771 "lpc.c"
-    $3088 = tempRet0; //@line 771 "lpc.c"
+    $3088 = (getTempRet0() | 0); //@line 771 "lpc.c"
     $3089 = $13; //@line 771 "lpc.c"
     $3090 = $3089; //@line 771 "lpc.c"
     $3091 = HEAP32[$3090>>2]|0; //@line 771 "lpc.c"
@@ -16828,7 +16765,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3093 = $3092; //@line 771 "lpc.c"
     $3094 = HEAP32[$3093>>2]|0; //@line 771 "lpc.c"
     $3095 = (_i64Add(($3091|0),($3094|0),($3087|0),($3088|0))|0); //@line 771 "lpc.c"
-    $3096 = tempRet0; //@line 771 "lpc.c"
+    $3096 = (getTempRet0() | 0); //@line 771 "lpc.c"
     $3097 = $13; //@line 771 "lpc.c"
     $3098 = $3097; //@line 771 "lpc.c"
     HEAP32[$3098>>2] = $3095; //@line 771 "lpc.c"
@@ -16848,7 +16785,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3111 = ($3110|0)<(0); //@line 772 "lpc.c"
     $3112 = $3111 << 31 >> 31; //@line 772 "lpc.c"
     $3113 = (___muldi3(($3103|0),($3105|0),($3110|0),($3112|0))|0); //@line 772 "lpc.c"
-    $3114 = tempRet0; //@line 772 "lpc.c"
+    $3114 = (getTempRet0() | 0); //@line 772 "lpc.c"
     $3115 = $13; //@line 772 "lpc.c"
     $3116 = $3115; //@line 772 "lpc.c"
     $3117 = HEAP32[$3116>>2]|0; //@line 772 "lpc.c"
@@ -16856,7 +16793,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3119 = $3118; //@line 772 "lpc.c"
     $3120 = HEAP32[$3119>>2]|0; //@line 772 "lpc.c"
     $3121 = (_i64Add(($3117|0),($3120|0),($3113|0),($3114|0))|0); //@line 772 "lpc.c"
-    $3122 = tempRet0; //@line 772 "lpc.c"
+    $3122 = (getTempRet0() | 0); //@line 772 "lpc.c"
     $3123 = $13; //@line 772 "lpc.c"
     $3124 = $3123; //@line 772 "lpc.c"
     HEAP32[$3124>>2] = $3121; //@line 772 "lpc.c"
@@ -16876,7 +16813,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3137 = ($3136|0)<(0); //@line 773 "lpc.c"
     $3138 = $3137 << 31 >> 31; //@line 773 "lpc.c"
     $3139 = (___muldi3(($3129|0),($3131|0),($3136|0),($3138|0))|0); //@line 773 "lpc.c"
-    $3140 = tempRet0; //@line 773 "lpc.c"
+    $3140 = (getTempRet0() | 0); //@line 773 "lpc.c"
     $3141 = $13; //@line 773 "lpc.c"
     $3142 = $3141; //@line 773 "lpc.c"
     $3143 = HEAP32[$3142>>2]|0; //@line 773 "lpc.c"
@@ -16884,7 +16821,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3145 = $3144; //@line 773 "lpc.c"
     $3146 = HEAP32[$3145>>2]|0; //@line 773 "lpc.c"
     $3147 = (_i64Add(($3143|0),($3146|0),($3139|0),($3140|0))|0); //@line 773 "lpc.c"
-    $3148 = tempRet0; //@line 773 "lpc.c"
+    $3148 = (getTempRet0() | 0); //@line 773 "lpc.c"
     $3149 = $13; //@line 773 "lpc.c"
     $3150 = $3149; //@line 773 "lpc.c"
     HEAP32[$3150>>2] = $3147; //@line 773 "lpc.c"
@@ -16903,7 +16840,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3162 = ($3161|0)<(0); //@line 774 "lpc.c"
     $3163 = $3162 << 31 >> 31; //@line 774 "lpc.c"
     $3164 = (___muldi3(($3154|0),($3156|0),($3161|0),($3163|0))|0); //@line 774 "lpc.c"
-    $3165 = tempRet0; //@line 774 "lpc.c"
+    $3165 = (getTempRet0() | 0); //@line 774 "lpc.c"
     $3166 = $13; //@line 774 "lpc.c"
     $3167 = $3166; //@line 774 "lpc.c"
     $3168 = HEAP32[$3167>>2]|0; //@line 774 "lpc.c"
@@ -16911,7 +16848,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
     $3170 = $3169; //@line 774 "lpc.c"
     $3171 = HEAP32[$3170>>2]|0; //@line 774 "lpc.c"
     $3172 = (_i64Add(($3168|0),($3171|0),($3164|0),($3165|0))|0); //@line 774 "lpc.c"
-    $3173 = tempRet0; //@line 774 "lpc.c"
+    $3173 = (getTempRet0() | 0); //@line 774 "lpc.c"
     $3174 = $13; //@line 774 "lpc.c"
     $3175 = $3174; //@line 774 "lpc.c"
     HEAP32[$3175>>2] = $3172; //@line 774 "lpc.c"
@@ -16931,7 +16868,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
    $3187 = HEAP32[$3186>>2]|0; //@line 776 "lpc.c"
    $3188 = $10; //@line 776 "lpc.c"
    $3189 = (_bitshift64Ashr(($3184|0),($3187|0),($3188|0))|0); //@line 776 "lpc.c"
-   $3190 = tempRet0; //@line 776 "lpc.c"
+   $3190 = (getTempRet0() | 0); //@line 776 "lpc.c"
    $3191 = (($3181) - ($3189))|0; //@line 776 "lpc.c"
    $3192 = $11; //@line 776 "lpc.c"
    $3193 = $12; //@line 776 "lpc.c"
@@ -16979,7 +16916,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $39 = ($38|0)<(0); //@line 578 "lpc.c"
      $40 = $39 << 31 >> 31; //@line 578 "lpc.c"
      $41 = (___muldi3(($31|0),($33|0),($38|0),($40|0))|0); //@line 578 "lpc.c"
-     $42 = tempRet0; //@line 578 "lpc.c"
+     $42 = (getTempRet0() | 0); //@line 578 "lpc.c"
      $43 = $13; //@line 578 "lpc.c"
      $44 = $43; //@line 578 "lpc.c"
      $45 = HEAP32[$44>>2]|0; //@line 578 "lpc.c"
@@ -16987,7 +16924,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $47 = $46; //@line 578 "lpc.c"
      $48 = HEAP32[$47>>2]|0; //@line 578 "lpc.c"
      $49 = (_i64Add(($45|0),($48|0),($41|0),($42|0))|0); //@line 578 "lpc.c"
-     $50 = tempRet0; //@line 578 "lpc.c"
+     $50 = (getTempRet0() | 0); //@line 578 "lpc.c"
      $51 = $13; //@line 578 "lpc.c"
      $52 = $51; //@line 578 "lpc.c"
      HEAP32[$52>>2] = $49; //@line 578 "lpc.c"
@@ -17007,7 +16944,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $65 = ($64|0)<(0); //@line 579 "lpc.c"
      $66 = $65 << 31 >> 31; //@line 579 "lpc.c"
      $67 = (___muldi3(($57|0),($59|0),($64|0),($66|0))|0); //@line 579 "lpc.c"
-     $68 = tempRet0; //@line 579 "lpc.c"
+     $68 = (getTempRet0() | 0); //@line 579 "lpc.c"
      $69 = $13; //@line 579 "lpc.c"
      $70 = $69; //@line 579 "lpc.c"
      $71 = HEAP32[$70>>2]|0; //@line 579 "lpc.c"
@@ -17015,7 +16952,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $73 = $72; //@line 579 "lpc.c"
      $74 = HEAP32[$73>>2]|0; //@line 579 "lpc.c"
      $75 = (_i64Add(($71|0),($74|0),($67|0),($68|0))|0); //@line 579 "lpc.c"
-     $76 = tempRet0; //@line 579 "lpc.c"
+     $76 = (getTempRet0() | 0); //@line 579 "lpc.c"
      $77 = $13; //@line 579 "lpc.c"
      $78 = $77; //@line 579 "lpc.c"
      HEAP32[$78>>2] = $75; //@line 579 "lpc.c"
@@ -17035,7 +16972,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $91 = ($90|0)<(0); //@line 580 "lpc.c"
      $92 = $91 << 31 >> 31; //@line 580 "lpc.c"
      $93 = (___muldi3(($83|0),($85|0),($90|0),($92|0))|0); //@line 580 "lpc.c"
-     $94 = tempRet0; //@line 580 "lpc.c"
+     $94 = (getTempRet0() | 0); //@line 580 "lpc.c"
      $95 = $13; //@line 580 "lpc.c"
      $96 = $95; //@line 580 "lpc.c"
      $97 = HEAP32[$96>>2]|0; //@line 580 "lpc.c"
@@ -17043,7 +16980,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $99 = $98; //@line 580 "lpc.c"
      $100 = HEAP32[$99>>2]|0; //@line 580 "lpc.c"
      $101 = (_i64Add(($97|0),($100|0),($93|0),($94|0))|0); //@line 580 "lpc.c"
-     $102 = tempRet0; //@line 580 "lpc.c"
+     $102 = (getTempRet0() | 0); //@line 580 "lpc.c"
      $103 = $13; //@line 580 "lpc.c"
      $104 = $103; //@line 580 "lpc.c"
      HEAP32[$104>>2] = $101; //@line 580 "lpc.c"
@@ -17063,7 +17000,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $117 = ($116|0)<(0); //@line 581 "lpc.c"
      $118 = $117 << 31 >> 31; //@line 581 "lpc.c"
      $119 = (___muldi3(($109|0),($111|0),($116|0),($118|0))|0); //@line 581 "lpc.c"
-     $120 = tempRet0; //@line 581 "lpc.c"
+     $120 = (getTempRet0() | 0); //@line 581 "lpc.c"
      $121 = $13; //@line 581 "lpc.c"
      $122 = $121; //@line 581 "lpc.c"
      $123 = HEAP32[$122>>2]|0; //@line 581 "lpc.c"
@@ -17071,7 +17008,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $125 = $124; //@line 581 "lpc.c"
      $126 = HEAP32[$125>>2]|0; //@line 581 "lpc.c"
      $127 = (_i64Add(($123|0),($126|0),($119|0),($120|0))|0); //@line 581 "lpc.c"
-     $128 = tempRet0; //@line 581 "lpc.c"
+     $128 = (getTempRet0() | 0); //@line 581 "lpc.c"
      $129 = $13; //@line 581 "lpc.c"
      $130 = $129; //@line 581 "lpc.c"
      HEAP32[$130>>2] = $127; //@line 581 "lpc.c"
@@ -17091,7 +17028,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $143 = ($142|0)<(0); //@line 582 "lpc.c"
      $144 = $143 << 31 >> 31; //@line 582 "lpc.c"
      $145 = (___muldi3(($135|0),($137|0),($142|0),($144|0))|0); //@line 582 "lpc.c"
-     $146 = tempRet0; //@line 582 "lpc.c"
+     $146 = (getTempRet0() | 0); //@line 582 "lpc.c"
      $147 = $13; //@line 582 "lpc.c"
      $148 = $147; //@line 582 "lpc.c"
      $149 = HEAP32[$148>>2]|0; //@line 582 "lpc.c"
@@ -17099,7 +17036,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $151 = $150; //@line 582 "lpc.c"
      $152 = HEAP32[$151>>2]|0; //@line 582 "lpc.c"
      $153 = (_i64Add(($149|0),($152|0),($145|0),($146|0))|0); //@line 582 "lpc.c"
-     $154 = tempRet0; //@line 582 "lpc.c"
+     $154 = (getTempRet0() | 0); //@line 582 "lpc.c"
      $155 = $13; //@line 582 "lpc.c"
      $156 = $155; //@line 582 "lpc.c"
      HEAP32[$156>>2] = $153; //@line 582 "lpc.c"
@@ -17119,7 +17056,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $169 = ($168|0)<(0); //@line 583 "lpc.c"
      $170 = $169 << 31 >> 31; //@line 583 "lpc.c"
      $171 = (___muldi3(($161|0),($163|0),($168|0),($170|0))|0); //@line 583 "lpc.c"
-     $172 = tempRet0; //@line 583 "lpc.c"
+     $172 = (getTempRet0() | 0); //@line 583 "lpc.c"
      $173 = $13; //@line 583 "lpc.c"
      $174 = $173; //@line 583 "lpc.c"
      $175 = HEAP32[$174>>2]|0; //@line 583 "lpc.c"
@@ -17127,7 +17064,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $177 = $176; //@line 583 "lpc.c"
      $178 = HEAP32[$177>>2]|0; //@line 583 "lpc.c"
      $179 = (_i64Add(($175|0),($178|0),($171|0),($172|0))|0); //@line 583 "lpc.c"
-     $180 = tempRet0; //@line 583 "lpc.c"
+     $180 = (getTempRet0() | 0); //@line 583 "lpc.c"
      $181 = $13; //@line 583 "lpc.c"
      $182 = $181; //@line 583 "lpc.c"
      HEAP32[$182>>2] = $179; //@line 583 "lpc.c"
@@ -17147,7 +17084,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $195 = ($194|0)<(0); //@line 584 "lpc.c"
      $196 = $195 << 31 >> 31; //@line 584 "lpc.c"
      $197 = (___muldi3(($187|0),($189|0),($194|0),($196|0))|0); //@line 584 "lpc.c"
-     $198 = tempRet0; //@line 584 "lpc.c"
+     $198 = (getTempRet0() | 0); //@line 584 "lpc.c"
      $199 = $13; //@line 584 "lpc.c"
      $200 = $199; //@line 584 "lpc.c"
      $201 = HEAP32[$200>>2]|0; //@line 584 "lpc.c"
@@ -17155,7 +17092,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $203 = $202; //@line 584 "lpc.c"
      $204 = HEAP32[$203>>2]|0; //@line 584 "lpc.c"
      $205 = (_i64Add(($201|0),($204|0),($197|0),($198|0))|0); //@line 584 "lpc.c"
-     $206 = tempRet0; //@line 584 "lpc.c"
+     $206 = (getTempRet0() | 0); //@line 584 "lpc.c"
      $207 = $13; //@line 584 "lpc.c"
      $208 = $207; //@line 584 "lpc.c"
      HEAP32[$208>>2] = $205; //@line 584 "lpc.c"
@@ -17175,7 +17112,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $221 = ($220|0)<(0); //@line 585 "lpc.c"
      $222 = $221 << 31 >> 31; //@line 585 "lpc.c"
      $223 = (___muldi3(($213|0),($215|0),($220|0),($222|0))|0); //@line 585 "lpc.c"
-     $224 = tempRet0; //@line 585 "lpc.c"
+     $224 = (getTempRet0() | 0); //@line 585 "lpc.c"
      $225 = $13; //@line 585 "lpc.c"
      $226 = $225; //@line 585 "lpc.c"
      $227 = HEAP32[$226>>2]|0; //@line 585 "lpc.c"
@@ -17183,7 +17120,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $229 = $228; //@line 585 "lpc.c"
      $230 = HEAP32[$229>>2]|0; //@line 585 "lpc.c"
      $231 = (_i64Add(($227|0),($230|0),($223|0),($224|0))|0); //@line 585 "lpc.c"
-     $232 = tempRet0; //@line 585 "lpc.c"
+     $232 = (getTempRet0() | 0); //@line 585 "lpc.c"
      $233 = $13; //@line 585 "lpc.c"
      $234 = $233; //@line 585 "lpc.c"
      HEAP32[$234>>2] = $231; //@line 585 "lpc.c"
@@ -17203,7 +17140,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $247 = ($246|0)<(0); //@line 586 "lpc.c"
      $248 = $247 << 31 >> 31; //@line 586 "lpc.c"
      $249 = (___muldi3(($239|0),($241|0),($246|0),($248|0))|0); //@line 586 "lpc.c"
-     $250 = tempRet0; //@line 586 "lpc.c"
+     $250 = (getTempRet0() | 0); //@line 586 "lpc.c"
      $251 = $13; //@line 586 "lpc.c"
      $252 = $251; //@line 586 "lpc.c"
      $253 = HEAP32[$252>>2]|0; //@line 586 "lpc.c"
@@ -17211,7 +17148,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $255 = $254; //@line 586 "lpc.c"
      $256 = HEAP32[$255>>2]|0; //@line 586 "lpc.c"
      $257 = (_i64Add(($253|0),($256|0),($249|0),($250|0))|0); //@line 586 "lpc.c"
-     $258 = tempRet0; //@line 586 "lpc.c"
+     $258 = (getTempRet0() | 0); //@line 586 "lpc.c"
      $259 = $13; //@line 586 "lpc.c"
      $260 = $259; //@line 586 "lpc.c"
      HEAP32[$260>>2] = $257; //@line 586 "lpc.c"
@@ -17231,7 +17168,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $273 = ($272|0)<(0); //@line 587 "lpc.c"
      $274 = $273 << 31 >> 31; //@line 587 "lpc.c"
      $275 = (___muldi3(($265|0),($267|0),($272|0),($274|0))|0); //@line 587 "lpc.c"
-     $276 = tempRet0; //@line 587 "lpc.c"
+     $276 = (getTempRet0() | 0); //@line 587 "lpc.c"
      $277 = $13; //@line 587 "lpc.c"
      $278 = $277; //@line 587 "lpc.c"
      $279 = HEAP32[$278>>2]|0; //@line 587 "lpc.c"
@@ -17239,7 +17176,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $281 = $280; //@line 587 "lpc.c"
      $282 = HEAP32[$281>>2]|0; //@line 587 "lpc.c"
      $283 = (_i64Add(($279|0),($282|0),($275|0),($276|0))|0); //@line 587 "lpc.c"
-     $284 = tempRet0; //@line 587 "lpc.c"
+     $284 = (getTempRet0() | 0); //@line 587 "lpc.c"
      $285 = $13; //@line 587 "lpc.c"
      $286 = $285; //@line 587 "lpc.c"
      HEAP32[$286>>2] = $283; //@line 587 "lpc.c"
@@ -17259,7 +17196,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $299 = ($298|0)<(0); //@line 588 "lpc.c"
      $300 = $299 << 31 >> 31; //@line 588 "lpc.c"
      $301 = (___muldi3(($291|0),($293|0),($298|0),($300|0))|0); //@line 588 "lpc.c"
-     $302 = tempRet0; //@line 588 "lpc.c"
+     $302 = (getTempRet0() | 0); //@line 588 "lpc.c"
      $303 = $13; //@line 588 "lpc.c"
      $304 = $303; //@line 588 "lpc.c"
      $305 = HEAP32[$304>>2]|0; //@line 588 "lpc.c"
@@ -17267,7 +17204,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $307 = $306; //@line 588 "lpc.c"
      $308 = HEAP32[$307>>2]|0; //@line 588 "lpc.c"
      $309 = (_i64Add(($305|0),($308|0),($301|0),($302|0))|0); //@line 588 "lpc.c"
-     $310 = tempRet0; //@line 588 "lpc.c"
+     $310 = (getTempRet0() | 0); //@line 588 "lpc.c"
      $311 = $13; //@line 588 "lpc.c"
      $312 = $311; //@line 588 "lpc.c"
      HEAP32[$312>>2] = $309; //@line 588 "lpc.c"
@@ -17286,7 +17223,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $324 = ($323|0)<(0); //@line 589 "lpc.c"
      $325 = $324 << 31 >> 31; //@line 589 "lpc.c"
      $326 = (___muldi3(($316|0),($318|0),($323|0),($325|0))|0); //@line 589 "lpc.c"
-     $327 = tempRet0; //@line 589 "lpc.c"
+     $327 = (getTempRet0() | 0); //@line 589 "lpc.c"
      $328 = $13; //@line 589 "lpc.c"
      $329 = $328; //@line 589 "lpc.c"
      $330 = HEAP32[$329>>2]|0; //@line 589 "lpc.c"
@@ -17294,7 +17231,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $332 = $331; //@line 589 "lpc.c"
      $333 = HEAP32[$332>>2]|0; //@line 589 "lpc.c"
      $334 = (_i64Add(($330|0),($333|0),($326|0),($327|0))|0); //@line 589 "lpc.c"
-     $335 = tempRet0; //@line 589 "lpc.c"
+     $335 = (getTempRet0() | 0); //@line 589 "lpc.c"
      $336 = $13; //@line 589 "lpc.c"
      $337 = $336; //@line 589 "lpc.c"
      HEAP32[$337>>2] = $334; //@line 589 "lpc.c"
@@ -17313,7 +17250,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $349 = HEAP32[$348>>2]|0; //@line 590 "lpc.c"
      $350 = $10; //@line 590 "lpc.c"
      $351 = (_bitshift64Ashr(($346|0),($349|0),($350|0))|0); //@line 590 "lpc.c"
-     $352 = tempRet0; //@line 590 "lpc.c"
+     $352 = (getTempRet0() | 0); //@line 590 "lpc.c"
      $353 = (($343) - ($351))|0; //@line 590 "lpc.c"
      $354 = $11; //@line 590 "lpc.c"
      $355 = $12; //@line 590 "lpc.c"
@@ -17351,7 +17288,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $376 = ($375|0)<(0); //@line 596 "lpc.c"
      $377 = $376 << 31 >> 31; //@line 596 "lpc.c"
      $378 = (___muldi3(($368|0),($370|0),($375|0),($377|0))|0); //@line 596 "lpc.c"
-     $379 = tempRet0; //@line 596 "lpc.c"
+     $379 = (getTempRet0() | 0); //@line 596 "lpc.c"
      $380 = $13; //@line 596 "lpc.c"
      $381 = $380; //@line 596 "lpc.c"
      $382 = HEAP32[$381>>2]|0; //@line 596 "lpc.c"
@@ -17359,7 +17296,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $384 = $383; //@line 596 "lpc.c"
      $385 = HEAP32[$384>>2]|0; //@line 596 "lpc.c"
      $386 = (_i64Add(($382|0),($385|0),($378|0),($379|0))|0); //@line 596 "lpc.c"
-     $387 = tempRet0; //@line 596 "lpc.c"
+     $387 = (getTempRet0() | 0); //@line 596 "lpc.c"
      $388 = $13; //@line 596 "lpc.c"
      $389 = $388; //@line 596 "lpc.c"
      HEAP32[$389>>2] = $386; //@line 596 "lpc.c"
@@ -17379,7 +17316,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $402 = ($401|0)<(0); //@line 597 "lpc.c"
      $403 = $402 << 31 >> 31; //@line 597 "lpc.c"
      $404 = (___muldi3(($394|0),($396|0),($401|0),($403|0))|0); //@line 597 "lpc.c"
-     $405 = tempRet0; //@line 597 "lpc.c"
+     $405 = (getTempRet0() | 0); //@line 597 "lpc.c"
      $406 = $13; //@line 597 "lpc.c"
      $407 = $406; //@line 597 "lpc.c"
      $408 = HEAP32[$407>>2]|0; //@line 597 "lpc.c"
@@ -17387,7 +17324,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $410 = $409; //@line 597 "lpc.c"
      $411 = HEAP32[$410>>2]|0; //@line 597 "lpc.c"
      $412 = (_i64Add(($408|0),($411|0),($404|0),($405|0))|0); //@line 597 "lpc.c"
-     $413 = tempRet0; //@line 597 "lpc.c"
+     $413 = (getTempRet0() | 0); //@line 597 "lpc.c"
      $414 = $13; //@line 597 "lpc.c"
      $415 = $414; //@line 597 "lpc.c"
      HEAP32[$415>>2] = $412; //@line 597 "lpc.c"
@@ -17407,7 +17344,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $428 = ($427|0)<(0); //@line 598 "lpc.c"
      $429 = $428 << 31 >> 31; //@line 598 "lpc.c"
      $430 = (___muldi3(($420|0),($422|0),($427|0),($429|0))|0); //@line 598 "lpc.c"
-     $431 = tempRet0; //@line 598 "lpc.c"
+     $431 = (getTempRet0() | 0); //@line 598 "lpc.c"
      $432 = $13; //@line 598 "lpc.c"
      $433 = $432; //@line 598 "lpc.c"
      $434 = HEAP32[$433>>2]|0; //@line 598 "lpc.c"
@@ -17415,7 +17352,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $436 = $435; //@line 598 "lpc.c"
      $437 = HEAP32[$436>>2]|0; //@line 598 "lpc.c"
      $438 = (_i64Add(($434|0),($437|0),($430|0),($431|0))|0); //@line 598 "lpc.c"
-     $439 = tempRet0; //@line 598 "lpc.c"
+     $439 = (getTempRet0() | 0); //@line 598 "lpc.c"
      $440 = $13; //@line 598 "lpc.c"
      $441 = $440; //@line 598 "lpc.c"
      HEAP32[$441>>2] = $438; //@line 598 "lpc.c"
@@ -17435,7 +17372,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $454 = ($453|0)<(0); //@line 599 "lpc.c"
      $455 = $454 << 31 >> 31; //@line 599 "lpc.c"
      $456 = (___muldi3(($446|0),($448|0),($453|0),($455|0))|0); //@line 599 "lpc.c"
-     $457 = tempRet0; //@line 599 "lpc.c"
+     $457 = (getTempRet0() | 0); //@line 599 "lpc.c"
      $458 = $13; //@line 599 "lpc.c"
      $459 = $458; //@line 599 "lpc.c"
      $460 = HEAP32[$459>>2]|0; //@line 599 "lpc.c"
@@ -17443,7 +17380,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $462 = $461; //@line 599 "lpc.c"
      $463 = HEAP32[$462>>2]|0; //@line 599 "lpc.c"
      $464 = (_i64Add(($460|0),($463|0),($456|0),($457|0))|0); //@line 599 "lpc.c"
-     $465 = tempRet0; //@line 599 "lpc.c"
+     $465 = (getTempRet0() | 0); //@line 599 "lpc.c"
      $466 = $13; //@line 599 "lpc.c"
      $467 = $466; //@line 599 "lpc.c"
      HEAP32[$467>>2] = $464; //@line 599 "lpc.c"
@@ -17463,7 +17400,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $480 = ($479|0)<(0); //@line 600 "lpc.c"
      $481 = $480 << 31 >> 31; //@line 600 "lpc.c"
      $482 = (___muldi3(($472|0),($474|0),($479|0),($481|0))|0); //@line 600 "lpc.c"
-     $483 = tempRet0; //@line 600 "lpc.c"
+     $483 = (getTempRet0() | 0); //@line 600 "lpc.c"
      $484 = $13; //@line 600 "lpc.c"
      $485 = $484; //@line 600 "lpc.c"
      $486 = HEAP32[$485>>2]|0; //@line 600 "lpc.c"
@@ -17471,7 +17408,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $488 = $487; //@line 600 "lpc.c"
      $489 = HEAP32[$488>>2]|0; //@line 600 "lpc.c"
      $490 = (_i64Add(($486|0),($489|0),($482|0),($483|0))|0); //@line 600 "lpc.c"
-     $491 = tempRet0; //@line 600 "lpc.c"
+     $491 = (getTempRet0() | 0); //@line 600 "lpc.c"
      $492 = $13; //@line 600 "lpc.c"
      $493 = $492; //@line 600 "lpc.c"
      HEAP32[$493>>2] = $490; //@line 600 "lpc.c"
@@ -17491,7 +17428,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $506 = ($505|0)<(0); //@line 601 "lpc.c"
      $507 = $506 << 31 >> 31; //@line 601 "lpc.c"
      $508 = (___muldi3(($498|0),($500|0),($505|0),($507|0))|0); //@line 601 "lpc.c"
-     $509 = tempRet0; //@line 601 "lpc.c"
+     $509 = (getTempRet0() | 0); //@line 601 "lpc.c"
      $510 = $13; //@line 601 "lpc.c"
      $511 = $510; //@line 601 "lpc.c"
      $512 = HEAP32[$511>>2]|0; //@line 601 "lpc.c"
@@ -17499,7 +17436,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $514 = $513; //@line 601 "lpc.c"
      $515 = HEAP32[$514>>2]|0; //@line 601 "lpc.c"
      $516 = (_i64Add(($512|0),($515|0),($508|0),($509|0))|0); //@line 601 "lpc.c"
-     $517 = tempRet0; //@line 601 "lpc.c"
+     $517 = (getTempRet0() | 0); //@line 601 "lpc.c"
      $518 = $13; //@line 601 "lpc.c"
      $519 = $518; //@line 601 "lpc.c"
      HEAP32[$519>>2] = $516; //@line 601 "lpc.c"
@@ -17519,7 +17456,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $532 = ($531|0)<(0); //@line 602 "lpc.c"
      $533 = $532 << 31 >> 31; //@line 602 "lpc.c"
      $534 = (___muldi3(($524|0),($526|0),($531|0),($533|0))|0); //@line 602 "lpc.c"
-     $535 = tempRet0; //@line 602 "lpc.c"
+     $535 = (getTempRet0() | 0); //@line 602 "lpc.c"
      $536 = $13; //@line 602 "lpc.c"
      $537 = $536; //@line 602 "lpc.c"
      $538 = HEAP32[$537>>2]|0; //@line 602 "lpc.c"
@@ -17527,7 +17464,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $540 = $539; //@line 602 "lpc.c"
      $541 = HEAP32[$540>>2]|0; //@line 602 "lpc.c"
      $542 = (_i64Add(($538|0),($541|0),($534|0),($535|0))|0); //@line 602 "lpc.c"
-     $543 = tempRet0; //@line 602 "lpc.c"
+     $543 = (getTempRet0() | 0); //@line 602 "lpc.c"
      $544 = $13; //@line 602 "lpc.c"
      $545 = $544; //@line 602 "lpc.c"
      HEAP32[$545>>2] = $542; //@line 602 "lpc.c"
@@ -17547,7 +17484,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $558 = ($557|0)<(0); //@line 603 "lpc.c"
      $559 = $558 << 31 >> 31; //@line 603 "lpc.c"
      $560 = (___muldi3(($550|0),($552|0),($557|0),($559|0))|0); //@line 603 "lpc.c"
-     $561 = tempRet0; //@line 603 "lpc.c"
+     $561 = (getTempRet0() | 0); //@line 603 "lpc.c"
      $562 = $13; //@line 603 "lpc.c"
      $563 = $562; //@line 603 "lpc.c"
      $564 = HEAP32[$563>>2]|0; //@line 603 "lpc.c"
@@ -17555,7 +17492,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $566 = $565; //@line 603 "lpc.c"
      $567 = HEAP32[$566>>2]|0; //@line 603 "lpc.c"
      $568 = (_i64Add(($564|0),($567|0),($560|0),($561|0))|0); //@line 603 "lpc.c"
-     $569 = tempRet0; //@line 603 "lpc.c"
+     $569 = (getTempRet0() | 0); //@line 603 "lpc.c"
      $570 = $13; //@line 603 "lpc.c"
      $571 = $570; //@line 603 "lpc.c"
      HEAP32[$571>>2] = $568; //@line 603 "lpc.c"
@@ -17575,7 +17512,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $584 = ($583|0)<(0); //@line 604 "lpc.c"
      $585 = $584 << 31 >> 31; //@line 604 "lpc.c"
      $586 = (___muldi3(($576|0),($578|0),($583|0),($585|0))|0); //@line 604 "lpc.c"
-     $587 = tempRet0; //@line 604 "lpc.c"
+     $587 = (getTempRet0() | 0); //@line 604 "lpc.c"
      $588 = $13; //@line 604 "lpc.c"
      $589 = $588; //@line 604 "lpc.c"
      $590 = HEAP32[$589>>2]|0; //@line 604 "lpc.c"
@@ -17583,7 +17520,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $592 = $591; //@line 604 "lpc.c"
      $593 = HEAP32[$592>>2]|0; //@line 604 "lpc.c"
      $594 = (_i64Add(($590|0),($593|0),($586|0),($587|0))|0); //@line 604 "lpc.c"
-     $595 = tempRet0; //@line 604 "lpc.c"
+     $595 = (getTempRet0() | 0); //@line 604 "lpc.c"
      $596 = $13; //@line 604 "lpc.c"
      $597 = $596; //@line 604 "lpc.c"
      HEAP32[$597>>2] = $594; //@line 604 "lpc.c"
@@ -17603,7 +17540,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $610 = ($609|0)<(0); //@line 605 "lpc.c"
      $611 = $610 << 31 >> 31; //@line 605 "lpc.c"
      $612 = (___muldi3(($602|0),($604|0),($609|0),($611|0))|0); //@line 605 "lpc.c"
-     $613 = tempRet0; //@line 605 "lpc.c"
+     $613 = (getTempRet0() | 0); //@line 605 "lpc.c"
      $614 = $13; //@line 605 "lpc.c"
      $615 = $614; //@line 605 "lpc.c"
      $616 = HEAP32[$615>>2]|0; //@line 605 "lpc.c"
@@ -17611,7 +17548,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $618 = $617; //@line 605 "lpc.c"
      $619 = HEAP32[$618>>2]|0; //@line 605 "lpc.c"
      $620 = (_i64Add(($616|0),($619|0),($612|0),($613|0))|0); //@line 605 "lpc.c"
-     $621 = tempRet0; //@line 605 "lpc.c"
+     $621 = (getTempRet0() | 0); //@line 605 "lpc.c"
      $622 = $13; //@line 605 "lpc.c"
      $623 = $622; //@line 605 "lpc.c"
      HEAP32[$623>>2] = $620; //@line 605 "lpc.c"
@@ -17630,7 +17567,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $635 = ($634|0)<(0); //@line 606 "lpc.c"
      $636 = $635 << 31 >> 31; //@line 606 "lpc.c"
      $637 = (___muldi3(($627|0),($629|0),($634|0),($636|0))|0); //@line 606 "lpc.c"
-     $638 = tempRet0; //@line 606 "lpc.c"
+     $638 = (getTempRet0() | 0); //@line 606 "lpc.c"
      $639 = $13; //@line 606 "lpc.c"
      $640 = $639; //@line 606 "lpc.c"
      $641 = HEAP32[$640>>2]|0; //@line 606 "lpc.c"
@@ -17638,7 +17575,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $643 = $642; //@line 606 "lpc.c"
      $644 = HEAP32[$643>>2]|0; //@line 606 "lpc.c"
      $645 = (_i64Add(($641|0),($644|0),($637|0),($638|0))|0); //@line 606 "lpc.c"
-     $646 = tempRet0; //@line 606 "lpc.c"
+     $646 = (getTempRet0() | 0); //@line 606 "lpc.c"
      $647 = $13; //@line 606 "lpc.c"
      $648 = $647; //@line 606 "lpc.c"
      HEAP32[$648>>2] = $645; //@line 606 "lpc.c"
@@ -17657,7 +17594,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $660 = HEAP32[$659>>2]|0; //@line 607 "lpc.c"
      $661 = $10; //@line 607 "lpc.c"
      $662 = (_bitshift64Ashr(($657|0),($660|0),($661|0))|0); //@line 607 "lpc.c"
-     $663 = tempRet0; //@line 607 "lpc.c"
+     $663 = (getTempRet0() | 0); //@line 607 "lpc.c"
      $664 = (($654) - ($662))|0; //@line 607 "lpc.c"
      $665 = $11; //@line 607 "lpc.c"
      $666 = $12; //@line 607 "lpc.c"
@@ -17699,7 +17636,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $688 = ($687|0)<(0); //@line 615 "lpc.c"
      $689 = $688 << 31 >> 31; //@line 615 "lpc.c"
      $690 = (___muldi3(($680|0),($682|0),($687|0),($689|0))|0); //@line 615 "lpc.c"
-     $691 = tempRet0; //@line 615 "lpc.c"
+     $691 = (getTempRet0() | 0); //@line 615 "lpc.c"
      $692 = $13; //@line 615 "lpc.c"
      $693 = $692; //@line 615 "lpc.c"
      $694 = HEAP32[$693>>2]|0; //@line 615 "lpc.c"
@@ -17707,7 +17644,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $696 = $695; //@line 615 "lpc.c"
      $697 = HEAP32[$696>>2]|0; //@line 615 "lpc.c"
      $698 = (_i64Add(($694|0),($697|0),($690|0),($691|0))|0); //@line 615 "lpc.c"
-     $699 = tempRet0; //@line 615 "lpc.c"
+     $699 = (getTempRet0() | 0); //@line 615 "lpc.c"
      $700 = $13; //@line 615 "lpc.c"
      $701 = $700; //@line 615 "lpc.c"
      HEAP32[$701>>2] = $698; //@line 615 "lpc.c"
@@ -17727,7 +17664,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $714 = ($713|0)<(0); //@line 616 "lpc.c"
      $715 = $714 << 31 >> 31; //@line 616 "lpc.c"
      $716 = (___muldi3(($706|0),($708|0),($713|0),($715|0))|0); //@line 616 "lpc.c"
-     $717 = tempRet0; //@line 616 "lpc.c"
+     $717 = (getTempRet0() | 0); //@line 616 "lpc.c"
      $718 = $13; //@line 616 "lpc.c"
      $719 = $718; //@line 616 "lpc.c"
      $720 = HEAP32[$719>>2]|0; //@line 616 "lpc.c"
@@ -17735,7 +17672,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $722 = $721; //@line 616 "lpc.c"
      $723 = HEAP32[$722>>2]|0; //@line 616 "lpc.c"
      $724 = (_i64Add(($720|0),($723|0),($716|0),($717|0))|0); //@line 616 "lpc.c"
-     $725 = tempRet0; //@line 616 "lpc.c"
+     $725 = (getTempRet0() | 0); //@line 616 "lpc.c"
      $726 = $13; //@line 616 "lpc.c"
      $727 = $726; //@line 616 "lpc.c"
      HEAP32[$727>>2] = $724; //@line 616 "lpc.c"
@@ -17755,7 +17692,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $740 = ($739|0)<(0); //@line 617 "lpc.c"
      $741 = $740 << 31 >> 31; //@line 617 "lpc.c"
      $742 = (___muldi3(($732|0),($734|0),($739|0),($741|0))|0); //@line 617 "lpc.c"
-     $743 = tempRet0; //@line 617 "lpc.c"
+     $743 = (getTempRet0() | 0); //@line 617 "lpc.c"
      $744 = $13; //@line 617 "lpc.c"
      $745 = $744; //@line 617 "lpc.c"
      $746 = HEAP32[$745>>2]|0; //@line 617 "lpc.c"
@@ -17763,7 +17700,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $748 = $747; //@line 617 "lpc.c"
      $749 = HEAP32[$748>>2]|0; //@line 617 "lpc.c"
      $750 = (_i64Add(($746|0),($749|0),($742|0),($743|0))|0); //@line 617 "lpc.c"
-     $751 = tempRet0; //@line 617 "lpc.c"
+     $751 = (getTempRet0() | 0); //@line 617 "lpc.c"
      $752 = $13; //@line 617 "lpc.c"
      $753 = $752; //@line 617 "lpc.c"
      HEAP32[$753>>2] = $750; //@line 617 "lpc.c"
@@ -17783,7 +17720,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $766 = ($765|0)<(0); //@line 618 "lpc.c"
      $767 = $766 << 31 >> 31; //@line 618 "lpc.c"
      $768 = (___muldi3(($758|0),($760|0),($765|0),($767|0))|0); //@line 618 "lpc.c"
-     $769 = tempRet0; //@line 618 "lpc.c"
+     $769 = (getTempRet0() | 0); //@line 618 "lpc.c"
      $770 = $13; //@line 618 "lpc.c"
      $771 = $770; //@line 618 "lpc.c"
      $772 = HEAP32[$771>>2]|0; //@line 618 "lpc.c"
@@ -17791,7 +17728,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $774 = $773; //@line 618 "lpc.c"
      $775 = HEAP32[$774>>2]|0; //@line 618 "lpc.c"
      $776 = (_i64Add(($772|0),($775|0),($768|0),($769|0))|0); //@line 618 "lpc.c"
-     $777 = tempRet0; //@line 618 "lpc.c"
+     $777 = (getTempRet0() | 0); //@line 618 "lpc.c"
      $778 = $13; //@line 618 "lpc.c"
      $779 = $778; //@line 618 "lpc.c"
      HEAP32[$779>>2] = $776; //@line 618 "lpc.c"
@@ -17811,7 +17748,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $792 = ($791|0)<(0); //@line 619 "lpc.c"
      $793 = $792 << 31 >> 31; //@line 619 "lpc.c"
      $794 = (___muldi3(($784|0),($786|0),($791|0),($793|0))|0); //@line 619 "lpc.c"
-     $795 = tempRet0; //@line 619 "lpc.c"
+     $795 = (getTempRet0() | 0); //@line 619 "lpc.c"
      $796 = $13; //@line 619 "lpc.c"
      $797 = $796; //@line 619 "lpc.c"
      $798 = HEAP32[$797>>2]|0; //@line 619 "lpc.c"
@@ -17819,7 +17756,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $800 = $799; //@line 619 "lpc.c"
      $801 = HEAP32[$800>>2]|0; //@line 619 "lpc.c"
      $802 = (_i64Add(($798|0),($801|0),($794|0),($795|0))|0); //@line 619 "lpc.c"
-     $803 = tempRet0; //@line 619 "lpc.c"
+     $803 = (getTempRet0() | 0); //@line 619 "lpc.c"
      $804 = $13; //@line 619 "lpc.c"
      $805 = $804; //@line 619 "lpc.c"
      HEAP32[$805>>2] = $802; //@line 619 "lpc.c"
@@ -17839,7 +17776,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $818 = ($817|0)<(0); //@line 620 "lpc.c"
      $819 = $818 << 31 >> 31; //@line 620 "lpc.c"
      $820 = (___muldi3(($810|0),($812|0),($817|0),($819|0))|0); //@line 620 "lpc.c"
-     $821 = tempRet0; //@line 620 "lpc.c"
+     $821 = (getTempRet0() | 0); //@line 620 "lpc.c"
      $822 = $13; //@line 620 "lpc.c"
      $823 = $822; //@line 620 "lpc.c"
      $824 = HEAP32[$823>>2]|0; //@line 620 "lpc.c"
@@ -17847,7 +17784,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $826 = $825; //@line 620 "lpc.c"
      $827 = HEAP32[$826>>2]|0; //@line 620 "lpc.c"
      $828 = (_i64Add(($824|0),($827|0),($820|0),($821|0))|0); //@line 620 "lpc.c"
-     $829 = tempRet0; //@line 620 "lpc.c"
+     $829 = (getTempRet0() | 0); //@line 620 "lpc.c"
      $830 = $13; //@line 620 "lpc.c"
      $831 = $830; //@line 620 "lpc.c"
      HEAP32[$831>>2] = $828; //@line 620 "lpc.c"
@@ -17867,7 +17804,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $844 = ($843|0)<(0); //@line 621 "lpc.c"
      $845 = $844 << 31 >> 31; //@line 621 "lpc.c"
      $846 = (___muldi3(($836|0),($838|0),($843|0),($845|0))|0); //@line 621 "lpc.c"
-     $847 = tempRet0; //@line 621 "lpc.c"
+     $847 = (getTempRet0() | 0); //@line 621 "lpc.c"
      $848 = $13; //@line 621 "lpc.c"
      $849 = $848; //@line 621 "lpc.c"
      $850 = HEAP32[$849>>2]|0; //@line 621 "lpc.c"
@@ -17875,7 +17812,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $852 = $851; //@line 621 "lpc.c"
      $853 = HEAP32[$852>>2]|0; //@line 621 "lpc.c"
      $854 = (_i64Add(($850|0),($853|0),($846|0),($847|0))|0); //@line 621 "lpc.c"
-     $855 = tempRet0; //@line 621 "lpc.c"
+     $855 = (getTempRet0() | 0); //@line 621 "lpc.c"
      $856 = $13; //@line 621 "lpc.c"
      $857 = $856; //@line 621 "lpc.c"
      HEAP32[$857>>2] = $854; //@line 621 "lpc.c"
@@ -17895,7 +17832,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $870 = ($869|0)<(0); //@line 622 "lpc.c"
      $871 = $870 << 31 >> 31; //@line 622 "lpc.c"
      $872 = (___muldi3(($862|0),($864|0),($869|0),($871|0))|0); //@line 622 "lpc.c"
-     $873 = tempRet0; //@line 622 "lpc.c"
+     $873 = (getTempRet0() | 0); //@line 622 "lpc.c"
      $874 = $13; //@line 622 "lpc.c"
      $875 = $874; //@line 622 "lpc.c"
      $876 = HEAP32[$875>>2]|0; //@line 622 "lpc.c"
@@ -17903,7 +17840,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $878 = $877; //@line 622 "lpc.c"
      $879 = HEAP32[$878>>2]|0; //@line 622 "lpc.c"
      $880 = (_i64Add(($876|0),($879|0),($872|0),($873|0))|0); //@line 622 "lpc.c"
-     $881 = tempRet0; //@line 622 "lpc.c"
+     $881 = (getTempRet0() | 0); //@line 622 "lpc.c"
      $882 = $13; //@line 622 "lpc.c"
      $883 = $882; //@line 622 "lpc.c"
      HEAP32[$883>>2] = $880; //@line 622 "lpc.c"
@@ -17923,7 +17860,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $896 = ($895|0)<(0); //@line 623 "lpc.c"
      $897 = $896 << 31 >> 31; //@line 623 "lpc.c"
      $898 = (___muldi3(($888|0),($890|0),($895|0),($897|0))|0); //@line 623 "lpc.c"
-     $899 = tempRet0; //@line 623 "lpc.c"
+     $899 = (getTempRet0() | 0); //@line 623 "lpc.c"
      $900 = $13; //@line 623 "lpc.c"
      $901 = $900; //@line 623 "lpc.c"
      $902 = HEAP32[$901>>2]|0; //@line 623 "lpc.c"
@@ -17931,7 +17868,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $904 = $903; //@line 623 "lpc.c"
      $905 = HEAP32[$904>>2]|0; //@line 623 "lpc.c"
      $906 = (_i64Add(($902|0),($905|0),($898|0),($899|0))|0); //@line 623 "lpc.c"
-     $907 = tempRet0; //@line 623 "lpc.c"
+     $907 = (getTempRet0() | 0); //@line 623 "lpc.c"
      $908 = $13; //@line 623 "lpc.c"
      $909 = $908; //@line 623 "lpc.c"
      HEAP32[$909>>2] = $906; //@line 623 "lpc.c"
@@ -17950,7 +17887,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $921 = ($920|0)<(0); //@line 624 "lpc.c"
      $922 = $921 << 31 >> 31; //@line 624 "lpc.c"
      $923 = (___muldi3(($913|0),($915|0),($920|0),($922|0))|0); //@line 624 "lpc.c"
-     $924 = tempRet0; //@line 624 "lpc.c"
+     $924 = (getTempRet0() | 0); //@line 624 "lpc.c"
      $925 = $13; //@line 624 "lpc.c"
      $926 = $925; //@line 624 "lpc.c"
      $927 = HEAP32[$926>>2]|0; //@line 624 "lpc.c"
@@ -17958,7 +17895,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $929 = $928; //@line 624 "lpc.c"
      $930 = HEAP32[$929>>2]|0; //@line 624 "lpc.c"
      $931 = (_i64Add(($927|0),($930|0),($923|0),($924|0))|0); //@line 624 "lpc.c"
-     $932 = tempRet0; //@line 624 "lpc.c"
+     $932 = (getTempRet0() | 0); //@line 624 "lpc.c"
      $933 = $13; //@line 624 "lpc.c"
      $934 = $933; //@line 624 "lpc.c"
      HEAP32[$934>>2] = $931; //@line 624 "lpc.c"
@@ -17977,7 +17914,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $946 = HEAP32[$945>>2]|0; //@line 625 "lpc.c"
      $947 = $10; //@line 625 "lpc.c"
      $948 = (_bitshift64Ashr(($943|0),($946|0),($947|0))|0); //@line 625 "lpc.c"
-     $949 = tempRet0; //@line 625 "lpc.c"
+     $949 = (getTempRet0() | 0); //@line 625 "lpc.c"
      $950 = (($940) - ($948))|0; //@line 625 "lpc.c"
      $951 = $11; //@line 625 "lpc.c"
      $952 = $12; //@line 625 "lpc.c"
@@ -18015,7 +17952,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $973 = ($972|0)<(0); //@line 631 "lpc.c"
      $974 = $973 << 31 >> 31; //@line 631 "lpc.c"
      $975 = (___muldi3(($965|0),($967|0),($972|0),($974|0))|0); //@line 631 "lpc.c"
-     $976 = tempRet0; //@line 631 "lpc.c"
+     $976 = (getTempRet0() | 0); //@line 631 "lpc.c"
      $977 = $13; //@line 631 "lpc.c"
      $978 = $977; //@line 631 "lpc.c"
      $979 = HEAP32[$978>>2]|0; //@line 631 "lpc.c"
@@ -18023,7 +17960,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $981 = $980; //@line 631 "lpc.c"
      $982 = HEAP32[$981>>2]|0; //@line 631 "lpc.c"
      $983 = (_i64Add(($979|0),($982|0),($975|0),($976|0))|0); //@line 631 "lpc.c"
-     $984 = tempRet0; //@line 631 "lpc.c"
+     $984 = (getTempRet0() | 0); //@line 631 "lpc.c"
      $985 = $13; //@line 631 "lpc.c"
      $986 = $985; //@line 631 "lpc.c"
      HEAP32[$986>>2] = $983; //@line 631 "lpc.c"
@@ -18043,7 +17980,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $999 = ($998|0)<(0); //@line 632 "lpc.c"
      $1000 = $999 << 31 >> 31; //@line 632 "lpc.c"
      $1001 = (___muldi3(($991|0),($993|0),($998|0),($1000|0))|0); //@line 632 "lpc.c"
-     $1002 = tempRet0; //@line 632 "lpc.c"
+     $1002 = (getTempRet0() | 0); //@line 632 "lpc.c"
      $1003 = $13; //@line 632 "lpc.c"
      $1004 = $1003; //@line 632 "lpc.c"
      $1005 = HEAP32[$1004>>2]|0; //@line 632 "lpc.c"
@@ -18051,7 +17988,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1007 = $1006; //@line 632 "lpc.c"
      $1008 = HEAP32[$1007>>2]|0; //@line 632 "lpc.c"
      $1009 = (_i64Add(($1005|0),($1008|0),($1001|0),($1002|0))|0); //@line 632 "lpc.c"
-     $1010 = tempRet0; //@line 632 "lpc.c"
+     $1010 = (getTempRet0() | 0); //@line 632 "lpc.c"
      $1011 = $13; //@line 632 "lpc.c"
      $1012 = $1011; //@line 632 "lpc.c"
      HEAP32[$1012>>2] = $1009; //@line 632 "lpc.c"
@@ -18071,7 +18008,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1025 = ($1024|0)<(0); //@line 633 "lpc.c"
      $1026 = $1025 << 31 >> 31; //@line 633 "lpc.c"
      $1027 = (___muldi3(($1017|0),($1019|0),($1024|0),($1026|0))|0); //@line 633 "lpc.c"
-     $1028 = tempRet0; //@line 633 "lpc.c"
+     $1028 = (getTempRet0() | 0); //@line 633 "lpc.c"
      $1029 = $13; //@line 633 "lpc.c"
      $1030 = $1029; //@line 633 "lpc.c"
      $1031 = HEAP32[$1030>>2]|0; //@line 633 "lpc.c"
@@ -18079,7 +18016,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1033 = $1032; //@line 633 "lpc.c"
      $1034 = HEAP32[$1033>>2]|0; //@line 633 "lpc.c"
      $1035 = (_i64Add(($1031|0),($1034|0),($1027|0),($1028|0))|0); //@line 633 "lpc.c"
-     $1036 = tempRet0; //@line 633 "lpc.c"
+     $1036 = (getTempRet0() | 0); //@line 633 "lpc.c"
      $1037 = $13; //@line 633 "lpc.c"
      $1038 = $1037; //@line 633 "lpc.c"
      HEAP32[$1038>>2] = $1035; //@line 633 "lpc.c"
@@ -18099,7 +18036,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1051 = ($1050|0)<(0); //@line 634 "lpc.c"
      $1052 = $1051 << 31 >> 31; //@line 634 "lpc.c"
      $1053 = (___muldi3(($1043|0),($1045|0),($1050|0),($1052|0))|0); //@line 634 "lpc.c"
-     $1054 = tempRet0; //@line 634 "lpc.c"
+     $1054 = (getTempRet0() | 0); //@line 634 "lpc.c"
      $1055 = $13; //@line 634 "lpc.c"
      $1056 = $1055; //@line 634 "lpc.c"
      $1057 = HEAP32[$1056>>2]|0; //@line 634 "lpc.c"
@@ -18107,7 +18044,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1059 = $1058; //@line 634 "lpc.c"
      $1060 = HEAP32[$1059>>2]|0; //@line 634 "lpc.c"
      $1061 = (_i64Add(($1057|0),($1060|0),($1053|0),($1054|0))|0); //@line 634 "lpc.c"
-     $1062 = tempRet0; //@line 634 "lpc.c"
+     $1062 = (getTempRet0() | 0); //@line 634 "lpc.c"
      $1063 = $13; //@line 634 "lpc.c"
      $1064 = $1063; //@line 634 "lpc.c"
      HEAP32[$1064>>2] = $1061; //@line 634 "lpc.c"
@@ -18127,7 +18064,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1077 = ($1076|0)<(0); //@line 635 "lpc.c"
      $1078 = $1077 << 31 >> 31; //@line 635 "lpc.c"
      $1079 = (___muldi3(($1069|0),($1071|0),($1076|0),($1078|0))|0); //@line 635 "lpc.c"
-     $1080 = tempRet0; //@line 635 "lpc.c"
+     $1080 = (getTempRet0() | 0); //@line 635 "lpc.c"
      $1081 = $13; //@line 635 "lpc.c"
      $1082 = $1081; //@line 635 "lpc.c"
      $1083 = HEAP32[$1082>>2]|0; //@line 635 "lpc.c"
@@ -18135,7 +18072,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1085 = $1084; //@line 635 "lpc.c"
      $1086 = HEAP32[$1085>>2]|0; //@line 635 "lpc.c"
      $1087 = (_i64Add(($1083|0),($1086|0),($1079|0),($1080|0))|0); //@line 635 "lpc.c"
-     $1088 = tempRet0; //@line 635 "lpc.c"
+     $1088 = (getTempRet0() | 0); //@line 635 "lpc.c"
      $1089 = $13; //@line 635 "lpc.c"
      $1090 = $1089; //@line 635 "lpc.c"
      HEAP32[$1090>>2] = $1087; //@line 635 "lpc.c"
@@ -18155,7 +18092,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1103 = ($1102|0)<(0); //@line 636 "lpc.c"
      $1104 = $1103 << 31 >> 31; //@line 636 "lpc.c"
      $1105 = (___muldi3(($1095|0),($1097|0),($1102|0),($1104|0))|0); //@line 636 "lpc.c"
-     $1106 = tempRet0; //@line 636 "lpc.c"
+     $1106 = (getTempRet0() | 0); //@line 636 "lpc.c"
      $1107 = $13; //@line 636 "lpc.c"
      $1108 = $1107; //@line 636 "lpc.c"
      $1109 = HEAP32[$1108>>2]|0; //@line 636 "lpc.c"
@@ -18163,7 +18100,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1111 = $1110; //@line 636 "lpc.c"
      $1112 = HEAP32[$1111>>2]|0; //@line 636 "lpc.c"
      $1113 = (_i64Add(($1109|0),($1112|0),($1105|0),($1106|0))|0); //@line 636 "lpc.c"
-     $1114 = tempRet0; //@line 636 "lpc.c"
+     $1114 = (getTempRet0() | 0); //@line 636 "lpc.c"
      $1115 = $13; //@line 636 "lpc.c"
      $1116 = $1115; //@line 636 "lpc.c"
      HEAP32[$1116>>2] = $1113; //@line 636 "lpc.c"
@@ -18183,7 +18120,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1129 = ($1128|0)<(0); //@line 637 "lpc.c"
      $1130 = $1129 << 31 >> 31; //@line 637 "lpc.c"
      $1131 = (___muldi3(($1121|0),($1123|0),($1128|0),($1130|0))|0); //@line 637 "lpc.c"
-     $1132 = tempRet0; //@line 637 "lpc.c"
+     $1132 = (getTempRet0() | 0); //@line 637 "lpc.c"
      $1133 = $13; //@line 637 "lpc.c"
      $1134 = $1133; //@line 637 "lpc.c"
      $1135 = HEAP32[$1134>>2]|0; //@line 637 "lpc.c"
@@ -18191,7 +18128,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1137 = $1136; //@line 637 "lpc.c"
      $1138 = HEAP32[$1137>>2]|0; //@line 637 "lpc.c"
      $1139 = (_i64Add(($1135|0),($1138|0),($1131|0),($1132|0))|0); //@line 637 "lpc.c"
-     $1140 = tempRet0; //@line 637 "lpc.c"
+     $1140 = (getTempRet0() | 0); //@line 637 "lpc.c"
      $1141 = $13; //@line 637 "lpc.c"
      $1142 = $1141; //@line 637 "lpc.c"
      HEAP32[$1142>>2] = $1139; //@line 637 "lpc.c"
@@ -18211,7 +18148,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1155 = ($1154|0)<(0); //@line 638 "lpc.c"
      $1156 = $1155 << 31 >> 31; //@line 638 "lpc.c"
      $1157 = (___muldi3(($1147|0),($1149|0),($1154|0),($1156|0))|0); //@line 638 "lpc.c"
-     $1158 = tempRet0; //@line 638 "lpc.c"
+     $1158 = (getTempRet0() | 0); //@line 638 "lpc.c"
      $1159 = $13; //@line 638 "lpc.c"
      $1160 = $1159; //@line 638 "lpc.c"
      $1161 = HEAP32[$1160>>2]|0; //@line 638 "lpc.c"
@@ -18219,7 +18156,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1163 = $1162; //@line 638 "lpc.c"
      $1164 = HEAP32[$1163>>2]|0; //@line 638 "lpc.c"
      $1165 = (_i64Add(($1161|0),($1164|0),($1157|0),($1158|0))|0); //@line 638 "lpc.c"
-     $1166 = tempRet0; //@line 638 "lpc.c"
+     $1166 = (getTempRet0() | 0); //@line 638 "lpc.c"
      $1167 = $13; //@line 638 "lpc.c"
      $1168 = $1167; //@line 638 "lpc.c"
      HEAP32[$1168>>2] = $1165; //@line 638 "lpc.c"
@@ -18238,7 +18175,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1180 = ($1179|0)<(0); //@line 639 "lpc.c"
      $1181 = $1180 << 31 >> 31; //@line 639 "lpc.c"
      $1182 = (___muldi3(($1172|0),($1174|0),($1179|0),($1181|0))|0); //@line 639 "lpc.c"
-     $1183 = tempRet0; //@line 639 "lpc.c"
+     $1183 = (getTempRet0() | 0); //@line 639 "lpc.c"
      $1184 = $13; //@line 639 "lpc.c"
      $1185 = $1184; //@line 639 "lpc.c"
      $1186 = HEAP32[$1185>>2]|0; //@line 639 "lpc.c"
@@ -18246,7 +18183,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1188 = $1187; //@line 639 "lpc.c"
      $1189 = HEAP32[$1188>>2]|0; //@line 639 "lpc.c"
      $1190 = (_i64Add(($1186|0),($1189|0),($1182|0),($1183|0))|0); //@line 639 "lpc.c"
-     $1191 = tempRet0; //@line 639 "lpc.c"
+     $1191 = (getTempRet0() | 0); //@line 639 "lpc.c"
      $1192 = $13; //@line 639 "lpc.c"
      $1193 = $1192; //@line 639 "lpc.c"
      HEAP32[$1193>>2] = $1190; //@line 639 "lpc.c"
@@ -18265,7 +18202,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1205 = HEAP32[$1204>>2]|0; //@line 640 "lpc.c"
      $1206 = $10; //@line 640 "lpc.c"
      $1207 = (_bitshift64Ashr(($1202|0),($1205|0),($1206|0))|0); //@line 640 "lpc.c"
-     $1208 = tempRet0; //@line 640 "lpc.c"
+     $1208 = (getTempRet0() | 0); //@line 640 "lpc.c"
      $1209 = (($1199) - ($1207))|0; //@line 640 "lpc.c"
      $1210 = $11; //@line 640 "lpc.c"
      $1211 = $12; //@line 640 "lpc.c"
@@ -18314,7 +18251,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1237 = ($1236|0)<(0); //@line 650 "lpc.c"
      $1238 = $1237 << 31 >> 31; //@line 650 "lpc.c"
      $1239 = (___muldi3(($1229|0),($1231|0),($1236|0),($1238|0))|0); //@line 650 "lpc.c"
-     $1240 = tempRet0; //@line 650 "lpc.c"
+     $1240 = (getTempRet0() | 0); //@line 650 "lpc.c"
      $1241 = $13; //@line 650 "lpc.c"
      $1242 = $1241; //@line 650 "lpc.c"
      $1243 = HEAP32[$1242>>2]|0; //@line 650 "lpc.c"
@@ -18322,7 +18259,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1245 = $1244; //@line 650 "lpc.c"
      $1246 = HEAP32[$1245>>2]|0; //@line 650 "lpc.c"
      $1247 = (_i64Add(($1243|0),($1246|0),($1239|0),($1240|0))|0); //@line 650 "lpc.c"
-     $1248 = tempRet0; //@line 650 "lpc.c"
+     $1248 = (getTempRet0() | 0); //@line 650 "lpc.c"
      $1249 = $13; //@line 650 "lpc.c"
      $1250 = $1249; //@line 650 "lpc.c"
      HEAP32[$1250>>2] = $1247; //@line 650 "lpc.c"
@@ -18342,7 +18279,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1263 = ($1262|0)<(0); //@line 651 "lpc.c"
      $1264 = $1263 << 31 >> 31; //@line 651 "lpc.c"
      $1265 = (___muldi3(($1255|0),($1257|0),($1262|0),($1264|0))|0); //@line 651 "lpc.c"
-     $1266 = tempRet0; //@line 651 "lpc.c"
+     $1266 = (getTempRet0() | 0); //@line 651 "lpc.c"
      $1267 = $13; //@line 651 "lpc.c"
      $1268 = $1267; //@line 651 "lpc.c"
      $1269 = HEAP32[$1268>>2]|0; //@line 651 "lpc.c"
@@ -18350,7 +18287,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1271 = $1270; //@line 651 "lpc.c"
      $1272 = HEAP32[$1271>>2]|0; //@line 651 "lpc.c"
      $1273 = (_i64Add(($1269|0),($1272|0),($1265|0),($1266|0))|0); //@line 651 "lpc.c"
-     $1274 = tempRet0; //@line 651 "lpc.c"
+     $1274 = (getTempRet0() | 0); //@line 651 "lpc.c"
      $1275 = $13; //@line 651 "lpc.c"
      $1276 = $1275; //@line 651 "lpc.c"
      HEAP32[$1276>>2] = $1273; //@line 651 "lpc.c"
@@ -18370,7 +18307,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1289 = ($1288|0)<(0); //@line 652 "lpc.c"
      $1290 = $1289 << 31 >> 31; //@line 652 "lpc.c"
      $1291 = (___muldi3(($1281|0),($1283|0),($1288|0),($1290|0))|0); //@line 652 "lpc.c"
-     $1292 = tempRet0; //@line 652 "lpc.c"
+     $1292 = (getTempRet0() | 0); //@line 652 "lpc.c"
      $1293 = $13; //@line 652 "lpc.c"
      $1294 = $1293; //@line 652 "lpc.c"
      $1295 = HEAP32[$1294>>2]|0; //@line 652 "lpc.c"
@@ -18378,7 +18315,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1297 = $1296; //@line 652 "lpc.c"
      $1298 = HEAP32[$1297>>2]|0; //@line 652 "lpc.c"
      $1299 = (_i64Add(($1295|0),($1298|0),($1291|0),($1292|0))|0); //@line 652 "lpc.c"
-     $1300 = tempRet0; //@line 652 "lpc.c"
+     $1300 = (getTempRet0() | 0); //@line 652 "lpc.c"
      $1301 = $13; //@line 652 "lpc.c"
      $1302 = $1301; //@line 652 "lpc.c"
      HEAP32[$1302>>2] = $1299; //@line 652 "lpc.c"
@@ -18398,7 +18335,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1315 = ($1314|0)<(0); //@line 653 "lpc.c"
      $1316 = $1315 << 31 >> 31; //@line 653 "lpc.c"
      $1317 = (___muldi3(($1307|0),($1309|0),($1314|0),($1316|0))|0); //@line 653 "lpc.c"
-     $1318 = tempRet0; //@line 653 "lpc.c"
+     $1318 = (getTempRet0() | 0); //@line 653 "lpc.c"
      $1319 = $13; //@line 653 "lpc.c"
      $1320 = $1319; //@line 653 "lpc.c"
      $1321 = HEAP32[$1320>>2]|0; //@line 653 "lpc.c"
@@ -18406,7 +18343,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1323 = $1322; //@line 653 "lpc.c"
      $1324 = HEAP32[$1323>>2]|0; //@line 653 "lpc.c"
      $1325 = (_i64Add(($1321|0),($1324|0),($1317|0),($1318|0))|0); //@line 653 "lpc.c"
-     $1326 = tempRet0; //@line 653 "lpc.c"
+     $1326 = (getTempRet0() | 0); //@line 653 "lpc.c"
      $1327 = $13; //@line 653 "lpc.c"
      $1328 = $1327; //@line 653 "lpc.c"
      HEAP32[$1328>>2] = $1325; //@line 653 "lpc.c"
@@ -18426,7 +18363,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1341 = ($1340|0)<(0); //@line 654 "lpc.c"
      $1342 = $1341 << 31 >> 31; //@line 654 "lpc.c"
      $1343 = (___muldi3(($1333|0),($1335|0),($1340|0),($1342|0))|0); //@line 654 "lpc.c"
-     $1344 = tempRet0; //@line 654 "lpc.c"
+     $1344 = (getTempRet0() | 0); //@line 654 "lpc.c"
      $1345 = $13; //@line 654 "lpc.c"
      $1346 = $1345; //@line 654 "lpc.c"
      $1347 = HEAP32[$1346>>2]|0; //@line 654 "lpc.c"
@@ -18434,7 +18371,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1349 = $1348; //@line 654 "lpc.c"
      $1350 = HEAP32[$1349>>2]|0; //@line 654 "lpc.c"
      $1351 = (_i64Add(($1347|0),($1350|0),($1343|0),($1344|0))|0); //@line 654 "lpc.c"
-     $1352 = tempRet0; //@line 654 "lpc.c"
+     $1352 = (getTempRet0() | 0); //@line 654 "lpc.c"
      $1353 = $13; //@line 654 "lpc.c"
      $1354 = $1353; //@line 654 "lpc.c"
      HEAP32[$1354>>2] = $1351; //@line 654 "lpc.c"
@@ -18454,7 +18391,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1367 = ($1366|0)<(0); //@line 655 "lpc.c"
      $1368 = $1367 << 31 >> 31; //@line 655 "lpc.c"
      $1369 = (___muldi3(($1359|0),($1361|0),($1366|0),($1368|0))|0); //@line 655 "lpc.c"
-     $1370 = tempRet0; //@line 655 "lpc.c"
+     $1370 = (getTempRet0() | 0); //@line 655 "lpc.c"
      $1371 = $13; //@line 655 "lpc.c"
      $1372 = $1371; //@line 655 "lpc.c"
      $1373 = HEAP32[$1372>>2]|0; //@line 655 "lpc.c"
@@ -18462,7 +18399,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1375 = $1374; //@line 655 "lpc.c"
      $1376 = HEAP32[$1375>>2]|0; //@line 655 "lpc.c"
      $1377 = (_i64Add(($1373|0),($1376|0),($1369|0),($1370|0))|0); //@line 655 "lpc.c"
-     $1378 = tempRet0; //@line 655 "lpc.c"
+     $1378 = (getTempRet0() | 0); //@line 655 "lpc.c"
      $1379 = $13; //@line 655 "lpc.c"
      $1380 = $1379; //@line 655 "lpc.c"
      HEAP32[$1380>>2] = $1377; //@line 655 "lpc.c"
@@ -18482,7 +18419,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1393 = ($1392|0)<(0); //@line 656 "lpc.c"
      $1394 = $1393 << 31 >> 31; //@line 656 "lpc.c"
      $1395 = (___muldi3(($1385|0),($1387|0),($1392|0),($1394|0))|0); //@line 656 "lpc.c"
-     $1396 = tempRet0; //@line 656 "lpc.c"
+     $1396 = (getTempRet0() | 0); //@line 656 "lpc.c"
      $1397 = $13; //@line 656 "lpc.c"
      $1398 = $1397; //@line 656 "lpc.c"
      $1399 = HEAP32[$1398>>2]|0; //@line 656 "lpc.c"
@@ -18490,7 +18427,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1401 = $1400; //@line 656 "lpc.c"
      $1402 = HEAP32[$1401>>2]|0; //@line 656 "lpc.c"
      $1403 = (_i64Add(($1399|0),($1402|0),($1395|0),($1396|0))|0); //@line 656 "lpc.c"
-     $1404 = tempRet0; //@line 656 "lpc.c"
+     $1404 = (getTempRet0() | 0); //@line 656 "lpc.c"
      $1405 = $13; //@line 656 "lpc.c"
      $1406 = $1405; //@line 656 "lpc.c"
      HEAP32[$1406>>2] = $1403; //@line 656 "lpc.c"
@@ -18509,7 +18446,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1418 = ($1417|0)<(0); //@line 657 "lpc.c"
      $1419 = $1418 << 31 >> 31; //@line 657 "lpc.c"
      $1420 = (___muldi3(($1410|0),($1412|0),($1417|0),($1419|0))|0); //@line 657 "lpc.c"
-     $1421 = tempRet0; //@line 657 "lpc.c"
+     $1421 = (getTempRet0() | 0); //@line 657 "lpc.c"
      $1422 = $13; //@line 657 "lpc.c"
      $1423 = $1422; //@line 657 "lpc.c"
      $1424 = HEAP32[$1423>>2]|0; //@line 657 "lpc.c"
@@ -18517,7 +18454,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1426 = $1425; //@line 657 "lpc.c"
      $1427 = HEAP32[$1426>>2]|0; //@line 657 "lpc.c"
      $1428 = (_i64Add(($1424|0),($1427|0),($1420|0),($1421|0))|0); //@line 657 "lpc.c"
-     $1429 = tempRet0; //@line 657 "lpc.c"
+     $1429 = (getTempRet0() | 0); //@line 657 "lpc.c"
      $1430 = $13; //@line 657 "lpc.c"
      $1431 = $1430; //@line 657 "lpc.c"
      HEAP32[$1431>>2] = $1428; //@line 657 "lpc.c"
@@ -18536,7 +18473,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1443 = HEAP32[$1442>>2]|0; //@line 658 "lpc.c"
      $1444 = $10; //@line 658 "lpc.c"
      $1445 = (_bitshift64Ashr(($1440|0),($1443|0),($1444|0))|0); //@line 658 "lpc.c"
-     $1446 = tempRet0; //@line 658 "lpc.c"
+     $1446 = (getTempRet0() | 0); //@line 658 "lpc.c"
      $1447 = (($1437) - ($1445))|0; //@line 658 "lpc.c"
      $1448 = $11; //@line 658 "lpc.c"
      $1449 = $12; //@line 658 "lpc.c"
@@ -18574,7 +18511,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1470 = ($1469|0)<(0); //@line 664 "lpc.c"
      $1471 = $1470 << 31 >> 31; //@line 664 "lpc.c"
      $1472 = (___muldi3(($1462|0),($1464|0),($1469|0),($1471|0))|0); //@line 664 "lpc.c"
-     $1473 = tempRet0; //@line 664 "lpc.c"
+     $1473 = (getTempRet0() | 0); //@line 664 "lpc.c"
      $1474 = $13; //@line 664 "lpc.c"
      $1475 = $1474; //@line 664 "lpc.c"
      $1476 = HEAP32[$1475>>2]|0; //@line 664 "lpc.c"
@@ -18582,7 +18519,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1478 = $1477; //@line 664 "lpc.c"
      $1479 = HEAP32[$1478>>2]|0; //@line 664 "lpc.c"
      $1480 = (_i64Add(($1476|0),($1479|0),($1472|0),($1473|0))|0); //@line 664 "lpc.c"
-     $1481 = tempRet0; //@line 664 "lpc.c"
+     $1481 = (getTempRet0() | 0); //@line 664 "lpc.c"
      $1482 = $13; //@line 664 "lpc.c"
      $1483 = $1482; //@line 664 "lpc.c"
      HEAP32[$1483>>2] = $1480; //@line 664 "lpc.c"
@@ -18602,7 +18539,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1496 = ($1495|0)<(0); //@line 665 "lpc.c"
      $1497 = $1496 << 31 >> 31; //@line 665 "lpc.c"
      $1498 = (___muldi3(($1488|0),($1490|0),($1495|0),($1497|0))|0); //@line 665 "lpc.c"
-     $1499 = tempRet0; //@line 665 "lpc.c"
+     $1499 = (getTempRet0() | 0); //@line 665 "lpc.c"
      $1500 = $13; //@line 665 "lpc.c"
      $1501 = $1500; //@line 665 "lpc.c"
      $1502 = HEAP32[$1501>>2]|0; //@line 665 "lpc.c"
@@ -18610,7 +18547,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1504 = $1503; //@line 665 "lpc.c"
      $1505 = HEAP32[$1504>>2]|0; //@line 665 "lpc.c"
      $1506 = (_i64Add(($1502|0),($1505|0),($1498|0),($1499|0))|0); //@line 665 "lpc.c"
-     $1507 = tempRet0; //@line 665 "lpc.c"
+     $1507 = (getTempRet0() | 0); //@line 665 "lpc.c"
      $1508 = $13; //@line 665 "lpc.c"
      $1509 = $1508; //@line 665 "lpc.c"
      HEAP32[$1509>>2] = $1506; //@line 665 "lpc.c"
@@ -18630,7 +18567,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1522 = ($1521|0)<(0); //@line 666 "lpc.c"
      $1523 = $1522 << 31 >> 31; //@line 666 "lpc.c"
      $1524 = (___muldi3(($1514|0),($1516|0),($1521|0),($1523|0))|0); //@line 666 "lpc.c"
-     $1525 = tempRet0; //@line 666 "lpc.c"
+     $1525 = (getTempRet0() | 0); //@line 666 "lpc.c"
      $1526 = $13; //@line 666 "lpc.c"
      $1527 = $1526; //@line 666 "lpc.c"
      $1528 = HEAP32[$1527>>2]|0; //@line 666 "lpc.c"
@@ -18638,7 +18575,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1530 = $1529; //@line 666 "lpc.c"
      $1531 = HEAP32[$1530>>2]|0; //@line 666 "lpc.c"
      $1532 = (_i64Add(($1528|0),($1531|0),($1524|0),($1525|0))|0); //@line 666 "lpc.c"
-     $1533 = tempRet0; //@line 666 "lpc.c"
+     $1533 = (getTempRet0() | 0); //@line 666 "lpc.c"
      $1534 = $13; //@line 666 "lpc.c"
      $1535 = $1534; //@line 666 "lpc.c"
      HEAP32[$1535>>2] = $1532; //@line 666 "lpc.c"
@@ -18658,7 +18595,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1548 = ($1547|0)<(0); //@line 667 "lpc.c"
      $1549 = $1548 << 31 >> 31; //@line 667 "lpc.c"
      $1550 = (___muldi3(($1540|0),($1542|0),($1547|0),($1549|0))|0); //@line 667 "lpc.c"
-     $1551 = tempRet0; //@line 667 "lpc.c"
+     $1551 = (getTempRet0() | 0); //@line 667 "lpc.c"
      $1552 = $13; //@line 667 "lpc.c"
      $1553 = $1552; //@line 667 "lpc.c"
      $1554 = HEAP32[$1553>>2]|0; //@line 667 "lpc.c"
@@ -18666,7 +18603,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1556 = $1555; //@line 667 "lpc.c"
      $1557 = HEAP32[$1556>>2]|0; //@line 667 "lpc.c"
      $1558 = (_i64Add(($1554|0),($1557|0),($1550|0),($1551|0))|0); //@line 667 "lpc.c"
-     $1559 = tempRet0; //@line 667 "lpc.c"
+     $1559 = (getTempRet0() | 0); //@line 667 "lpc.c"
      $1560 = $13; //@line 667 "lpc.c"
      $1561 = $1560; //@line 667 "lpc.c"
      HEAP32[$1561>>2] = $1558; //@line 667 "lpc.c"
@@ -18686,7 +18623,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1574 = ($1573|0)<(0); //@line 668 "lpc.c"
      $1575 = $1574 << 31 >> 31; //@line 668 "lpc.c"
      $1576 = (___muldi3(($1566|0),($1568|0),($1573|0),($1575|0))|0); //@line 668 "lpc.c"
-     $1577 = tempRet0; //@line 668 "lpc.c"
+     $1577 = (getTempRet0() | 0); //@line 668 "lpc.c"
      $1578 = $13; //@line 668 "lpc.c"
      $1579 = $1578; //@line 668 "lpc.c"
      $1580 = HEAP32[$1579>>2]|0; //@line 668 "lpc.c"
@@ -18694,7 +18631,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1582 = $1581; //@line 668 "lpc.c"
      $1583 = HEAP32[$1582>>2]|0; //@line 668 "lpc.c"
      $1584 = (_i64Add(($1580|0),($1583|0),($1576|0),($1577|0))|0); //@line 668 "lpc.c"
-     $1585 = tempRet0; //@line 668 "lpc.c"
+     $1585 = (getTempRet0() | 0); //@line 668 "lpc.c"
      $1586 = $13; //@line 668 "lpc.c"
      $1587 = $1586; //@line 668 "lpc.c"
      HEAP32[$1587>>2] = $1584; //@line 668 "lpc.c"
@@ -18714,7 +18651,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1600 = ($1599|0)<(0); //@line 669 "lpc.c"
      $1601 = $1600 << 31 >> 31; //@line 669 "lpc.c"
      $1602 = (___muldi3(($1592|0),($1594|0),($1599|0),($1601|0))|0); //@line 669 "lpc.c"
-     $1603 = tempRet0; //@line 669 "lpc.c"
+     $1603 = (getTempRet0() | 0); //@line 669 "lpc.c"
      $1604 = $13; //@line 669 "lpc.c"
      $1605 = $1604; //@line 669 "lpc.c"
      $1606 = HEAP32[$1605>>2]|0; //@line 669 "lpc.c"
@@ -18722,7 +18659,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1608 = $1607; //@line 669 "lpc.c"
      $1609 = HEAP32[$1608>>2]|0; //@line 669 "lpc.c"
      $1610 = (_i64Add(($1606|0),($1609|0),($1602|0),($1603|0))|0); //@line 669 "lpc.c"
-     $1611 = tempRet0; //@line 669 "lpc.c"
+     $1611 = (getTempRet0() | 0); //@line 669 "lpc.c"
      $1612 = $13; //@line 669 "lpc.c"
      $1613 = $1612; //@line 669 "lpc.c"
      HEAP32[$1613>>2] = $1610; //@line 669 "lpc.c"
@@ -18741,7 +18678,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1625 = ($1624|0)<(0); //@line 670 "lpc.c"
      $1626 = $1625 << 31 >> 31; //@line 670 "lpc.c"
      $1627 = (___muldi3(($1617|0),($1619|0),($1624|0),($1626|0))|0); //@line 670 "lpc.c"
-     $1628 = tempRet0; //@line 670 "lpc.c"
+     $1628 = (getTempRet0() | 0); //@line 670 "lpc.c"
      $1629 = $13; //@line 670 "lpc.c"
      $1630 = $1629; //@line 670 "lpc.c"
      $1631 = HEAP32[$1630>>2]|0; //@line 670 "lpc.c"
@@ -18749,7 +18686,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1633 = $1632; //@line 670 "lpc.c"
      $1634 = HEAP32[$1633>>2]|0; //@line 670 "lpc.c"
      $1635 = (_i64Add(($1631|0),($1634|0),($1627|0),($1628|0))|0); //@line 670 "lpc.c"
-     $1636 = tempRet0; //@line 670 "lpc.c"
+     $1636 = (getTempRet0() | 0); //@line 670 "lpc.c"
      $1637 = $13; //@line 670 "lpc.c"
      $1638 = $1637; //@line 670 "lpc.c"
      HEAP32[$1638>>2] = $1635; //@line 670 "lpc.c"
@@ -18768,7 +18705,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1650 = HEAP32[$1649>>2]|0; //@line 671 "lpc.c"
      $1651 = $10; //@line 671 "lpc.c"
      $1652 = (_bitshift64Ashr(($1647|0),($1650|0),($1651|0))|0); //@line 671 "lpc.c"
-     $1653 = tempRet0; //@line 671 "lpc.c"
+     $1653 = (getTempRet0() | 0); //@line 671 "lpc.c"
      $1654 = (($1644) - ($1652))|0; //@line 671 "lpc.c"
      $1655 = $11; //@line 671 "lpc.c"
      $1656 = $12; //@line 671 "lpc.c"
@@ -18810,7 +18747,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1678 = ($1677|0)<(0); //@line 679 "lpc.c"
      $1679 = $1678 << 31 >> 31; //@line 679 "lpc.c"
      $1680 = (___muldi3(($1670|0),($1672|0),($1677|0),($1679|0))|0); //@line 679 "lpc.c"
-     $1681 = tempRet0; //@line 679 "lpc.c"
+     $1681 = (getTempRet0() | 0); //@line 679 "lpc.c"
      $1682 = $13; //@line 679 "lpc.c"
      $1683 = $1682; //@line 679 "lpc.c"
      $1684 = HEAP32[$1683>>2]|0; //@line 679 "lpc.c"
@@ -18818,7 +18755,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1686 = $1685; //@line 679 "lpc.c"
      $1687 = HEAP32[$1686>>2]|0; //@line 679 "lpc.c"
      $1688 = (_i64Add(($1684|0),($1687|0),($1680|0),($1681|0))|0); //@line 679 "lpc.c"
-     $1689 = tempRet0; //@line 679 "lpc.c"
+     $1689 = (getTempRet0() | 0); //@line 679 "lpc.c"
      $1690 = $13; //@line 679 "lpc.c"
      $1691 = $1690; //@line 679 "lpc.c"
      HEAP32[$1691>>2] = $1688; //@line 679 "lpc.c"
@@ -18838,7 +18775,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1704 = ($1703|0)<(0); //@line 680 "lpc.c"
      $1705 = $1704 << 31 >> 31; //@line 680 "lpc.c"
      $1706 = (___muldi3(($1696|0),($1698|0),($1703|0),($1705|0))|0); //@line 680 "lpc.c"
-     $1707 = tempRet0; //@line 680 "lpc.c"
+     $1707 = (getTempRet0() | 0); //@line 680 "lpc.c"
      $1708 = $13; //@line 680 "lpc.c"
      $1709 = $1708; //@line 680 "lpc.c"
      $1710 = HEAP32[$1709>>2]|0; //@line 680 "lpc.c"
@@ -18846,7 +18783,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1712 = $1711; //@line 680 "lpc.c"
      $1713 = HEAP32[$1712>>2]|0; //@line 680 "lpc.c"
      $1714 = (_i64Add(($1710|0),($1713|0),($1706|0),($1707|0))|0); //@line 680 "lpc.c"
-     $1715 = tempRet0; //@line 680 "lpc.c"
+     $1715 = (getTempRet0() | 0); //@line 680 "lpc.c"
      $1716 = $13; //@line 680 "lpc.c"
      $1717 = $1716; //@line 680 "lpc.c"
      HEAP32[$1717>>2] = $1714; //@line 680 "lpc.c"
@@ -18866,7 +18803,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1730 = ($1729|0)<(0); //@line 681 "lpc.c"
      $1731 = $1730 << 31 >> 31; //@line 681 "lpc.c"
      $1732 = (___muldi3(($1722|0),($1724|0),($1729|0),($1731|0))|0); //@line 681 "lpc.c"
-     $1733 = tempRet0; //@line 681 "lpc.c"
+     $1733 = (getTempRet0() | 0); //@line 681 "lpc.c"
      $1734 = $13; //@line 681 "lpc.c"
      $1735 = $1734; //@line 681 "lpc.c"
      $1736 = HEAP32[$1735>>2]|0; //@line 681 "lpc.c"
@@ -18874,7 +18811,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1738 = $1737; //@line 681 "lpc.c"
      $1739 = HEAP32[$1738>>2]|0; //@line 681 "lpc.c"
      $1740 = (_i64Add(($1736|0),($1739|0),($1732|0),($1733|0))|0); //@line 681 "lpc.c"
-     $1741 = tempRet0; //@line 681 "lpc.c"
+     $1741 = (getTempRet0() | 0); //@line 681 "lpc.c"
      $1742 = $13; //@line 681 "lpc.c"
      $1743 = $1742; //@line 681 "lpc.c"
      HEAP32[$1743>>2] = $1740; //@line 681 "lpc.c"
@@ -18894,7 +18831,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1756 = ($1755|0)<(0); //@line 682 "lpc.c"
      $1757 = $1756 << 31 >> 31; //@line 682 "lpc.c"
      $1758 = (___muldi3(($1748|0),($1750|0),($1755|0),($1757|0))|0); //@line 682 "lpc.c"
-     $1759 = tempRet0; //@line 682 "lpc.c"
+     $1759 = (getTempRet0() | 0); //@line 682 "lpc.c"
      $1760 = $13; //@line 682 "lpc.c"
      $1761 = $1760; //@line 682 "lpc.c"
      $1762 = HEAP32[$1761>>2]|0; //@line 682 "lpc.c"
@@ -18902,7 +18839,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1764 = $1763; //@line 682 "lpc.c"
      $1765 = HEAP32[$1764>>2]|0; //@line 682 "lpc.c"
      $1766 = (_i64Add(($1762|0),($1765|0),($1758|0),($1759|0))|0); //@line 682 "lpc.c"
-     $1767 = tempRet0; //@line 682 "lpc.c"
+     $1767 = (getTempRet0() | 0); //@line 682 "lpc.c"
      $1768 = $13; //@line 682 "lpc.c"
      $1769 = $1768; //@line 682 "lpc.c"
      HEAP32[$1769>>2] = $1766; //@line 682 "lpc.c"
@@ -18922,7 +18859,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1782 = ($1781|0)<(0); //@line 683 "lpc.c"
      $1783 = $1782 << 31 >> 31; //@line 683 "lpc.c"
      $1784 = (___muldi3(($1774|0),($1776|0),($1781|0),($1783|0))|0); //@line 683 "lpc.c"
-     $1785 = tempRet0; //@line 683 "lpc.c"
+     $1785 = (getTempRet0() | 0); //@line 683 "lpc.c"
      $1786 = $13; //@line 683 "lpc.c"
      $1787 = $1786; //@line 683 "lpc.c"
      $1788 = HEAP32[$1787>>2]|0; //@line 683 "lpc.c"
@@ -18930,7 +18867,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1790 = $1789; //@line 683 "lpc.c"
      $1791 = HEAP32[$1790>>2]|0; //@line 683 "lpc.c"
      $1792 = (_i64Add(($1788|0),($1791|0),($1784|0),($1785|0))|0); //@line 683 "lpc.c"
-     $1793 = tempRet0; //@line 683 "lpc.c"
+     $1793 = (getTempRet0() | 0); //@line 683 "lpc.c"
      $1794 = $13; //@line 683 "lpc.c"
      $1795 = $1794; //@line 683 "lpc.c"
      HEAP32[$1795>>2] = $1792; //@line 683 "lpc.c"
@@ -18949,7 +18886,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1807 = ($1806|0)<(0); //@line 684 "lpc.c"
      $1808 = $1807 << 31 >> 31; //@line 684 "lpc.c"
      $1809 = (___muldi3(($1799|0),($1801|0),($1806|0),($1808|0))|0); //@line 684 "lpc.c"
-     $1810 = tempRet0; //@line 684 "lpc.c"
+     $1810 = (getTempRet0() | 0); //@line 684 "lpc.c"
      $1811 = $13; //@line 684 "lpc.c"
      $1812 = $1811; //@line 684 "lpc.c"
      $1813 = HEAP32[$1812>>2]|0; //@line 684 "lpc.c"
@@ -18957,7 +18894,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1815 = $1814; //@line 684 "lpc.c"
      $1816 = HEAP32[$1815>>2]|0; //@line 684 "lpc.c"
      $1817 = (_i64Add(($1813|0),($1816|0),($1809|0),($1810|0))|0); //@line 684 "lpc.c"
-     $1818 = tempRet0; //@line 684 "lpc.c"
+     $1818 = (getTempRet0() | 0); //@line 684 "lpc.c"
      $1819 = $13; //@line 684 "lpc.c"
      $1820 = $1819; //@line 684 "lpc.c"
      HEAP32[$1820>>2] = $1817; //@line 684 "lpc.c"
@@ -18976,7 +18913,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1832 = HEAP32[$1831>>2]|0; //@line 685 "lpc.c"
      $1833 = $10; //@line 685 "lpc.c"
      $1834 = (_bitshift64Ashr(($1829|0),($1832|0),($1833|0))|0); //@line 685 "lpc.c"
-     $1835 = tempRet0; //@line 685 "lpc.c"
+     $1835 = (getTempRet0() | 0); //@line 685 "lpc.c"
      $1836 = (($1826) - ($1834))|0; //@line 685 "lpc.c"
      $1837 = $11; //@line 685 "lpc.c"
      $1838 = $12; //@line 685 "lpc.c"
@@ -19014,7 +18951,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1859 = ($1858|0)<(0); //@line 691 "lpc.c"
      $1860 = $1859 << 31 >> 31; //@line 691 "lpc.c"
      $1861 = (___muldi3(($1851|0),($1853|0),($1858|0),($1860|0))|0); //@line 691 "lpc.c"
-     $1862 = tempRet0; //@line 691 "lpc.c"
+     $1862 = (getTempRet0() | 0); //@line 691 "lpc.c"
      $1863 = $13; //@line 691 "lpc.c"
      $1864 = $1863; //@line 691 "lpc.c"
      $1865 = HEAP32[$1864>>2]|0; //@line 691 "lpc.c"
@@ -19022,7 +18959,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1867 = $1866; //@line 691 "lpc.c"
      $1868 = HEAP32[$1867>>2]|0; //@line 691 "lpc.c"
      $1869 = (_i64Add(($1865|0),($1868|0),($1861|0),($1862|0))|0); //@line 691 "lpc.c"
-     $1870 = tempRet0; //@line 691 "lpc.c"
+     $1870 = (getTempRet0() | 0); //@line 691 "lpc.c"
      $1871 = $13; //@line 691 "lpc.c"
      $1872 = $1871; //@line 691 "lpc.c"
      HEAP32[$1872>>2] = $1869; //@line 691 "lpc.c"
@@ -19042,7 +18979,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1885 = ($1884|0)<(0); //@line 692 "lpc.c"
      $1886 = $1885 << 31 >> 31; //@line 692 "lpc.c"
      $1887 = (___muldi3(($1877|0),($1879|0),($1884|0),($1886|0))|0); //@line 692 "lpc.c"
-     $1888 = tempRet0; //@line 692 "lpc.c"
+     $1888 = (getTempRet0() | 0); //@line 692 "lpc.c"
      $1889 = $13; //@line 692 "lpc.c"
      $1890 = $1889; //@line 692 "lpc.c"
      $1891 = HEAP32[$1890>>2]|0; //@line 692 "lpc.c"
@@ -19050,7 +18987,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1893 = $1892; //@line 692 "lpc.c"
      $1894 = HEAP32[$1893>>2]|0; //@line 692 "lpc.c"
      $1895 = (_i64Add(($1891|0),($1894|0),($1887|0),($1888|0))|0); //@line 692 "lpc.c"
-     $1896 = tempRet0; //@line 692 "lpc.c"
+     $1896 = (getTempRet0() | 0); //@line 692 "lpc.c"
      $1897 = $13; //@line 692 "lpc.c"
      $1898 = $1897; //@line 692 "lpc.c"
      HEAP32[$1898>>2] = $1895; //@line 692 "lpc.c"
@@ -19070,7 +19007,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1911 = ($1910|0)<(0); //@line 693 "lpc.c"
      $1912 = $1911 << 31 >> 31; //@line 693 "lpc.c"
      $1913 = (___muldi3(($1903|0),($1905|0),($1910|0),($1912|0))|0); //@line 693 "lpc.c"
-     $1914 = tempRet0; //@line 693 "lpc.c"
+     $1914 = (getTempRet0() | 0); //@line 693 "lpc.c"
      $1915 = $13; //@line 693 "lpc.c"
      $1916 = $1915; //@line 693 "lpc.c"
      $1917 = HEAP32[$1916>>2]|0; //@line 693 "lpc.c"
@@ -19078,7 +19015,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1919 = $1918; //@line 693 "lpc.c"
      $1920 = HEAP32[$1919>>2]|0; //@line 693 "lpc.c"
      $1921 = (_i64Add(($1917|0),($1920|0),($1913|0),($1914|0))|0); //@line 693 "lpc.c"
-     $1922 = tempRet0; //@line 693 "lpc.c"
+     $1922 = (getTempRet0() | 0); //@line 693 "lpc.c"
      $1923 = $13; //@line 693 "lpc.c"
      $1924 = $1923; //@line 693 "lpc.c"
      HEAP32[$1924>>2] = $1921; //@line 693 "lpc.c"
@@ -19098,7 +19035,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1937 = ($1936|0)<(0); //@line 694 "lpc.c"
      $1938 = $1937 << 31 >> 31; //@line 694 "lpc.c"
      $1939 = (___muldi3(($1929|0),($1931|0),($1936|0),($1938|0))|0); //@line 694 "lpc.c"
-     $1940 = tempRet0; //@line 694 "lpc.c"
+     $1940 = (getTempRet0() | 0); //@line 694 "lpc.c"
      $1941 = $13; //@line 694 "lpc.c"
      $1942 = $1941; //@line 694 "lpc.c"
      $1943 = HEAP32[$1942>>2]|0; //@line 694 "lpc.c"
@@ -19106,7 +19043,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1945 = $1944; //@line 694 "lpc.c"
      $1946 = HEAP32[$1945>>2]|0; //@line 694 "lpc.c"
      $1947 = (_i64Add(($1943|0),($1946|0),($1939|0),($1940|0))|0); //@line 694 "lpc.c"
-     $1948 = tempRet0; //@line 694 "lpc.c"
+     $1948 = (getTempRet0() | 0); //@line 694 "lpc.c"
      $1949 = $13; //@line 694 "lpc.c"
      $1950 = $1949; //@line 694 "lpc.c"
      HEAP32[$1950>>2] = $1947; //@line 694 "lpc.c"
@@ -19125,7 +19062,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1962 = ($1961|0)<(0); //@line 695 "lpc.c"
      $1963 = $1962 << 31 >> 31; //@line 695 "lpc.c"
      $1964 = (___muldi3(($1954|0),($1956|0),($1961|0),($1963|0))|0); //@line 695 "lpc.c"
-     $1965 = tempRet0; //@line 695 "lpc.c"
+     $1965 = (getTempRet0() | 0); //@line 695 "lpc.c"
      $1966 = $13; //@line 695 "lpc.c"
      $1967 = $1966; //@line 695 "lpc.c"
      $1968 = HEAP32[$1967>>2]|0; //@line 695 "lpc.c"
@@ -19133,7 +19070,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1970 = $1969; //@line 695 "lpc.c"
      $1971 = HEAP32[$1970>>2]|0; //@line 695 "lpc.c"
      $1972 = (_i64Add(($1968|0),($1971|0),($1964|0),($1965|0))|0); //@line 695 "lpc.c"
-     $1973 = tempRet0; //@line 695 "lpc.c"
+     $1973 = (getTempRet0() | 0); //@line 695 "lpc.c"
      $1974 = $13; //@line 695 "lpc.c"
      $1975 = $1974; //@line 695 "lpc.c"
      HEAP32[$1975>>2] = $1972; //@line 695 "lpc.c"
@@ -19152,7 +19089,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $1987 = HEAP32[$1986>>2]|0; //@line 696 "lpc.c"
      $1988 = $10; //@line 696 "lpc.c"
      $1989 = (_bitshift64Ashr(($1984|0),($1987|0),($1988|0))|0); //@line 696 "lpc.c"
-     $1990 = tempRet0; //@line 696 "lpc.c"
+     $1990 = (getTempRet0() | 0); //@line 696 "lpc.c"
      $1991 = (($1981) - ($1989))|0; //@line 696 "lpc.c"
      $1992 = $11; //@line 696 "lpc.c"
      $1993 = $12; //@line 696 "lpc.c"
@@ -19198,7 +19135,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2017 = ($2016|0)<(0); //@line 706 "lpc.c"
      $2018 = $2017 << 31 >> 31; //@line 706 "lpc.c"
      $2019 = (___muldi3(($2009|0),($2011|0),($2016|0),($2018|0))|0); //@line 706 "lpc.c"
-     $2020 = tempRet0; //@line 706 "lpc.c"
+     $2020 = (getTempRet0() | 0); //@line 706 "lpc.c"
      $2021 = $13; //@line 706 "lpc.c"
      $2022 = $2021; //@line 706 "lpc.c"
      $2023 = HEAP32[$2022>>2]|0; //@line 706 "lpc.c"
@@ -19206,7 +19143,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2025 = $2024; //@line 706 "lpc.c"
      $2026 = HEAP32[$2025>>2]|0; //@line 706 "lpc.c"
      $2027 = (_i64Add(($2023|0),($2026|0),($2019|0),($2020|0))|0); //@line 706 "lpc.c"
-     $2028 = tempRet0; //@line 706 "lpc.c"
+     $2028 = (getTempRet0() | 0); //@line 706 "lpc.c"
      $2029 = $13; //@line 706 "lpc.c"
      $2030 = $2029; //@line 706 "lpc.c"
      HEAP32[$2030>>2] = $2027; //@line 706 "lpc.c"
@@ -19226,7 +19163,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2043 = ($2042|0)<(0); //@line 707 "lpc.c"
      $2044 = $2043 << 31 >> 31; //@line 707 "lpc.c"
      $2045 = (___muldi3(($2035|0),($2037|0),($2042|0),($2044|0))|0); //@line 707 "lpc.c"
-     $2046 = tempRet0; //@line 707 "lpc.c"
+     $2046 = (getTempRet0() | 0); //@line 707 "lpc.c"
      $2047 = $13; //@line 707 "lpc.c"
      $2048 = $2047; //@line 707 "lpc.c"
      $2049 = HEAP32[$2048>>2]|0; //@line 707 "lpc.c"
@@ -19234,7 +19171,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2051 = $2050; //@line 707 "lpc.c"
      $2052 = HEAP32[$2051>>2]|0; //@line 707 "lpc.c"
      $2053 = (_i64Add(($2049|0),($2052|0),($2045|0),($2046|0))|0); //@line 707 "lpc.c"
-     $2054 = tempRet0; //@line 707 "lpc.c"
+     $2054 = (getTempRet0() | 0); //@line 707 "lpc.c"
      $2055 = $13; //@line 707 "lpc.c"
      $2056 = $2055; //@line 707 "lpc.c"
      HEAP32[$2056>>2] = $2053; //@line 707 "lpc.c"
@@ -19254,7 +19191,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2069 = ($2068|0)<(0); //@line 708 "lpc.c"
      $2070 = $2069 << 31 >> 31; //@line 708 "lpc.c"
      $2071 = (___muldi3(($2061|0),($2063|0),($2068|0),($2070|0))|0); //@line 708 "lpc.c"
-     $2072 = tempRet0; //@line 708 "lpc.c"
+     $2072 = (getTempRet0() | 0); //@line 708 "lpc.c"
      $2073 = $13; //@line 708 "lpc.c"
      $2074 = $2073; //@line 708 "lpc.c"
      $2075 = HEAP32[$2074>>2]|0; //@line 708 "lpc.c"
@@ -19262,7 +19199,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2077 = $2076; //@line 708 "lpc.c"
      $2078 = HEAP32[$2077>>2]|0; //@line 708 "lpc.c"
      $2079 = (_i64Add(($2075|0),($2078|0),($2071|0),($2072|0))|0); //@line 708 "lpc.c"
-     $2080 = tempRet0; //@line 708 "lpc.c"
+     $2080 = (getTempRet0() | 0); //@line 708 "lpc.c"
      $2081 = $13; //@line 708 "lpc.c"
      $2082 = $2081; //@line 708 "lpc.c"
      HEAP32[$2082>>2] = $2079; //@line 708 "lpc.c"
@@ -19281,7 +19218,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2094 = ($2093|0)<(0); //@line 709 "lpc.c"
      $2095 = $2094 << 31 >> 31; //@line 709 "lpc.c"
      $2096 = (___muldi3(($2086|0),($2088|0),($2093|0),($2095|0))|0); //@line 709 "lpc.c"
-     $2097 = tempRet0; //@line 709 "lpc.c"
+     $2097 = (getTempRet0() | 0); //@line 709 "lpc.c"
      $2098 = $13; //@line 709 "lpc.c"
      $2099 = $2098; //@line 709 "lpc.c"
      $2100 = HEAP32[$2099>>2]|0; //@line 709 "lpc.c"
@@ -19289,7 +19226,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2102 = $2101; //@line 709 "lpc.c"
      $2103 = HEAP32[$2102>>2]|0; //@line 709 "lpc.c"
      $2104 = (_i64Add(($2100|0),($2103|0),($2096|0),($2097|0))|0); //@line 709 "lpc.c"
-     $2105 = tempRet0; //@line 709 "lpc.c"
+     $2105 = (getTempRet0() | 0); //@line 709 "lpc.c"
      $2106 = $13; //@line 709 "lpc.c"
      $2107 = $2106; //@line 709 "lpc.c"
      HEAP32[$2107>>2] = $2104; //@line 709 "lpc.c"
@@ -19308,7 +19245,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2119 = HEAP32[$2118>>2]|0; //@line 710 "lpc.c"
      $2120 = $10; //@line 710 "lpc.c"
      $2121 = (_bitshift64Ashr(($2116|0),($2119|0),($2120|0))|0); //@line 710 "lpc.c"
-     $2122 = tempRet0; //@line 710 "lpc.c"
+     $2122 = (getTempRet0() | 0); //@line 710 "lpc.c"
      $2123 = (($2113) - ($2121))|0; //@line 710 "lpc.c"
      $2124 = $11; //@line 710 "lpc.c"
      $2125 = $12; //@line 710 "lpc.c"
@@ -19346,7 +19283,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2146 = ($2145|0)<(0); //@line 716 "lpc.c"
      $2147 = $2146 << 31 >> 31; //@line 716 "lpc.c"
      $2148 = (___muldi3(($2138|0),($2140|0),($2145|0),($2147|0))|0); //@line 716 "lpc.c"
-     $2149 = tempRet0; //@line 716 "lpc.c"
+     $2149 = (getTempRet0() | 0); //@line 716 "lpc.c"
      $2150 = $13; //@line 716 "lpc.c"
      $2151 = $2150; //@line 716 "lpc.c"
      $2152 = HEAP32[$2151>>2]|0; //@line 716 "lpc.c"
@@ -19354,7 +19291,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2154 = $2153; //@line 716 "lpc.c"
      $2155 = HEAP32[$2154>>2]|0; //@line 716 "lpc.c"
      $2156 = (_i64Add(($2152|0),($2155|0),($2148|0),($2149|0))|0); //@line 716 "lpc.c"
-     $2157 = tempRet0; //@line 716 "lpc.c"
+     $2157 = (getTempRet0() | 0); //@line 716 "lpc.c"
      $2158 = $13; //@line 716 "lpc.c"
      $2159 = $2158; //@line 716 "lpc.c"
      HEAP32[$2159>>2] = $2156; //@line 716 "lpc.c"
@@ -19374,7 +19311,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2172 = ($2171|0)<(0); //@line 717 "lpc.c"
      $2173 = $2172 << 31 >> 31; //@line 717 "lpc.c"
      $2174 = (___muldi3(($2164|0),($2166|0),($2171|0),($2173|0))|0); //@line 717 "lpc.c"
-     $2175 = tempRet0; //@line 717 "lpc.c"
+     $2175 = (getTempRet0() | 0); //@line 717 "lpc.c"
      $2176 = $13; //@line 717 "lpc.c"
      $2177 = $2176; //@line 717 "lpc.c"
      $2178 = HEAP32[$2177>>2]|0; //@line 717 "lpc.c"
@@ -19382,7 +19319,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2180 = $2179; //@line 717 "lpc.c"
      $2181 = HEAP32[$2180>>2]|0; //@line 717 "lpc.c"
      $2182 = (_i64Add(($2178|0),($2181|0),($2174|0),($2175|0))|0); //@line 717 "lpc.c"
-     $2183 = tempRet0; //@line 717 "lpc.c"
+     $2183 = (getTempRet0() | 0); //@line 717 "lpc.c"
      $2184 = $13; //@line 717 "lpc.c"
      $2185 = $2184; //@line 717 "lpc.c"
      HEAP32[$2185>>2] = $2182; //@line 717 "lpc.c"
@@ -19401,7 +19338,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2197 = ($2196|0)<(0); //@line 718 "lpc.c"
      $2198 = $2197 << 31 >> 31; //@line 718 "lpc.c"
      $2199 = (___muldi3(($2189|0),($2191|0),($2196|0),($2198|0))|0); //@line 718 "lpc.c"
-     $2200 = tempRet0; //@line 718 "lpc.c"
+     $2200 = (getTempRet0() | 0); //@line 718 "lpc.c"
      $2201 = $13; //@line 718 "lpc.c"
      $2202 = $2201; //@line 718 "lpc.c"
      $2203 = HEAP32[$2202>>2]|0; //@line 718 "lpc.c"
@@ -19409,7 +19346,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2205 = $2204; //@line 718 "lpc.c"
      $2206 = HEAP32[$2205>>2]|0; //@line 718 "lpc.c"
      $2207 = (_i64Add(($2203|0),($2206|0),($2199|0),($2200|0))|0); //@line 718 "lpc.c"
-     $2208 = tempRet0; //@line 718 "lpc.c"
+     $2208 = (getTempRet0() | 0); //@line 718 "lpc.c"
      $2209 = $13; //@line 718 "lpc.c"
      $2210 = $2209; //@line 718 "lpc.c"
      HEAP32[$2210>>2] = $2207; //@line 718 "lpc.c"
@@ -19428,7 +19365,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2222 = HEAP32[$2221>>2]|0; //@line 719 "lpc.c"
      $2223 = $10; //@line 719 "lpc.c"
      $2224 = (_bitshift64Ashr(($2219|0),($2222|0),($2223|0))|0); //@line 719 "lpc.c"
-     $2225 = tempRet0; //@line 719 "lpc.c"
+     $2225 = (getTempRet0() | 0); //@line 719 "lpc.c"
      $2226 = (($2216) - ($2224))|0; //@line 719 "lpc.c"
      $2227 = $11; //@line 719 "lpc.c"
      $2228 = $12; //@line 719 "lpc.c"
@@ -19470,7 +19407,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2250 = ($2249|0)<(0); //@line 727 "lpc.c"
      $2251 = $2250 << 31 >> 31; //@line 727 "lpc.c"
      $2252 = (___muldi3(($2242|0),($2244|0),($2249|0),($2251|0))|0); //@line 727 "lpc.c"
-     $2253 = tempRet0; //@line 727 "lpc.c"
+     $2253 = (getTempRet0() | 0); //@line 727 "lpc.c"
      $2254 = $13; //@line 727 "lpc.c"
      $2255 = $2254; //@line 727 "lpc.c"
      $2256 = HEAP32[$2255>>2]|0; //@line 727 "lpc.c"
@@ -19478,7 +19415,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2258 = $2257; //@line 727 "lpc.c"
      $2259 = HEAP32[$2258>>2]|0; //@line 727 "lpc.c"
      $2260 = (_i64Add(($2256|0),($2259|0),($2252|0),($2253|0))|0); //@line 727 "lpc.c"
-     $2261 = tempRet0; //@line 727 "lpc.c"
+     $2261 = (getTempRet0() | 0); //@line 727 "lpc.c"
      $2262 = $13; //@line 727 "lpc.c"
      $2263 = $2262; //@line 727 "lpc.c"
      HEAP32[$2263>>2] = $2260; //@line 727 "lpc.c"
@@ -19497,7 +19434,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2275 = ($2274|0)<(0); //@line 728 "lpc.c"
      $2276 = $2275 << 31 >> 31; //@line 728 "lpc.c"
      $2277 = (___muldi3(($2267|0),($2269|0),($2274|0),($2276|0))|0); //@line 728 "lpc.c"
-     $2278 = tempRet0; //@line 728 "lpc.c"
+     $2278 = (getTempRet0() | 0); //@line 728 "lpc.c"
      $2279 = $13; //@line 728 "lpc.c"
      $2280 = $2279; //@line 728 "lpc.c"
      $2281 = HEAP32[$2280>>2]|0; //@line 728 "lpc.c"
@@ -19505,7 +19442,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2283 = $2282; //@line 728 "lpc.c"
      $2284 = HEAP32[$2283>>2]|0; //@line 728 "lpc.c"
      $2285 = (_i64Add(($2281|0),($2284|0),($2277|0),($2278|0))|0); //@line 728 "lpc.c"
-     $2286 = tempRet0; //@line 728 "lpc.c"
+     $2286 = (getTempRet0() | 0); //@line 728 "lpc.c"
      $2287 = $13; //@line 728 "lpc.c"
      $2288 = $2287; //@line 728 "lpc.c"
      HEAP32[$2288>>2] = $2285; //@line 728 "lpc.c"
@@ -19524,7 +19461,7 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2300 = HEAP32[$2299>>2]|0; //@line 729 "lpc.c"
      $2301 = $10; //@line 729 "lpc.c"
      $2302 = (_bitshift64Ashr(($2297|0),($2300|0),($2301|0))|0); //@line 729 "lpc.c"
-     $2303 = tempRet0; //@line 729 "lpc.c"
+     $2303 = (getTempRet0() | 0); //@line 729 "lpc.c"
      $2304 = (($2294) - ($2302))|0; //@line 729 "lpc.c"
      $2305 = $11; //@line 729 "lpc.c"
      $2306 = $12; //@line 729 "lpc.c"
@@ -19559,10 +19496,10 @@ function _FLAC__lpc_compute_residual_from_qlp_coefficients_wide($0,$1,$2,$3,$4,$
      $2326 = ($2325|0)<(0); //@line 734 "lpc.c"
      $2327 = $2326 << 31 >> 31; //@line 734 "lpc.c"
      $2328 = (___muldi3(($2318|0),($2320|0),($2325|0),($2327|0))|0); //@line 734 "lpc.c"
-     $2329 = tempRet0; //@line 734 "lpc.c"
+     $2329 = (getTempRet0() | 0); //@line 734 "lpc.c"
      $2330 = $10; //@line 734 "lpc.c"
      $2331 = (_bitshift64Ashr(($2328|0),($2329|0),($2330|0))|0); //@line 734 "lpc.c"
-     $2332 = tempRet0; //@line 734 "lpc.c"
+     $2332 = (getTempRet0() | 0); //@line 734 "lpc.c"
      $2333 = (($2316) - ($2331))|0; //@line 734 "lpc.c"
      $2334 = $11; //@line 734 "lpc.c"
      $2335 = $12; //@line 734 "lpc.c"
@@ -21721,7 +21658,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2357 = ($2356|0)<(0); //@line 1260 "lpc.c"
     $2358 = $2357 << 31 >> 31; //@line 1260 "lpc.c"
     $2359 = (___muldi3(($2349|0),($2351|0),($2356|0),($2358|0))|0); //@line 1260 "lpc.c"
-    $2360 = tempRet0; //@line 1260 "lpc.c"
+    $2360 = (getTempRet0() | 0); //@line 1260 "lpc.c"
     $2361 = $13; //@line 1260 "lpc.c"
     $2362 = $2361; //@line 1260 "lpc.c"
     $2363 = HEAP32[$2362>>2]|0; //@line 1260 "lpc.c"
@@ -21729,7 +21666,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2365 = $2364; //@line 1260 "lpc.c"
     $2366 = HEAP32[$2365>>2]|0; //@line 1260 "lpc.c"
     $2367 = (_i64Add(($2363|0),($2366|0),($2359|0),($2360|0))|0); //@line 1260 "lpc.c"
-    $2368 = tempRet0; //@line 1260 "lpc.c"
+    $2368 = (getTempRet0() | 0); //@line 1260 "lpc.c"
     $2369 = $13; //@line 1260 "lpc.c"
     $2370 = $2369; //@line 1260 "lpc.c"
     HEAP32[$2370>>2] = $2367; //@line 1260 "lpc.c"
@@ -21833,7 +21770,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2383 = ($2382|0)<(0); //@line 1261 "lpc.c"
     $2384 = $2383 << 31 >> 31; //@line 1261 "lpc.c"
     $2385 = (___muldi3(($2375|0),($2377|0),($2382|0),($2384|0))|0); //@line 1261 "lpc.c"
-    $2386 = tempRet0; //@line 1261 "lpc.c"
+    $2386 = (getTempRet0() | 0); //@line 1261 "lpc.c"
     $2387 = $13; //@line 1261 "lpc.c"
     $2388 = $2387; //@line 1261 "lpc.c"
     $2389 = HEAP32[$2388>>2]|0; //@line 1261 "lpc.c"
@@ -21841,7 +21778,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2391 = $2390; //@line 1261 "lpc.c"
     $2392 = HEAP32[$2391>>2]|0; //@line 1261 "lpc.c"
     $2393 = (_i64Add(($2389|0),($2392|0),($2385|0),($2386|0))|0); //@line 1261 "lpc.c"
-    $2394 = tempRet0; //@line 1261 "lpc.c"
+    $2394 = (getTempRet0() | 0); //@line 1261 "lpc.c"
     $2395 = $13; //@line 1261 "lpc.c"
     $2396 = $2395; //@line 1261 "lpc.c"
     HEAP32[$2396>>2] = $2393; //@line 1261 "lpc.c"
@@ -21865,7 +21802,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2409 = ($2408|0)<(0); //@line 1262 "lpc.c"
     $2410 = $2409 << 31 >> 31; //@line 1262 "lpc.c"
     $2411 = (___muldi3(($2401|0),($2403|0),($2408|0),($2410|0))|0); //@line 1262 "lpc.c"
-    $2412 = tempRet0; //@line 1262 "lpc.c"
+    $2412 = (getTempRet0() | 0); //@line 1262 "lpc.c"
     $2413 = $13; //@line 1262 "lpc.c"
     $2414 = $2413; //@line 1262 "lpc.c"
     $2415 = HEAP32[$2414>>2]|0; //@line 1262 "lpc.c"
@@ -21873,7 +21810,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2417 = $2416; //@line 1262 "lpc.c"
     $2418 = HEAP32[$2417>>2]|0; //@line 1262 "lpc.c"
     $2419 = (_i64Add(($2415|0),($2418|0),($2411|0),($2412|0))|0); //@line 1262 "lpc.c"
-    $2420 = tempRet0; //@line 1262 "lpc.c"
+    $2420 = (getTempRet0() | 0); //@line 1262 "lpc.c"
     $2421 = $13; //@line 1262 "lpc.c"
     $2422 = $2421; //@line 1262 "lpc.c"
     HEAP32[$2422>>2] = $2419; //@line 1262 "lpc.c"
@@ -21897,7 +21834,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2435 = ($2434|0)<(0); //@line 1263 "lpc.c"
     $2436 = $2435 << 31 >> 31; //@line 1263 "lpc.c"
     $2437 = (___muldi3(($2427|0),($2429|0),($2434|0),($2436|0))|0); //@line 1263 "lpc.c"
-    $2438 = tempRet0; //@line 1263 "lpc.c"
+    $2438 = (getTempRet0() | 0); //@line 1263 "lpc.c"
     $2439 = $13; //@line 1263 "lpc.c"
     $2440 = $2439; //@line 1263 "lpc.c"
     $2441 = HEAP32[$2440>>2]|0; //@line 1263 "lpc.c"
@@ -21905,7 +21842,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2443 = $2442; //@line 1263 "lpc.c"
     $2444 = HEAP32[$2443>>2]|0; //@line 1263 "lpc.c"
     $2445 = (_i64Add(($2441|0),($2444|0),($2437|0),($2438|0))|0); //@line 1263 "lpc.c"
-    $2446 = tempRet0; //@line 1263 "lpc.c"
+    $2446 = (getTempRet0() | 0); //@line 1263 "lpc.c"
     $2447 = $13; //@line 1263 "lpc.c"
     $2448 = $2447; //@line 1263 "lpc.c"
     HEAP32[$2448>>2] = $2445; //@line 1263 "lpc.c"
@@ -21929,7 +21866,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2461 = ($2460|0)<(0); //@line 1264 "lpc.c"
     $2462 = $2461 << 31 >> 31; //@line 1264 "lpc.c"
     $2463 = (___muldi3(($2453|0),($2455|0),($2460|0),($2462|0))|0); //@line 1264 "lpc.c"
-    $2464 = tempRet0; //@line 1264 "lpc.c"
+    $2464 = (getTempRet0() | 0); //@line 1264 "lpc.c"
     $2465 = $13; //@line 1264 "lpc.c"
     $2466 = $2465; //@line 1264 "lpc.c"
     $2467 = HEAP32[$2466>>2]|0; //@line 1264 "lpc.c"
@@ -21937,7 +21874,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2469 = $2468; //@line 1264 "lpc.c"
     $2470 = HEAP32[$2469>>2]|0; //@line 1264 "lpc.c"
     $2471 = (_i64Add(($2467|0),($2470|0),($2463|0),($2464|0))|0); //@line 1264 "lpc.c"
-    $2472 = tempRet0; //@line 1264 "lpc.c"
+    $2472 = (getTempRet0() | 0); //@line 1264 "lpc.c"
     $2473 = $13; //@line 1264 "lpc.c"
     $2474 = $2473; //@line 1264 "lpc.c"
     HEAP32[$2474>>2] = $2471; //@line 1264 "lpc.c"
@@ -21961,7 +21898,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2487 = ($2486|0)<(0); //@line 1265 "lpc.c"
     $2488 = $2487 << 31 >> 31; //@line 1265 "lpc.c"
     $2489 = (___muldi3(($2479|0),($2481|0),($2486|0),($2488|0))|0); //@line 1265 "lpc.c"
-    $2490 = tempRet0; //@line 1265 "lpc.c"
+    $2490 = (getTempRet0() | 0); //@line 1265 "lpc.c"
     $2491 = $13; //@line 1265 "lpc.c"
     $2492 = $2491; //@line 1265 "lpc.c"
     $2493 = HEAP32[$2492>>2]|0; //@line 1265 "lpc.c"
@@ -21969,7 +21906,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2495 = $2494; //@line 1265 "lpc.c"
     $2496 = HEAP32[$2495>>2]|0; //@line 1265 "lpc.c"
     $2497 = (_i64Add(($2493|0),($2496|0),($2489|0),($2490|0))|0); //@line 1265 "lpc.c"
-    $2498 = tempRet0; //@line 1265 "lpc.c"
+    $2498 = (getTempRet0() | 0); //@line 1265 "lpc.c"
     $2499 = $13; //@line 1265 "lpc.c"
     $2500 = $2499; //@line 1265 "lpc.c"
     HEAP32[$2500>>2] = $2497; //@line 1265 "lpc.c"
@@ -21993,7 +21930,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2513 = ($2512|0)<(0); //@line 1266 "lpc.c"
     $2514 = $2513 << 31 >> 31; //@line 1266 "lpc.c"
     $2515 = (___muldi3(($2505|0),($2507|0),($2512|0),($2514|0))|0); //@line 1266 "lpc.c"
-    $2516 = tempRet0; //@line 1266 "lpc.c"
+    $2516 = (getTempRet0() | 0); //@line 1266 "lpc.c"
     $2517 = $13; //@line 1266 "lpc.c"
     $2518 = $2517; //@line 1266 "lpc.c"
     $2519 = HEAP32[$2518>>2]|0; //@line 1266 "lpc.c"
@@ -22001,7 +21938,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2521 = $2520; //@line 1266 "lpc.c"
     $2522 = HEAP32[$2521>>2]|0; //@line 1266 "lpc.c"
     $2523 = (_i64Add(($2519|0),($2522|0),($2515|0),($2516|0))|0); //@line 1266 "lpc.c"
-    $2524 = tempRet0; //@line 1266 "lpc.c"
+    $2524 = (getTempRet0() | 0); //@line 1266 "lpc.c"
     $2525 = $13; //@line 1266 "lpc.c"
     $2526 = $2525; //@line 1266 "lpc.c"
     HEAP32[$2526>>2] = $2523; //@line 1266 "lpc.c"
@@ -22025,7 +21962,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2539 = ($2538|0)<(0); //@line 1267 "lpc.c"
     $2540 = $2539 << 31 >> 31; //@line 1267 "lpc.c"
     $2541 = (___muldi3(($2531|0),($2533|0),($2538|0),($2540|0))|0); //@line 1267 "lpc.c"
-    $2542 = tempRet0; //@line 1267 "lpc.c"
+    $2542 = (getTempRet0() | 0); //@line 1267 "lpc.c"
     $2543 = $13; //@line 1267 "lpc.c"
     $2544 = $2543; //@line 1267 "lpc.c"
     $2545 = HEAP32[$2544>>2]|0; //@line 1267 "lpc.c"
@@ -22033,7 +21970,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2547 = $2546; //@line 1267 "lpc.c"
     $2548 = HEAP32[$2547>>2]|0; //@line 1267 "lpc.c"
     $2549 = (_i64Add(($2545|0),($2548|0),($2541|0),($2542|0))|0); //@line 1267 "lpc.c"
-    $2550 = tempRet0; //@line 1267 "lpc.c"
+    $2550 = (getTempRet0() | 0); //@line 1267 "lpc.c"
     $2551 = $13; //@line 1267 "lpc.c"
     $2552 = $2551; //@line 1267 "lpc.c"
     HEAP32[$2552>>2] = $2549; //@line 1267 "lpc.c"
@@ -22057,7 +21994,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2565 = ($2564|0)<(0); //@line 1268 "lpc.c"
     $2566 = $2565 << 31 >> 31; //@line 1268 "lpc.c"
     $2567 = (___muldi3(($2557|0),($2559|0),($2564|0),($2566|0))|0); //@line 1268 "lpc.c"
-    $2568 = tempRet0; //@line 1268 "lpc.c"
+    $2568 = (getTempRet0() | 0); //@line 1268 "lpc.c"
     $2569 = $13; //@line 1268 "lpc.c"
     $2570 = $2569; //@line 1268 "lpc.c"
     $2571 = HEAP32[$2570>>2]|0; //@line 1268 "lpc.c"
@@ -22065,7 +22002,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2573 = $2572; //@line 1268 "lpc.c"
     $2574 = HEAP32[$2573>>2]|0; //@line 1268 "lpc.c"
     $2575 = (_i64Add(($2571|0),($2574|0),($2567|0),($2568|0))|0); //@line 1268 "lpc.c"
-    $2576 = tempRet0; //@line 1268 "lpc.c"
+    $2576 = (getTempRet0() | 0); //@line 1268 "lpc.c"
     $2577 = $13; //@line 1268 "lpc.c"
     $2578 = $2577; //@line 1268 "lpc.c"
     HEAP32[$2578>>2] = $2575; //@line 1268 "lpc.c"
@@ -22089,7 +22026,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2591 = ($2590|0)<(0); //@line 1269 "lpc.c"
     $2592 = $2591 << 31 >> 31; //@line 1269 "lpc.c"
     $2593 = (___muldi3(($2583|0),($2585|0),($2590|0),($2592|0))|0); //@line 1269 "lpc.c"
-    $2594 = tempRet0; //@line 1269 "lpc.c"
+    $2594 = (getTempRet0() | 0); //@line 1269 "lpc.c"
     $2595 = $13; //@line 1269 "lpc.c"
     $2596 = $2595; //@line 1269 "lpc.c"
     $2597 = HEAP32[$2596>>2]|0; //@line 1269 "lpc.c"
@@ -22097,7 +22034,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2599 = $2598; //@line 1269 "lpc.c"
     $2600 = HEAP32[$2599>>2]|0; //@line 1269 "lpc.c"
     $2601 = (_i64Add(($2597|0),($2600|0),($2593|0),($2594|0))|0); //@line 1269 "lpc.c"
-    $2602 = tempRet0; //@line 1269 "lpc.c"
+    $2602 = (getTempRet0() | 0); //@line 1269 "lpc.c"
     $2603 = $13; //@line 1269 "lpc.c"
     $2604 = $2603; //@line 1269 "lpc.c"
     HEAP32[$2604>>2] = $2601; //@line 1269 "lpc.c"
@@ -22121,7 +22058,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2617 = ($2616|0)<(0); //@line 1270 "lpc.c"
     $2618 = $2617 << 31 >> 31; //@line 1270 "lpc.c"
     $2619 = (___muldi3(($2609|0),($2611|0),($2616|0),($2618|0))|0); //@line 1270 "lpc.c"
-    $2620 = tempRet0; //@line 1270 "lpc.c"
+    $2620 = (getTempRet0() | 0); //@line 1270 "lpc.c"
     $2621 = $13; //@line 1270 "lpc.c"
     $2622 = $2621; //@line 1270 "lpc.c"
     $2623 = HEAP32[$2622>>2]|0; //@line 1270 "lpc.c"
@@ -22129,7 +22066,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2625 = $2624; //@line 1270 "lpc.c"
     $2626 = HEAP32[$2625>>2]|0; //@line 1270 "lpc.c"
     $2627 = (_i64Add(($2623|0),($2626|0),($2619|0),($2620|0))|0); //@line 1270 "lpc.c"
-    $2628 = tempRet0; //@line 1270 "lpc.c"
+    $2628 = (getTempRet0() | 0); //@line 1270 "lpc.c"
     $2629 = $13; //@line 1270 "lpc.c"
     $2630 = $2629; //@line 1270 "lpc.c"
     HEAP32[$2630>>2] = $2627; //@line 1270 "lpc.c"
@@ -22153,7 +22090,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2643 = ($2642|0)<(0); //@line 1271 "lpc.c"
     $2644 = $2643 << 31 >> 31; //@line 1271 "lpc.c"
     $2645 = (___muldi3(($2635|0),($2637|0),($2642|0),($2644|0))|0); //@line 1271 "lpc.c"
-    $2646 = tempRet0; //@line 1271 "lpc.c"
+    $2646 = (getTempRet0() | 0); //@line 1271 "lpc.c"
     $2647 = $13; //@line 1271 "lpc.c"
     $2648 = $2647; //@line 1271 "lpc.c"
     $2649 = HEAP32[$2648>>2]|0; //@line 1271 "lpc.c"
@@ -22161,7 +22098,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2651 = $2650; //@line 1271 "lpc.c"
     $2652 = HEAP32[$2651>>2]|0; //@line 1271 "lpc.c"
     $2653 = (_i64Add(($2649|0),($2652|0),($2645|0),($2646|0))|0); //@line 1271 "lpc.c"
-    $2654 = tempRet0; //@line 1271 "lpc.c"
+    $2654 = (getTempRet0() | 0); //@line 1271 "lpc.c"
     $2655 = $13; //@line 1271 "lpc.c"
     $2656 = $2655; //@line 1271 "lpc.c"
     HEAP32[$2656>>2] = $2653; //@line 1271 "lpc.c"
@@ -22185,7 +22122,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2669 = ($2668|0)<(0); //@line 1272 "lpc.c"
     $2670 = $2669 << 31 >> 31; //@line 1272 "lpc.c"
     $2671 = (___muldi3(($2661|0),($2663|0),($2668|0),($2670|0))|0); //@line 1272 "lpc.c"
-    $2672 = tempRet0; //@line 1272 "lpc.c"
+    $2672 = (getTempRet0() | 0); //@line 1272 "lpc.c"
     $2673 = $13; //@line 1272 "lpc.c"
     $2674 = $2673; //@line 1272 "lpc.c"
     $2675 = HEAP32[$2674>>2]|0; //@line 1272 "lpc.c"
@@ -22193,7 +22130,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2677 = $2676; //@line 1272 "lpc.c"
     $2678 = HEAP32[$2677>>2]|0; //@line 1272 "lpc.c"
     $2679 = (_i64Add(($2675|0),($2678|0),($2671|0),($2672|0))|0); //@line 1272 "lpc.c"
-    $2680 = tempRet0; //@line 1272 "lpc.c"
+    $2680 = (getTempRet0() | 0); //@line 1272 "lpc.c"
     $2681 = $13; //@line 1272 "lpc.c"
     $2682 = $2681; //@line 1272 "lpc.c"
     HEAP32[$2682>>2] = $2679; //@line 1272 "lpc.c"
@@ -22217,7 +22154,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2695 = ($2694|0)<(0); //@line 1273 "lpc.c"
     $2696 = $2695 << 31 >> 31; //@line 1273 "lpc.c"
     $2697 = (___muldi3(($2687|0),($2689|0),($2694|0),($2696|0))|0); //@line 1273 "lpc.c"
-    $2698 = tempRet0; //@line 1273 "lpc.c"
+    $2698 = (getTempRet0() | 0); //@line 1273 "lpc.c"
     $2699 = $13; //@line 1273 "lpc.c"
     $2700 = $2699; //@line 1273 "lpc.c"
     $2701 = HEAP32[$2700>>2]|0; //@line 1273 "lpc.c"
@@ -22225,7 +22162,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2703 = $2702; //@line 1273 "lpc.c"
     $2704 = HEAP32[$2703>>2]|0; //@line 1273 "lpc.c"
     $2705 = (_i64Add(($2701|0),($2704|0),($2697|0),($2698|0))|0); //@line 1273 "lpc.c"
-    $2706 = tempRet0; //@line 1273 "lpc.c"
+    $2706 = (getTempRet0() | 0); //@line 1273 "lpc.c"
     $2707 = $13; //@line 1273 "lpc.c"
     $2708 = $2707; //@line 1273 "lpc.c"
     HEAP32[$2708>>2] = $2705; //@line 1273 "lpc.c"
@@ -22249,7 +22186,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2721 = ($2720|0)<(0); //@line 1274 "lpc.c"
     $2722 = $2721 << 31 >> 31; //@line 1274 "lpc.c"
     $2723 = (___muldi3(($2713|0),($2715|0),($2720|0),($2722|0))|0); //@line 1274 "lpc.c"
-    $2724 = tempRet0; //@line 1274 "lpc.c"
+    $2724 = (getTempRet0() | 0); //@line 1274 "lpc.c"
     $2725 = $13; //@line 1274 "lpc.c"
     $2726 = $2725; //@line 1274 "lpc.c"
     $2727 = HEAP32[$2726>>2]|0; //@line 1274 "lpc.c"
@@ -22257,7 +22194,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2729 = $2728; //@line 1274 "lpc.c"
     $2730 = HEAP32[$2729>>2]|0; //@line 1274 "lpc.c"
     $2731 = (_i64Add(($2727|0),($2730|0),($2723|0),($2724|0))|0); //@line 1274 "lpc.c"
-    $2732 = tempRet0; //@line 1274 "lpc.c"
+    $2732 = (getTempRet0() | 0); //@line 1274 "lpc.c"
     $2733 = $13; //@line 1274 "lpc.c"
     $2734 = $2733; //@line 1274 "lpc.c"
     HEAP32[$2734>>2] = $2731; //@line 1274 "lpc.c"
@@ -22281,7 +22218,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2747 = ($2746|0)<(0); //@line 1275 "lpc.c"
     $2748 = $2747 << 31 >> 31; //@line 1275 "lpc.c"
     $2749 = (___muldi3(($2739|0),($2741|0),($2746|0),($2748|0))|0); //@line 1275 "lpc.c"
-    $2750 = tempRet0; //@line 1275 "lpc.c"
+    $2750 = (getTempRet0() | 0); //@line 1275 "lpc.c"
     $2751 = $13; //@line 1275 "lpc.c"
     $2752 = $2751; //@line 1275 "lpc.c"
     $2753 = HEAP32[$2752>>2]|0; //@line 1275 "lpc.c"
@@ -22289,7 +22226,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2755 = $2754; //@line 1275 "lpc.c"
     $2756 = HEAP32[$2755>>2]|0; //@line 1275 "lpc.c"
     $2757 = (_i64Add(($2753|0),($2756|0),($2749|0),($2750|0))|0); //@line 1275 "lpc.c"
-    $2758 = tempRet0; //@line 1275 "lpc.c"
+    $2758 = (getTempRet0() | 0); //@line 1275 "lpc.c"
     $2759 = $13; //@line 1275 "lpc.c"
     $2760 = $2759; //@line 1275 "lpc.c"
     HEAP32[$2760>>2] = $2757; //@line 1275 "lpc.c"
@@ -22313,7 +22250,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2773 = ($2772|0)<(0); //@line 1276 "lpc.c"
     $2774 = $2773 << 31 >> 31; //@line 1276 "lpc.c"
     $2775 = (___muldi3(($2765|0),($2767|0),($2772|0),($2774|0))|0); //@line 1276 "lpc.c"
-    $2776 = tempRet0; //@line 1276 "lpc.c"
+    $2776 = (getTempRet0() | 0); //@line 1276 "lpc.c"
     $2777 = $13; //@line 1276 "lpc.c"
     $2778 = $2777; //@line 1276 "lpc.c"
     $2779 = HEAP32[$2778>>2]|0; //@line 1276 "lpc.c"
@@ -22321,7 +22258,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2781 = $2780; //@line 1276 "lpc.c"
     $2782 = HEAP32[$2781>>2]|0; //@line 1276 "lpc.c"
     $2783 = (_i64Add(($2779|0),($2782|0),($2775|0),($2776|0))|0); //@line 1276 "lpc.c"
-    $2784 = tempRet0; //@line 1276 "lpc.c"
+    $2784 = (getTempRet0() | 0); //@line 1276 "lpc.c"
     $2785 = $13; //@line 1276 "lpc.c"
     $2786 = $2785; //@line 1276 "lpc.c"
     HEAP32[$2786>>2] = $2783; //@line 1276 "lpc.c"
@@ -22345,7 +22282,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2799 = ($2798|0)<(0); //@line 1277 "lpc.c"
     $2800 = $2799 << 31 >> 31; //@line 1277 "lpc.c"
     $2801 = (___muldi3(($2791|0),($2793|0),($2798|0),($2800|0))|0); //@line 1277 "lpc.c"
-    $2802 = tempRet0; //@line 1277 "lpc.c"
+    $2802 = (getTempRet0() | 0); //@line 1277 "lpc.c"
     $2803 = $13; //@line 1277 "lpc.c"
     $2804 = $2803; //@line 1277 "lpc.c"
     $2805 = HEAP32[$2804>>2]|0; //@line 1277 "lpc.c"
@@ -22353,7 +22290,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2807 = $2806; //@line 1277 "lpc.c"
     $2808 = HEAP32[$2807>>2]|0; //@line 1277 "lpc.c"
     $2809 = (_i64Add(($2805|0),($2808|0),($2801|0),($2802|0))|0); //@line 1277 "lpc.c"
-    $2810 = tempRet0; //@line 1277 "lpc.c"
+    $2810 = (getTempRet0() | 0); //@line 1277 "lpc.c"
     $2811 = $13; //@line 1277 "lpc.c"
     $2812 = $2811; //@line 1277 "lpc.c"
     HEAP32[$2812>>2] = $2809; //@line 1277 "lpc.c"
@@ -22377,7 +22314,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2825 = ($2824|0)<(0); //@line 1278 "lpc.c"
     $2826 = $2825 << 31 >> 31; //@line 1278 "lpc.c"
     $2827 = (___muldi3(($2817|0),($2819|0),($2824|0),($2826|0))|0); //@line 1278 "lpc.c"
-    $2828 = tempRet0; //@line 1278 "lpc.c"
+    $2828 = (getTempRet0() | 0); //@line 1278 "lpc.c"
     $2829 = $13; //@line 1278 "lpc.c"
     $2830 = $2829; //@line 1278 "lpc.c"
     $2831 = HEAP32[$2830>>2]|0; //@line 1278 "lpc.c"
@@ -22385,7 +22322,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2833 = $2832; //@line 1278 "lpc.c"
     $2834 = HEAP32[$2833>>2]|0; //@line 1278 "lpc.c"
     $2835 = (_i64Add(($2831|0),($2834|0),($2827|0),($2828|0))|0); //@line 1278 "lpc.c"
-    $2836 = tempRet0; //@line 1278 "lpc.c"
+    $2836 = (getTempRet0() | 0); //@line 1278 "lpc.c"
     $2837 = $13; //@line 1278 "lpc.c"
     $2838 = $2837; //@line 1278 "lpc.c"
     HEAP32[$2838>>2] = $2835; //@line 1278 "lpc.c"
@@ -22409,7 +22346,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2851 = ($2850|0)<(0); //@line 1279 "lpc.c"
     $2852 = $2851 << 31 >> 31; //@line 1279 "lpc.c"
     $2853 = (___muldi3(($2843|0),($2845|0),($2850|0),($2852|0))|0); //@line 1279 "lpc.c"
-    $2854 = tempRet0; //@line 1279 "lpc.c"
+    $2854 = (getTempRet0() | 0); //@line 1279 "lpc.c"
     $2855 = $13; //@line 1279 "lpc.c"
     $2856 = $2855; //@line 1279 "lpc.c"
     $2857 = HEAP32[$2856>>2]|0; //@line 1279 "lpc.c"
@@ -22417,7 +22354,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2859 = $2858; //@line 1279 "lpc.c"
     $2860 = HEAP32[$2859>>2]|0; //@line 1279 "lpc.c"
     $2861 = (_i64Add(($2857|0),($2860|0),($2853|0),($2854|0))|0); //@line 1279 "lpc.c"
-    $2862 = tempRet0; //@line 1279 "lpc.c"
+    $2862 = (getTempRet0() | 0); //@line 1279 "lpc.c"
     $2863 = $13; //@line 1279 "lpc.c"
     $2864 = $2863; //@line 1279 "lpc.c"
     HEAP32[$2864>>2] = $2861; //@line 1279 "lpc.c"
@@ -22437,7 +22374,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2877 = ($2876|0)<(0); //@line 1280 "lpc.c"
     $2878 = $2877 << 31 >> 31; //@line 1280 "lpc.c"
     $2879 = (___muldi3(($2869|0),($2871|0),($2876|0),($2878|0))|0); //@line 1280 "lpc.c"
-    $2880 = tempRet0; //@line 1280 "lpc.c"
+    $2880 = (getTempRet0() | 0); //@line 1280 "lpc.c"
     $2881 = $13; //@line 1280 "lpc.c"
     $2882 = $2881; //@line 1280 "lpc.c"
     $2883 = HEAP32[$2882>>2]|0; //@line 1280 "lpc.c"
@@ -22445,7 +22382,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2885 = $2884; //@line 1280 "lpc.c"
     $2886 = HEAP32[$2885>>2]|0; //@line 1280 "lpc.c"
     $2887 = (_i64Add(($2883|0),($2886|0),($2879|0),($2880|0))|0); //@line 1280 "lpc.c"
-    $2888 = tempRet0; //@line 1280 "lpc.c"
+    $2888 = (getTempRet0() | 0); //@line 1280 "lpc.c"
     $2889 = $13; //@line 1280 "lpc.c"
     $2890 = $2889; //@line 1280 "lpc.c"
     HEAP32[$2890>>2] = $2887; //@line 1280 "lpc.c"
@@ -22465,7 +22402,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2903 = ($2902|0)<(0); //@line 1281 "lpc.c"
     $2904 = $2903 << 31 >> 31; //@line 1281 "lpc.c"
     $2905 = (___muldi3(($2895|0),($2897|0),($2902|0),($2904|0))|0); //@line 1281 "lpc.c"
-    $2906 = tempRet0; //@line 1281 "lpc.c"
+    $2906 = (getTempRet0() | 0); //@line 1281 "lpc.c"
     $2907 = $13; //@line 1281 "lpc.c"
     $2908 = $2907; //@line 1281 "lpc.c"
     $2909 = HEAP32[$2908>>2]|0; //@line 1281 "lpc.c"
@@ -22473,7 +22410,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2911 = $2910; //@line 1281 "lpc.c"
     $2912 = HEAP32[$2911>>2]|0; //@line 1281 "lpc.c"
     $2913 = (_i64Add(($2909|0),($2912|0),($2905|0),($2906|0))|0); //@line 1281 "lpc.c"
-    $2914 = tempRet0; //@line 1281 "lpc.c"
+    $2914 = (getTempRet0() | 0); //@line 1281 "lpc.c"
     $2915 = $13; //@line 1281 "lpc.c"
     $2916 = $2915; //@line 1281 "lpc.c"
     HEAP32[$2916>>2] = $2913; //@line 1281 "lpc.c"
@@ -22493,7 +22430,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2929 = ($2928|0)<(0); //@line 1282 "lpc.c"
     $2930 = $2929 << 31 >> 31; //@line 1282 "lpc.c"
     $2931 = (___muldi3(($2921|0),($2923|0),($2928|0),($2930|0))|0); //@line 1282 "lpc.c"
-    $2932 = tempRet0; //@line 1282 "lpc.c"
+    $2932 = (getTempRet0() | 0); //@line 1282 "lpc.c"
     $2933 = $13; //@line 1282 "lpc.c"
     $2934 = $2933; //@line 1282 "lpc.c"
     $2935 = HEAP32[$2934>>2]|0; //@line 1282 "lpc.c"
@@ -22501,7 +22438,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2937 = $2936; //@line 1282 "lpc.c"
     $2938 = HEAP32[$2937>>2]|0; //@line 1282 "lpc.c"
     $2939 = (_i64Add(($2935|0),($2938|0),($2931|0),($2932|0))|0); //@line 1282 "lpc.c"
-    $2940 = tempRet0; //@line 1282 "lpc.c"
+    $2940 = (getTempRet0() | 0); //@line 1282 "lpc.c"
     $2941 = $13; //@line 1282 "lpc.c"
     $2942 = $2941; //@line 1282 "lpc.c"
     HEAP32[$2942>>2] = $2939; //@line 1282 "lpc.c"
@@ -22521,7 +22458,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2955 = ($2954|0)<(0); //@line 1283 "lpc.c"
     $2956 = $2955 << 31 >> 31; //@line 1283 "lpc.c"
     $2957 = (___muldi3(($2947|0),($2949|0),($2954|0),($2956|0))|0); //@line 1283 "lpc.c"
-    $2958 = tempRet0; //@line 1283 "lpc.c"
+    $2958 = (getTempRet0() | 0); //@line 1283 "lpc.c"
     $2959 = $13; //@line 1283 "lpc.c"
     $2960 = $2959; //@line 1283 "lpc.c"
     $2961 = HEAP32[$2960>>2]|0; //@line 1283 "lpc.c"
@@ -22529,7 +22466,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2963 = $2962; //@line 1283 "lpc.c"
     $2964 = HEAP32[$2963>>2]|0; //@line 1283 "lpc.c"
     $2965 = (_i64Add(($2961|0),($2964|0),($2957|0),($2958|0))|0); //@line 1283 "lpc.c"
-    $2966 = tempRet0; //@line 1283 "lpc.c"
+    $2966 = (getTempRet0() | 0); //@line 1283 "lpc.c"
     $2967 = $13; //@line 1283 "lpc.c"
     $2968 = $2967; //@line 1283 "lpc.c"
     HEAP32[$2968>>2] = $2965; //@line 1283 "lpc.c"
@@ -22549,7 +22486,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2981 = ($2980|0)<(0); //@line 1284 "lpc.c"
     $2982 = $2981 << 31 >> 31; //@line 1284 "lpc.c"
     $2983 = (___muldi3(($2973|0),($2975|0),($2980|0),($2982|0))|0); //@line 1284 "lpc.c"
-    $2984 = tempRet0; //@line 1284 "lpc.c"
+    $2984 = (getTempRet0() | 0); //@line 1284 "lpc.c"
     $2985 = $13; //@line 1284 "lpc.c"
     $2986 = $2985; //@line 1284 "lpc.c"
     $2987 = HEAP32[$2986>>2]|0; //@line 1284 "lpc.c"
@@ -22557,7 +22494,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $2989 = $2988; //@line 1284 "lpc.c"
     $2990 = HEAP32[$2989>>2]|0; //@line 1284 "lpc.c"
     $2991 = (_i64Add(($2987|0),($2990|0),($2983|0),($2984|0))|0); //@line 1284 "lpc.c"
-    $2992 = tempRet0; //@line 1284 "lpc.c"
+    $2992 = (getTempRet0() | 0); //@line 1284 "lpc.c"
     $2993 = $13; //@line 1284 "lpc.c"
     $2994 = $2993; //@line 1284 "lpc.c"
     HEAP32[$2994>>2] = $2991; //@line 1284 "lpc.c"
@@ -22577,7 +22514,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3007 = ($3006|0)<(0); //@line 1285 "lpc.c"
     $3008 = $3007 << 31 >> 31; //@line 1285 "lpc.c"
     $3009 = (___muldi3(($2999|0),($3001|0),($3006|0),($3008|0))|0); //@line 1285 "lpc.c"
-    $3010 = tempRet0; //@line 1285 "lpc.c"
+    $3010 = (getTempRet0() | 0); //@line 1285 "lpc.c"
     $3011 = $13; //@line 1285 "lpc.c"
     $3012 = $3011; //@line 1285 "lpc.c"
     $3013 = HEAP32[$3012>>2]|0; //@line 1285 "lpc.c"
@@ -22585,7 +22522,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3015 = $3014; //@line 1285 "lpc.c"
     $3016 = HEAP32[$3015>>2]|0; //@line 1285 "lpc.c"
     $3017 = (_i64Add(($3013|0),($3016|0),($3009|0),($3010|0))|0); //@line 1285 "lpc.c"
-    $3018 = tempRet0; //@line 1285 "lpc.c"
+    $3018 = (getTempRet0() | 0); //@line 1285 "lpc.c"
     $3019 = $13; //@line 1285 "lpc.c"
     $3020 = $3019; //@line 1285 "lpc.c"
     HEAP32[$3020>>2] = $3017; //@line 1285 "lpc.c"
@@ -22605,7 +22542,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3033 = ($3032|0)<(0); //@line 1286 "lpc.c"
     $3034 = $3033 << 31 >> 31; //@line 1286 "lpc.c"
     $3035 = (___muldi3(($3025|0),($3027|0),($3032|0),($3034|0))|0); //@line 1286 "lpc.c"
-    $3036 = tempRet0; //@line 1286 "lpc.c"
+    $3036 = (getTempRet0() | 0); //@line 1286 "lpc.c"
     $3037 = $13; //@line 1286 "lpc.c"
     $3038 = $3037; //@line 1286 "lpc.c"
     $3039 = HEAP32[$3038>>2]|0; //@line 1286 "lpc.c"
@@ -22613,7 +22550,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3041 = $3040; //@line 1286 "lpc.c"
     $3042 = HEAP32[$3041>>2]|0; //@line 1286 "lpc.c"
     $3043 = (_i64Add(($3039|0),($3042|0),($3035|0),($3036|0))|0); //@line 1286 "lpc.c"
-    $3044 = tempRet0; //@line 1286 "lpc.c"
+    $3044 = (getTempRet0() | 0); //@line 1286 "lpc.c"
     $3045 = $13; //@line 1286 "lpc.c"
     $3046 = $3045; //@line 1286 "lpc.c"
     HEAP32[$3046>>2] = $3043; //@line 1286 "lpc.c"
@@ -22633,7 +22570,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3059 = ($3058|0)<(0); //@line 1287 "lpc.c"
     $3060 = $3059 << 31 >> 31; //@line 1287 "lpc.c"
     $3061 = (___muldi3(($3051|0),($3053|0),($3058|0),($3060|0))|0); //@line 1287 "lpc.c"
-    $3062 = tempRet0; //@line 1287 "lpc.c"
+    $3062 = (getTempRet0() | 0); //@line 1287 "lpc.c"
     $3063 = $13; //@line 1287 "lpc.c"
     $3064 = $3063; //@line 1287 "lpc.c"
     $3065 = HEAP32[$3064>>2]|0; //@line 1287 "lpc.c"
@@ -22641,7 +22578,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3067 = $3066; //@line 1287 "lpc.c"
     $3068 = HEAP32[$3067>>2]|0; //@line 1287 "lpc.c"
     $3069 = (_i64Add(($3065|0),($3068|0),($3061|0),($3062|0))|0); //@line 1287 "lpc.c"
-    $3070 = tempRet0; //@line 1287 "lpc.c"
+    $3070 = (getTempRet0() | 0); //@line 1287 "lpc.c"
     $3071 = $13; //@line 1287 "lpc.c"
     $3072 = $3071; //@line 1287 "lpc.c"
     HEAP32[$3072>>2] = $3069; //@line 1287 "lpc.c"
@@ -22661,7 +22598,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3085 = ($3084|0)<(0); //@line 1288 "lpc.c"
     $3086 = $3085 << 31 >> 31; //@line 1288 "lpc.c"
     $3087 = (___muldi3(($3077|0),($3079|0),($3084|0),($3086|0))|0); //@line 1288 "lpc.c"
-    $3088 = tempRet0; //@line 1288 "lpc.c"
+    $3088 = (getTempRet0() | 0); //@line 1288 "lpc.c"
     $3089 = $13; //@line 1288 "lpc.c"
     $3090 = $3089; //@line 1288 "lpc.c"
     $3091 = HEAP32[$3090>>2]|0; //@line 1288 "lpc.c"
@@ -22669,7 +22606,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3093 = $3092; //@line 1288 "lpc.c"
     $3094 = HEAP32[$3093>>2]|0; //@line 1288 "lpc.c"
     $3095 = (_i64Add(($3091|0),($3094|0),($3087|0),($3088|0))|0); //@line 1288 "lpc.c"
-    $3096 = tempRet0; //@line 1288 "lpc.c"
+    $3096 = (getTempRet0() | 0); //@line 1288 "lpc.c"
     $3097 = $13; //@line 1288 "lpc.c"
     $3098 = $3097; //@line 1288 "lpc.c"
     HEAP32[$3098>>2] = $3095; //@line 1288 "lpc.c"
@@ -22689,7 +22626,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3111 = ($3110|0)<(0); //@line 1289 "lpc.c"
     $3112 = $3111 << 31 >> 31; //@line 1289 "lpc.c"
     $3113 = (___muldi3(($3103|0),($3105|0),($3110|0),($3112|0))|0); //@line 1289 "lpc.c"
-    $3114 = tempRet0; //@line 1289 "lpc.c"
+    $3114 = (getTempRet0() | 0); //@line 1289 "lpc.c"
     $3115 = $13; //@line 1289 "lpc.c"
     $3116 = $3115; //@line 1289 "lpc.c"
     $3117 = HEAP32[$3116>>2]|0; //@line 1289 "lpc.c"
@@ -22697,7 +22634,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3119 = $3118; //@line 1289 "lpc.c"
     $3120 = HEAP32[$3119>>2]|0; //@line 1289 "lpc.c"
     $3121 = (_i64Add(($3117|0),($3120|0),($3113|0),($3114|0))|0); //@line 1289 "lpc.c"
-    $3122 = tempRet0; //@line 1289 "lpc.c"
+    $3122 = (getTempRet0() | 0); //@line 1289 "lpc.c"
     $3123 = $13; //@line 1289 "lpc.c"
     $3124 = $3123; //@line 1289 "lpc.c"
     HEAP32[$3124>>2] = $3121; //@line 1289 "lpc.c"
@@ -22717,7 +22654,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3137 = ($3136|0)<(0); //@line 1290 "lpc.c"
     $3138 = $3137 << 31 >> 31; //@line 1290 "lpc.c"
     $3139 = (___muldi3(($3129|0),($3131|0),($3136|0),($3138|0))|0); //@line 1290 "lpc.c"
-    $3140 = tempRet0; //@line 1290 "lpc.c"
+    $3140 = (getTempRet0() | 0); //@line 1290 "lpc.c"
     $3141 = $13; //@line 1290 "lpc.c"
     $3142 = $3141; //@line 1290 "lpc.c"
     $3143 = HEAP32[$3142>>2]|0; //@line 1290 "lpc.c"
@@ -22725,7 +22662,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3145 = $3144; //@line 1290 "lpc.c"
     $3146 = HEAP32[$3145>>2]|0; //@line 1290 "lpc.c"
     $3147 = (_i64Add(($3143|0),($3146|0),($3139|0),($3140|0))|0); //@line 1290 "lpc.c"
-    $3148 = tempRet0; //@line 1290 "lpc.c"
+    $3148 = (getTempRet0() | 0); //@line 1290 "lpc.c"
     $3149 = $13; //@line 1290 "lpc.c"
     $3150 = $3149; //@line 1290 "lpc.c"
     HEAP32[$3150>>2] = $3147; //@line 1290 "lpc.c"
@@ -22744,7 +22681,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3162 = ($3161|0)<(0); //@line 1291 "lpc.c"
     $3163 = $3162 << 31 >> 31; //@line 1291 "lpc.c"
     $3164 = (___muldi3(($3154|0),($3156|0),($3161|0),($3163|0))|0); //@line 1291 "lpc.c"
-    $3165 = tempRet0; //@line 1291 "lpc.c"
+    $3165 = (getTempRet0() | 0); //@line 1291 "lpc.c"
     $3166 = $13; //@line 1291 "lpc.c"
     $3167 = $3166; //@line 1291 "lpc.c"
     $3168 = HEAP32[$3167>>2]|0; //@line 1291 "lpc.c"
@@ -22752,7 +22689,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
     $3170 = $3169; //@line 1291 "lpc.c"
     $3171 = HEAP32[$3170>>2]|0; //@line 1291 "lpc.c"
     $3172 = (_i64Add(($3168|0),($3171|0),($3164|0),($3165|0))|0); //@line 1291 "lpc.c"
-    $3173 = tempRet0; //@line 1291 "lpc.c"
+    $3173 = (getTempRet0() | 0); //@line 1291 "lpc.c"
     $3174 = $13; //@line 1291 "lpc.c"
     $3175 = $3174; //@line 1291 "lpc.c"
     HEAP32[$3175>>2] = $3172; //@line 1291 "lpc.c"
@@ -22772,7 +22709,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
    $3187 = HEAP32[$3186>>2]|0; //@line 1293 "lpc.c"
    $3188 = $10; //@line 1293 "lpc.c"
    $3189 = (_bitshift64Ashr(($3184|0),($3187|0),($3188|0))|0); //@line 1293 "lpc.c"
-   $3190 = tempRet0; //@line 1293 "lpc.c"
+   $3190 = (getTempRet0() | 0); //@line 1293 "lpc.c"
    $3191 = (($3181) + ($3189))|0; //@line 1293 "lpc.c"
    $3192 = $11; //@line 1293 "lpc.c"
    $3193 = $12; //@line 1293 "lpc.c"
@@ -22820,7 +22757,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $39 = ($38|0)<(0); //@line 1095 "lpc.c"
      $40 = $39 << 31 >> 31; //@line 1095 "lpc.c"
      $41 = (___muldi3(($31|0),($33|0),($38|0),($40|0))|0); //@line 1095 "lpc.c"
-     $42 = tempRet0; //@line 1095 "lpc.c"
+     $42 = (getTempRet0() | 0); //@line 1095 "lpc.c"
      $43 = $13; //@line 1095 "lpc.c"
      $44 = $43; //@line 1095 "lpc.c"
      $45 = HEAP32[$44>>2]|0; //@line 1095 "lpc.c"
@@ -22828,7 +22765,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $47 = $46; //@line 1095 "lpc.c"
      $48 = HEAP32[$47>>2]|0; //@line 1095 "lpc.c"
      $49 = (_i64Add(($45|0),($48|0),($41|0),($42|0))|0); //@line 1095 "lpc.c"
-     $50 = tempRet0; //@line 1095 "lpc.c"
+     $50 = (getTempRet0() | 0); //@line 1095 "lpc.c"
      $51 = $13; //@line 1095 "lpc.c"
      $52 = $51; //@line 1095 "lpc.c"
      HEAP32[$52>>2] = $49; //@line 1095 "lpc.c"
@@ -22848,7 +22785,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $65 = ($64|0)<(0); //@line 1096 "lpc.c"
      $66 = $65 << 31 >> 31; //@line 1096 "lpc.c"
      $67 = (___muldi3(($57|0),($59|0),($64|0),($66|0))|0); //@line 1096 "lpc.c"
-     $68 = tempRet0; //@line 1096 "lpc.c"
+     $68 = (getTempRet0() | 0); //@line 1096 "lpc.c"
      $69 = $13; //@line 1096 "lpc.c"
      $70 = $69; //@line 1096 "lpc.c"
      $71 = HEAP32[$70>>2]|0; //@line 1096 "lpc.c"
@@ -22856,7 +22793,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $73 = $72; //@line 1096 "lpc.c"
      $74 = HEAP32[$73>>2]|0; //@line 1096 "lpc.c"
      $75 = (_i64Add(($71|0),($74|0),($67|0),($68|0))|0); //@line 1096 "lpc.c"
-     $76 = tempRet0; //@line 1096 "lpc.c"
+     $76 = (getTempRet0() | 0); //@line 1096 "lpc.c"
      $77 = $13; //@line 1096 "lpc.c"
      $78 = $77; //@line 1096 "lpc.c"
      HEAP32[$78>>2] = $75; //@line 1096 "lpc.c"
@@ -22876,7 +22813,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $91 = ($90|0)<(0); //@line 1097 "lpc.c"
      $92 = $91 << 31 >> 31; //@line 1097 "lpc.c"
      $93 = (___muldi3(($83|0),($85|0),($90|0),($92|0))|0); //@line 1097 "lpc.c"
-     $94 = tempRet0; //@line 1097 "lpc.c"
+     $94 = (getTempRet0() | 0); //@line 1097 "lpc.c"
      $95 = $13; //@line 1097 "lpc.c"
      $96 = $95; //@line 1097 "lpc.c"
      $97 = HEAP32[$96>>2]|0; //@line 1097 "lpc.c"
@@ -22884,7 +22821,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $99 = $98; //@line 1097 "lpc.c"
      $100 = HEAP32[$99>>2]|0; //@line 1097 "lpc.c"
      $101 = (_i64Add(($97|0),($100|0),($93|0),($94|0))|0); //@line 1097 "lpc.c"
-     $102 = tempRet0; //@line 1097 "lpc.c"
+     $102 = (getTempRet0() | 0); //@line 1097 "lpc.c"
      $103 = $13; //@line 1097 "lpc.c"
      $104 = $103; //@line 1097 "lpc.c"
      HEAP32[$104>>2] = $101; //@line 1097 "lpc.c"
@@ -22904,7 +22841,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $117 = ($116|0)<(0); //@line 1098 "lpc.c"
      $118 = $117 << 31 >> 31; //@line 1098 "lpc.c"
      $119 = (___muldi3(($109|0),($111|0),($116|0),($118|0))|0); //@line 1098 "lpc.c"
-     $120 = tempRet0; //@line 1098 "lpc.c"
+     $120 = (getTempRet0() | 0); //@line 1098 "lpc.c"
      $121 = $13; //@line 1098 "lpc.c"
      $122 = $121; //@line 1098 "lpc.c"
      $123 = HEAP32[$122>>2]|0; //@line 1098 "lpc.c"
@@ -22912,7 +22849,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $125 = $124; //@line 1098 "lpc.c"
      $126 = HEAP32[$125>>2]|0; //@line 1098 "lpc.c"
      $127 = (_i64Add(($123|0),($126|0),($119|0),($120|0))|0); //@line 1098 "lpc.c"
-     $128 = tempRet0; //@line 1098 "lpc.c"
+     $128 = (getTempRet0() | 0); //@line 1098 "lpc.c"
      $129 = $13; //@line 1098 "lpc.c"
      $130 = $129; //@line 1098 "lpc.c"
      HEAP32[$130>>2] = $127; //@line 1098 "lpc.c"
@@ -22932,7 +22869,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $143 = ($142|0)<(0); //@line 1099 "lpc.c"
      $144 = $143 << 31 >> 31; //@line 1099 "lpc.c"
      $145 = (___muldi3(($135|0),($137|0),($142|0),($144|0))|0); //@line 1099 "lpc.c"
-     $146 = tempRet0; //@line 1099 "lpc.c"
+     $146 = (getTempRet0() | 0); //@line 1099 "lpc.c"
      $147 = $13; //@line 1099 "lpc.c"
      $148 = $147; //@line 1099 "lpc.c"
      $149 = HEAP32[$148>>2]|0; //@line 1099 "lpc.c"
@@ -22940,7 +22877,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $151 = $150; //@line 1099 "lpc.c"
      $152 = HEAP32[$151>>2]|0; //@line 1099 "lpc.c"
      $153 = (_i64Add(($149|0),($152|0),($145|0),($146|0))|0); //@line 1099 "lpc.c"
-     $154 = tempRet0; //@line 1099 "lpc.c"
+     $154 = (getTempRet0() | 0); //@line 1099 "lpc.c"
      $155 = $13; //@line 1099 "lpc.c"
      $156 = $155; //@line 1099 "lpc.c"
      HEAP32[$156>>2] = $153; //@line 1099 "lpc.c"
@@ -22960,7 +22897,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $169 = ($168|0)<(0); //@line 1100 "lpc.c"
      $170 = $169 << 31 >> 31; //@line 1100 "lpc.c"
      $171 = (___muldi3(($161|0),($163|0),($168|0),($170|0))|0); //@line 1100 "lpc.c"
-     $172 = tempRet0; //@line 1100 "lpc.c"
+     $172 = (getTempRet0() | 0); //@line 1100 "lpc.c"
      $173 = $13; //@line 1100 "lpc.c"
      $174 = $173; //@line 1100 "lpc.c"
      $175 = HEAP32[$174>>2]|0; //@line 1100 "lpc.c"
@@ -22968,7 +22905,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $177 = $176; //@line 1100 "lpc.c"
      $178 = HEAP32[$177>>2]|0; //@line 1100 "lpc.c"
      $179 = (_i64Add(($175|0),($178|0),($171|0),($172|0))|0); //@line 1100 "lpc.c"
-     $180 = tempRet0; //@line 1100 "lpc.c"
+     $180 = (getTempRet0() | 0); //@line 1100 "lpc.c"
      $181 = $13; //@line 1100 "lpc.c"
      $182 = $181; //@line 1100 "lpc.c"
      HEAP32[$182>>2] = $179; //@line 1100 "lpc.c"
@@ -22988,7 +22925,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $195 = ($194|0)<(0); //@line 1101 "lpc.c"
      $196 = $195 << 31 >> 31; //@line 1101 "lpc.c"
      $197 = (___muldi3(($187|0),($189|0),($194|0),($196|0))|0); //@line 1101 "lpc.c"
-     $198 = tempRet0; //@line 1101 "lpc.c"
+     $198 = (getTempRet0() | 0); //@line 1101 "lpc.c"
      $199 = $13; //@line 1101 "lpc.c"
      $200 = $199; //@line 1101 "lpc.c"
      $201 = HEAP32[$200>>2]|0; //@line 1101 "lpc.c"
@@ -22996,7 +22933,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $203 = $202; //@line 1101 "lpc.c"
      $204 = HEAP32[$203>>2]|0; //@line 1101 "lpc.c"
      $205 = (_i64Add(($201|0),($204|0),($197|0),($198|0))|0); //@line 1101 "lpc.c"
-     $206 = tempRet0; //@line 1101 "lpc.c"
+     $206 = (getTempRet0() | 0); //@line 1101 "lpc.c"
      $207 = $13; //@line 1101 "lpc.c"
      $208 = $207; //@line 1101 "lpc.c"
      HEAP32[$208>>2] = $205; //@line 1101 "lpc.c"
@@ -23016,7 +22953,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $221 = ($220|0)<(0); //@line 1102 "lpc.c"
      $222 = $221 << 31 >> 31; //@line 1102 "lpc.c"
      $223 = (___muldi3(($213|0),($215|0),($220|0),($222|0))|0); //@line 1102 "lpc.c"
-     $224 = tempRet0; //@line 1102 "lpc.c"
+     $224 = (getTempRet0() | 0); //@line 1102 "lpc.c"
      $225 = $13; //@line 1102 "lpc.c"
      $226 = $225; //@line 1102 "lpc.c"
      $227 = HEAP32[$226>>2]|0; //@line 1102 "lpc.c"
@@ -23024,7 +22961,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $229 = $228; //@line 1102 "lpc.c"
      $230 = HEAP32[$229>>2]|0; //@line 1102 "lpc.c"
      $231 = (_i64Add(($227|0),($230|0),($223|0),($224|0))|0); //@line 1102 "lpc.c"
-     $232 = tempRet0; //@line 1102 "lpc.c"
+     $232 = (getTempRet0() | 0); //@line 1102 "lpc.c"
      $233 = $13; //@line 1102 "lpc.c"
      $234 = $233; //@line 1102 "lpc.c"
      HEAP32[$234>>2] = $231; //@line 1102 "lpc.c"
@@ -23044,7 +22981,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $247 = ($246|0)<(0); //@line 1103 "lpc.c"
      $248 = $247 << 31 >> 31; //@line 1103 "lpc.c"
      $249 = (___muldi3(($239|0),($241|0),($246|0),($248|0))|0); //@line 1103 "lpc.c"
-     $250 = tempRet0; //@line 1103 "lpc.c"
+     $250 = (getTempRet0() | 0); //@line 1103 "lpc.c"
      $251 = $13; //@line 1103 "lpc.c"
      $252 = $251; //@line 1103 "lpc.c"
      $253 = HEAP32[$252>>2]|0; //@line 1103 "lpc.c"
@@ -23052,7 +22989,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $255 = $254; //@line 1103 "lpc.c"
      $256 = HEAP32[$255>>2]|0; //@line 1103 "lpc.c"
      $257 = (_i64Add(($253|0),($256|0),($249|0),($250|0))|0); //@line 1103 "lpc.c"
-     $258 = tempRet0; //@line 1103 "lpc.c"
+     $258 = (getTempRet0() | 0); //@line 1103 "lpc.c"
      $259 = $13; //@line 1103 "lpc.c"
      $260 = $259; //@line 1103 "lpc.c"
      HEAP32[$260>>2] = $257; //@line 1103 "lpc.c"
@@ -23072,7 +23009,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $273 = ($272|0)<(0); //@line 1104 "lpc.c"
      $274 = $273 << 31 >> 31; //@line 1104 "lpc.c"
      $275 = (___muldi3(($265|0),($267|0),($272|0),($274|0))|0); //@line 1104 "lpc.c"
-     $276 = tempRet0; //@line 1104 "lpc.c"
+     $276 = (getTempRet0() | 0); //@line 1104 "lpc.c"
      $277 = $13; //@line 1104 "lpc.c"
      $278 = $277; //@line 1104 "lpc.c"
      $279 = HEAP32[$278>>2]|0; //@line 1104 "lpc.c"
@@ -23080,7 +23017,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $281 = $280; //@line 1104 "lpc.c"
      $282 = HEAP32[$281>>2]|0; //@line 1104 "lpc.c"
      $283 = (_i64Add(($279|0),($282|0),($275|0),($276|0))|0); //@line 1104 "lpc.c"
-     $284 = tempRet0; //@line 1104 "lpc.c"
+     $284 = (getTempRet0() | 0); //@line 1104 "lpc.c"
      $285 = $13; //@line 1104 "lpc.c"
      $286 = $285; //@line 1104 "lpc.c"
      HEAP32[$286>>2] = $283; //@line 1104 "lpc.c"
@@ -23100,7 +23037,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $299 = ($298|0)<(0); //@line 1105 "lpc.c"
      $300 = $299 << 31 >> 31; //@line 1105 "lpc.c"
      $301 = (___muldi3(($291|0),($293|0),($298|0),($300|0))|0); //@line 1105 "lpc.c"
-     $302 = tempRet0; //@line 1105 "lpc.c"
+     $302 = (getTempRet0() | 0); //@line 1105 "lpc.c"
      $303 = $13; //@line 1105 "lpc.c"
      $304 = $303; //@line 1105 "lpc.c"
      $305 = HEAP32[$304>>2]|0; //@line 1105 "lpc.c"
@@ -23108,7 +23045,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $307 = $306; //@line 1105 "lpc.c"
      $308 = HEAP32[$307>>2]|0; //@line 1105 "lpc.c"
      $309 = (_i64Add(($305|0),($308|0),($301|0),($302|0))|0); //@line 1105 "lpc.c"
-     $310 = tempRet0; //@line 1105 "lpc.c"
+     $310 = (getTempRet0() | 0); //@line 1105 "lpc.c"
      $311 = $13; //@line 1105 "lpc.c"
      $312 = $311; //@line 1105 "lpc.c"
      HEAP32[$312>>2] = $309; //@line 1105 "lpc.c"
@@ -23127,7 +23064,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $324 = ($323|0)<(0); //@line 1106 "lpc.c"
      $325 = $324 << 31 >> 31; //@line 1106 "lpc.c"
      $326 = (___muldi3(($316|0),($318|0),($323|0),($325|0))|0); //@line 1106 "lpc.c"
-     $327 = tempRet0; //@line 1106 "lpc.c"
+     $327 = (getTempRet0() | 0); //@line 1106 "lpc.c"
      $328 = $13; //@line 1106 "lpc.c"
      $329 = $328; //@line 1106 "lpc.c"
      $330 = HEAP32[$329>>2]|0; //@line 1106 "lpc.c"
@@ -23135,7 +23072,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $332 = $331; //@line 1106 "lpc.c"
      $333 = HEAP32[$332>>2]|0; //@line 1106 "lpc.c"
      $334 = (_i64Add(($330|0),($333|0),($326|0),($327|0))|0); //@line 1106 "lpc.c"
-     $335 = tempRet0; //@line 1106 "lpc.c"
+     $335 = (getTempRet0() | 0); //@line 1106 "lpc.c"
      $336 = $13; //@line 1106 "lpc.c"
      $337 = $336; //@line 1106 "lpc.c"
      HEAP32[$337>>2] = $334; //@line 1106 "lpc.c"
@@ -23154,7 +23091,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $349 = HEAP32[$348>>2]|0; //@line 1107 "lpc.c"
      $350 = $10; //@line 1107 "lpc.c"
      $351 = (_bitshift64Ashr(($346|0),($349|0),($350|0))|0); //@line 1107 "lpc.c"
-     $352 = tempRet0; //@line 1107 "lpc.c"
+     $352 = (getTempRet0() | 0); //@line 1107 "lpc.c"
      $353 = (($343) + ($351))|0; //@line 1107 "lpc.c"
      $354 = $11; //@line 1107 "lpc.c"
      $355 = $12; //@line 1107 "lpc.c"
@@ -23192,7 +23129,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $376 = ($375|0)<(0); //@line 1113 "lpc.c"
      $377 = $376 << 31 >> 31; //@line 1113 "lpc.c"
      $378 = (___muldi3(($368|0),($370|0),($375|0),($377|0))|0); //@line 1113 "lpc.c"
-     $379 = tempRet0; //@line 1113 "lpc.c"
+     $379 = (getTempRet0() | 0); //@line 1113 "lpc.c"
      $380 = $13; //@line 1113 "lpc.c"
      $381 = $380; //@line 1113 "lpc.c"
      $382 = HEAP32[$381>>2]|0; //@line 1113 "lpc.c"
@@ -23200,7 +23137,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $384 = $383; //@line 1113 "lpc.c"
      $385 = HEAP32[$384>>2]|0; //@line 1113 "lpc.c"
      $386 = (_i64Add(($382|0),($385|0),($378|0),($379|0))|0); //@line 1113 "lpc.c"
-     $387 = tempRet0; //@line 1113 "lpc.c"
+     $387 = (getTempRet0() | 0); //@line 1113 "lpc.c"
      $388 = $13; //@line 1113 "lpc.c"
      $389 = $388; //@line 1113 "lpc.c"
      HEAP32[$389>>2] = $386; //@line 1113 "lpc.c"
@@ -23220,7 +23157,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $402 = ($401|0)<(0); //@line 1114 "lpc.c"
      $403 = $402 << 31 >> 31; //@line 1114 "lpc.c"
      $404 = (___muldi3(($394|0),($396|0),($401|0),($403|0))|0); //@line 1114 "lpc.c"
-     $405 = tempRet0; //@line 1114 "lpc.c"
+     $405 = (getTempRet0() | 0); //@line 1114 "lpc.c"
      $406 = $13; //@line 1114 "lpc.c"
      $407 = $406; //@line 1114 "lpc.c"
      $408 = HEAP32[$407>>2]|0; //@line 1114 "lpc.c"
@@ -23228,7 +23165,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $410 = $409; //@line 1114 "lpc.c"
      $411 = HEAP32[$410>>2]|0; //@line 1114 "lpc.c"
      $412 = (_i64Add(($408|0),($411|0),($404|0),($405|0))|0); //@line 1114 "lpc.c"
-     $413 = tempRet0; //@line 1114 "lpc.c"
+     $413 = (getTempRet0() | 0); //@line 1114 "lpc.c"
      $414 = $13; //@line 1114 "lpc.c"
      $415 = $414; //@line 1114 "lpc.c"
      HEAP32[$415>>2] = $412; //@line 1114 "lpc.c"
@@ -23248,7 +23185,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $428 = ($427|0)<(0); //@line 1115 "lpc.c"
      $429 = $428 << 31 >> 31; //@line 1115 "lpc.c"
      $430 = (___muldi3(($420|0),($422|0),($427|0),($429|0))|0); //@line 1115 "lpc.c"
-     $431 = tempRet0; //@line 1115 "lpc.c"
+     $431 = (getTempRet0() | 0); //@line 1115 "lpc.c"
      $432 = $13; //@line 1115 "lpc.c"
      $433 = $432; //@line 1115 "lpc.c"
      $434 = HEAP32[$433>>2]|0; //@line 1115 "lpc.c"
@@ -23256,7 +23193,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $436 = $435; //@line 1115 "lpc.c"
      $437 = HEAP32[$436>>2]|0; //@line 1115 "lpc.c"
      $438 = (_i64Add(($434|0),($437|0),($430|0),($431|0))|0); //@line 1115 "lpc.c"
-     $439 = tempRet0; //@line 1115 "lpc.c"
+     $439 = (getTempRet0() | 0); //@line 1115 "lpc.c"
      $440 = $13; //@line 1115 "lpc.c"
      $441 = $440; //@line 1115 "lpc.c"
      HEAP32[$441>>2] = $438; //@line 1115 "lpc.c"
@@ -23276,7 +23213,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $454 = ($453|0)<(0); //@line 1116 "lpc.c"
      $455 = $454 << 31 >> 31; //@line 1116 "lpc.c"
      $456 = (___muldi3(($446|0),($448|0),($453|0),($455|0))|0); //@line 1116 "lpc.c"
-     $457 = tempRet0; //@line 1116 "lpc.c"
+     $457 = (getTempRet0() | 0); //@line 1116 "lpc.c"
      $458 = $13; //@line 1116 "lpc.c"
      $459 = $458; //@line 1116 "lpc.c"
      $460 = HEAP32[$459>>2]|0; //@line 1116 "lpc.c"
@@ -23284,7 +23221,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $462 = $461; //@line 1116 "lpc.c"
      $463 = HEAP32[$462>>2]|0; //@line 1116 "lpc.c"
      $464 = (_i64Add(($460|0),($463|0),($456|0),($457|0))|0); //@line 1116 "lpc.c"
-     $465 = tempRet0; //@line 1116 "lpc.c"
+     $465 = (getTempRet0() | 0); //@line 1116 "lpc.c"
      $466 = $13; //@line 1116 "lpc.c"
      $467 = $466; //@line 1116 "lpc.c"
      HEAP32[$467>>2] = $464; //@line 1116 "lpc.c"
@@ -23304,7 +23241,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $480 = ($479|0)<(0); //@line 1117 "lpc.c"
      $481 = $480 << 31 >> 31; //@line 1117 "lpc.c"
      $482 = (___muldi3(($472|0),($474|0),($479|0),($481|0))|0); //@line 1117 "lpc.c"
-     $483 = tempRet0; //@line 1117 "lpc.c"
+     $483 = (getTempRet0() | 0); //@line 1117 "lpc.c"
      $484 = $13; //@line 1117 "lpc.c"
      $485 = $484; //@line 1117 "lpc.c"
      $486 = HEAP32[$485>>2]|0; //@line 1117 "lpc.c"
@@ -23312,7 +23249,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $488 = $487; //@line 1117 "lpc.c"
      $489 = HEAP32[$488>>2]|0; //@line 1117 "lpc.c"
      $490 = (_i64Add(($486|0),($489|0),($482|0),($483|0))|0); //@line 1117 "lpc.c"
-     $491 = tempRet0; //@line 1117 "lpc.c"
+     $491 = (getTempRet0() | 0); //@line 1117 "lpc.c"
      $492 = $13; //@line 1117 "lpc.c"
      $493 = $492; //@line 1117 "lpc.c"
      HEAP32[$493>>2] = $490; //@line 1117 "lpc.c"
@@ -23332,7 +23269,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $506 = ($505|0)<(0); //@line 1118 "lpc.c"
      $507 = $506 << 31 >> 31; //@line 1118 "lpc.c"
      $508 = (___muldi3(($498|0),($500|0),($505|0),($507|0))|0); //@line 1118 "lpc.c"
-     $509 = tempRet0; //@line 1118 "lpc.c"
+     $509 = (getTempRet0() | 0); //@line 1118 "lpc.c"
      $510 = $13; //@line 1118 "lpc.c"
      $511 = $510; //@line 1118 "lpc.c"
      $512 = HEAP32[$511>>2]|0; //@line 1118 "lpc.c"
@@ -23340,7 +23277,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $514 = $513; //@line 1118 "lpc.c"
      $515 = HEAP32[$514>>2]|0; //@line 1118 "lpc.c"
      $516 = (_i64Add(($512|0),($515|0),($508|0),($509|0))|0); //@line 1118 "lpc.c"
-     $517 = tempRet0; //@line 1118 "lpc.c"
+     $517 = (getTempRet0() | 0); //@line 1118 "lpc.c"
      $518 = $13; //@line 1118 "lpc.c"
      $519 = $518; //@line 1118 "lpc.c"
      HEAP32[$519>>2] = $516; //@line 1118 "lpc.c"
@@ -23360,7 +23297,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $532 = ($531|0)<(0); //@line 1119 "lpc.c"
      $533 = $532 << 31 >> 31; //@line 1119 "lpc.c"
      $534 = (___muldi3(($524|0),($526|0),($531|0),($533|0))|0); //@line 1119 "lpc.c"
-     $535 = tempRet0; //@line 1119 "lpc.c"
+     $535 = (getTempRet0() | 0); //@line 1119 "lpc.c"
      $536 = $13; //@line 1119 "lpc.c"
      $537 = $536; //@line 1119 "lpc.c"
      $538 = HEAP32[$537>>2]|0; //@line 1119 "lpc.c"
@@ -23368,7 +23305,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $540 = $539; //@line 1119 "lpc.c"
      $541 = HEAP32[$540>>2]|0; //@line 1119 "lpc.c"
      $542 = (_i64Add(($538|0),($541|0),($534|0),($535|0))|0); //@line 1119 "lpc.c"
-     $543 = tempRet0; //@line 1119 "lpc.c"
+     $543 = (getTempRet0() | 0); //@line 1119 "lpc.c"
      $544 = $13; //@line 1119 "lpc.c"
      $545 = $544; //@line 1119 "lpc.c"
      HEAP32[$545>>2] = $542; //@line 1119 "lpc.c"
@@ -23388,7 +23325,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $558 = ($557|0)<(0); //@line 1120 "lpc.c"
      $559 = $558 << 31 >> 31; //@line 1120 "lpc.c"
      $560 = (___muldi3(($550|0),($552|0),($557|0),($559|0))|0); //@line 1120 "lpc.c"
-     $561 = tempRet0; //@line 1120 "lpc.c"
+     $561 = (getTempRet0() | 0); //@line 1120 "lpc.c"
      $562 = $13; //@line 1120 "lpc.c"
      $563 = $562; //@line 1120 "lpc.c"
      $564 = HEAP32[$563>>2]|0; //@line 1120 "lpc.c"
@@ -23396,7 +23333,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $566 = $565; //@line 1120 "lpc.c"
      $567 = HEAP32[$566>>2]|0; //@line 1120 "lpc.c"
      $568 = (_i64Add(($564|0),($567|0),($560|0),($561|0))|0); //@line 1120 "lpc.c"
-     $569 = tempRet0; //@line 1120 "lpc.c"
+     $569 = (getTempRet0() | 0); //@line 1120 "lpc.c"
      $570 = $13; //@line 1120 "lpc.c"
      $571 = $570; //@line 1120 "lpc.c"
      HEAP32[$571>>2] = $568; //@line 1120 "lpc.c"
@@ -23416,7 +23353,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $584 = ($583|0)<(0); //@line 1121 "lpc.c"
      $585 = $584 << 31 >> 31; //@line 1121 "lpc.c"
      $586 = (___muldi3(($576|0),($578|0),($583|0),($585|0))|0); //@line 1121 "lpc.c"
-     $587 = tempRet0; //@line 1121 "lpc.c"
+     $587 = (getTempRet0() | 0); //@line 1121 "lpc.c"
      $588 = $13; //@line 1121 "lpc.c"
      $589 = $588; //@line 1121 "lpc.c"
      $590 = HEAP32[$589>>2]|0; //@line 1121 "lpc.c"
@@ -23424,7 +23361,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $592 = $591; //@line 1121 "lpc.c"
      $593 = HEAP32[$592>>2]|0; //@line 1121 "lpc.c"
      $594 = (_i64Add(($590|0),($593|0),($586|0),($587|0))|0); //@line 1121 "lpc.c"
-     $595 = tempRet0; //@line 1121 "lpc.c"
+     $595 = (getTempRet0() | 0); //@line 1121 "lpc.c"
      $596 = $13; //@line 1121 "lpc.c"
      $597 = $596; //@line 1121 "lpc.c"
      HEAP32[$597>>2] = $594; //@line 1121 "lpc.c"
@@ -23444,7 +23381,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $610 = ($609|0)<(0); //@line 1122 "lpc.c"
      $611 = $610 << 31 >> 31; //@line 1122 "lpc.c"
      $612 = (___muldi3(($602|0),($604|0),($609|0),($611|0))|0); //@line 1122 "lpc.c"
-     $613 = tempRet0; //@line 1122 "lpc.c"
+     $613 = (getTempRet0() | 0); //@line 1122 "lpc.c"
      $614 = $13; //@line 1122 "lpc.c"
      $615 = $614; //@line 1122 "lpc.c"
      $616 = HEAP32[$615>>2]|0; //@line 1122 "lpc.c"
@@ -23452,7 +23389,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $618 = $617; //@line 1122 "lpc.c"
      $619 = HEAP32[$618>>2]|0; //@line 1122 "lpc.c"
      $620 = (_i64Add(($616|0),($619|0),($612|0),($613|0))|0); //@line 1122 "lpc.c"
-     $621 = tempRet0; //@line 1122 "lpc.c"
+     $621 = (getTempRet0() | 0); //@line 1122 "lpc.c"
      $622 = $13; //@line 1122 "lpc.c"
      $623 = $622; //@line 1122 "lpc.c"
      HEAP32[$623>>2] = $620; //@line 1122 "lpc.c"
@@ -23471,7 +23408,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $635 = ($634|0)<(0); //@line 1123 "lpc.c"
      $636 = $635 << 31 >> 31; //@line 1123 "lpc.c"
      $637 = (___muldi3(($627|0),($629|0),($634|0),($636|0))|0); //@line 1123 "lpc.c"
-     $638 = tempRet0; //@line 1123 "lpc.c"
+     $638 = (getTempRet0() | 0); //@line 1123 "lpc.c"
      $639 = $13; //@line 1123 "lpc.c"
      $640 = $639; //@line 1123 "lpc.c"
      $641 = HEAP32[$640>>2]|0; //@line 1123 "lpc.c"
@@ -23479,7 +23416,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $643 = $642; //@line 1123 "lpc.c"
      $644 = HEAP32[$643>>2]|0; //@line 1123 "lpc.c"
      $645 = (_i64Add(($641|0),($644|0),($637|0),($638|0))|0); //@line 1123 "lpc.c"
-     $646 = tempRet0; //@line 1123 "lpc.c"
+     $646 = (getTempRet0() | 0); //@line 1123 "lpc.c"
      $647 = $13; //@line 1123 "lpc.c"
      $648 = $647; //@line 1123 "lpc.c"
      HEAP32[$648>>2] = $645; //@line 1123 "lpc.c"
@@ -23498,7 +23435,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $660 = HEAP32[$659>>2]|0; //@line 1124 "lpc.c"
      $661 = $10; //@line 1124 "lpc.c"
      $662 = (_bitshift64Ashr(($657|0),($660|0),($661|0))|0); //@line 1124 "lpc.c"
-     $663 = tempRet0; //@line 1124 "lpc.c"
+     $663 = (getTempRet0() | 0); //@line 1124 "lpc.c"
      $664 = (($654) + ($662))|0; //@line 1124 "lpc.c"
      $665 = $11; //@line 1124 "lpc.c"
      $666 = $12; //@line 1124 "lpc.c"
@@ -23540,7 +23477,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $688 = ($687|0)<(0); //@line 1132 "lpc.c"
      $689 = $688 << 31 >> 31; //@line 1132 "lpc.c"
      $690 = (___muldi3(($680|0),($682|0),($687|0),($689|0))|0); //@line 1132 "lpc.c"
-     $691 = tempRet0; //@line 1132 "lpc.c"
+     $691 = (getTempRet0() | 0); //@line 1132 "lpc.c"
      $692 = $13; //@line 1132 "lpc.c"
      $693 = $692; //@line 1132 "lpc.c"
      $694 = HEAP32[$693>>2]|0; //@line 1132 "lpc.c"
@@ -23548,7 +23485,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $696 = $695; //@line 1132 "lpc.c"
      $697 = HEAP32[$696>>2]|0; //@line 1132 "lpc.c"
      $698 = (_i64Add(($694|0),($697|0),($690|0),($691|0))|0); //@line 1132 "lpc.c"
-     $699 = tempRet0; //@line 1132 "lpc.c"
+     $699 = (getTempRet0() | 0); //@line 1132 "lpc.c"
      $700 = $13; //@line 1132 "lpc.c"
      $701 = $700; //@line 1132 "lpc.c"
      HEAP32[$701>>2] = $698; //@line 1132 "lpc.c"
@@ -23568,7 +23505,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $714 = ($713|0)<(0); //@line 1133 "lpc.c"
      $715 = $714 << 31 >> 31; //@line 1133 "lpc.c"
      $716 = (___muldi3(($706|0),($708|0),($713|0),($715|0))|0); //@line 1133 "lpc.c"
-     $717 = tempRet0; //@line 1133 "lpc.c"
+     $717 = (getTempRet0() | 0); //@line 1133 "lpc.c"
      $718 = $13; //@line 1133 "lpc.c"
      $719 = $718; //@line 1133 "lpc.c"
      $720 = HEAP32[$719>>2]|0; //@line 1133 "lpc.c"
@@ -23576,7 +23513,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $722 = $721; //@line 1133 "lpc.c"
      $723 = HEAP32[$722>>2]|0; //@line 1133 "lpc.c"
      $724 = (_i64Add(($720|0),($723|0),($716|0),($717|0))|0); //@line 1133 "lpc.c"
-     $725 = tempRet0; //@line 1133 "lpc.c"
+     $725 = (getTempRet0() | 0); //@line 1133 "lpc.c"
      $726 = $13; //@line 1133 "lpc.c"
      $727 = $726; //@line 1133 "lpc.c"
      HEAP32[$727>>2] = $724; //@line 1133 "lpc.c"
@@ -23596,7 +23533,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $740 = ($739|0)<(0); //@line 1134 "lpc.c"
      $741 = $740 << 31 >> 31; //@line 1134 "lpc.c"
      $742 = (___muldi3(($732|0),($734|0),($739|0),($741|0))|0); //@line 1134 "lpc.c"
-     $743 = tempRet0; //@line 1134 "lpc.c"
+     $743 = (getTempRet0() | 0); //@line 1134 "lpc.c"
      $744 = $13; //@line 1134 "lpc.c"
      $745 = $744; //@line 1134 "lpc.c"
      $746 = HEAP32[$745>>2]|0; //@line 1134 "lpc.c"
@@ -23604,7 +23541,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $748 = $747; //@line 1134 "lpc.c"
      $749 = HEAP32[$748>>2]|0; //@line 1134 "lpc.c"
      $750 = (_i64Add(($746|0),($749|0),($742|0),($743|0))|0); //@line 1134 "lpc.c"
-     $751 = tempRet0; //@line 1134 "lpc.c"
+     $751 = (getTempRet0() | 0); //@line 1134 "lpc.c"
      $752 = $13; //@line 1134 "lpc.c"
      $753 = $752; //@line 1134 "lpc.c"
      HEAP32[$753>>2] = $750; //@line 1134 "lpc.c"
@@ -23624,7 +23561,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $766 = ($765|0)<(0); //@line 1135 "lpc.c"
      $767 = $766 << 31 >> 31; //@line 1135 "lpc.c"
      $768 = (___muldi3(($758|0),($760|0),($765|0),($767|0))|0); //@line 1135 "lpc.c"
-     $769 = tempRet0; //@line 1135 "lpc.c"
+     $769 = (getTempRet0() | 0); //@line 1135 "lpc.c"
      $770 = $13; //@line 1135 "lpc.c"
      $771 = $770; //@line 1135 "lpc.c"
      $772 = HEAP32[$771>>2]|0; //@line 1135 "lpc.c"
@@ -23632,7 +23569,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $774 = $773; //@line 1135 "lpc.c"
      $775 = HEAP32[$774>>2]|0; //@line 1135 "lpc.c"
      $776 = (_i64Add(($772|0),($775|0),($768|0),($769|0))|0); //@line 1135 "lpc.c"
-     $777 = tempRet0; //@line 1135 "lpc.c"
+     $777 = (getTempRet0() | 0); //@line 1135 "lpc.c"
      $778 = $13; //@line 1135 "lpc.c"
      $779 = $778; //@line 1135 "lpc.c"
      HEAP32[$779>>2] = $776; //@line 1135 "lpc.c"
@@ -23652,7 +23589,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $792 = ($791|0)<(0); //@line 1136 "lpc.c"
      $793 = $792 << 31 >> 31; //@line 1136 "lpc.c"
      $794 = (___muldi3(($784|0),($786|0),($791|0),($793|0))|0); //@line 1136 "lpc.c"
-     $795 = tempRet0; //@line 1136 "lpc.c"
+     $795 = (getTempRet0() | 0); //@line 1136 "lpc.c"
      $796 = $13; //@line 1136 "lpc.c"
      $797 = $796; //@line 1136 "lpc.c"
      $798 = HEAP32[$797>>2]|0; //@line 1136 "lpc.c"
@@ -23660,7 +23597,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $800 = $799; //@line 1136 "lpc.c"
      $801 = HEAP32[$800>>2]|0; //@line 1136 "lpc.c"
      $802 = (_i64Add(($798|0),($801|0),($794|0),($795|0))|0); //@line 1136 "lpc.c"
-     $803 = tempRet0; //@line 1136 "lpc.c"
+     $803 = (getTempRet0() | 0); //@line 1136 "lpc.c"
      $804 = $13; //@line 1136 "lpc.c"
      $805 = $804; //@line 1136 "lpc.c"
      HEAP32[$805>>2] = $802; //@line 1136 "lpc.c"
@@ -23680,7 +23617,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $818 = ($817|0)<(0); //@line 1137 "lpc.c"
      $819 = $818 << 31 >> 31; //@line 1137 "lpc.c"
      $820 = (___muldi3(($810|0),($812|0),($817|0),($819|0))|0); //@line 1137 "lpc.c"
-     $821 = tempRet0; //@line 1137 "lpc.c"
+     $821 = (getTempRet0() | 0); //@line 1137 "lpc.c"
      $822 = $13; //@line 1137 "lpc.c"
      $823 = $822; //@line 1137 "lpc.c"
      $824 = HEAP32[$823>>2]|0; //@line 1137 "lpc.c"
@@ -23688,7 +23625,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $826 = $825; //@line 1137 "lpc.c"
      $827 = HEAP32[$826>>2]|0; //@line 1137 "lpc.c"
      $828 = (_i64Add(($824|0),($827|0),($820|0),($821|0))|0); //@line 1137 "lpc.c"
-     $829 = tempRet0; //@line 1137 "lpc.c"
+     $829 = (getTempRet0() | 0); //@line 1137 "lpc.c"
      $830 = $13; //@line 1137 "lpc.c"
      $831 = $830; //@line 1137 "lpc.c"
      HEAP32[$831>>2] = $828; //@line 1137 "lpc.c"
@@ -23708,7 +23645,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $844 = ($843|0)<(0); //@line 1138 "lpc.c"
      $845 = $844 << 31 >> 31; //@line 1138 "lpc.c"
      $846 = (___muldi3(($836|0),($838|0),($843|0),($845|0))|0); //@line 1138 "lpc.c"
-     $847 = tempRet0; //@line 1138 "lpc.c"
+     $847 = (getTempRet0() | 0); //@line 1138 "lpc.c"
      $848 = $13; //@line 1138 "lpc.c"
      $849 = $848; //@line 1138 "lpc.c"
      $850 = HEAP32[$849>>2]|0; //@line 1138 "lpc.c"
@@ -23716,7 +23653,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $852 = $851; //@line 1138 "lpc.c"
      $853 = HEAP32[$852>>2]|0; //@line 1138 "lpc.c"
      $854 = (_i64Add(($850|0),($853|0),($846|0),($847|0))|0); //@line 1138 "lpc.c"
-     $855 = tempRet0; //@line 1138 "lpc.c"
+     $855 = (getTempRet0() | 0); //@line 1138 "lpc.c"
      $856 = $13; //@line 1138 "lpc.c"
      $857 = $856; //@line 1138 "lpc.c"
      HEAP32[$857>>2] = $854; //@line 1138 "lpc.c"
@@ -23736,7 +23673,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $870 = ($869|0)<(0); //@line 1139 "lpc.c"
      $871 = $870 << 31 >> 31; //@line 1139 "lpc.c"
      $872 = (___muldi3(($862|0),($864|0),($869|0),($871|0))|0); //@line 1139 "lpc.c"
-     $873 = tempRet0; //@line 1139 "lpc.c"
+     $873 = (getTempRet0() | 0); //@line 1139 "lpc.c"
      $874 = $13; //@line 1139 "lpc.c"
      $875 = $874; //@line 1139 "lpc.c"
      $876 = HEAP32[$875>>2]|0; //@line 1139 "lpc.c"
@@ -23744,7 +23681,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $878 = $877; //@line 1139 "lpc.c"
      $879 = HEAP32[$878>>2]|0; //@line 1139 "lpc.c"
      $880 = (_i64Add(($876|0),($879|0),($872|0),($873|0))|0); //@line 1139 "lpc.c"
-     $881 = tempRet0; //@line 1139 "lpc.c"
+     $881 = (getTempRet0() | 0); //@line 1139 "lpc.c"
      $882 = $13; //@line 1139 "lpc.c"
      $883 = $882; //@line 1139 "lpc.c"
      HEAP32[$883>>2] = $880; //@line 1139 "lpc.c"
@@ -23764,7 +23701,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $896 = ($895|0)<(0); //@line 1140 "lpc.c"
      $897 = $896 << 31 >> 31; //@line 1140 "lpc.c"
      $898 = (___muldi3(($888|0),($890|0),($895|0),($897|0))|0); //@line 1140 "lpc.c"
-     $899 = tempRet0; //@line 1140 "lpc.c"
+     $899 = (getTempRet0() | 0); //@line 1140 "lpc.c"
      $900 = $13; //@line 1140 "lpc.c"
      $901 = $900; //@line 1140 "lpc.c"
      $902 = HEAP32[$901>>2]|0; //@line 1140 "lpc.c"
@@ -23772,7 +23709,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $904 = $903; //@line 1140 "lpc.c"
      $905 = HEAP32[$904>>2]|0; //@line 1140 "lpc.c"
      $906 = (_i64Add(($902|0),($905|0),($898|0),($899|0))|0); //@line 1140 "lpc.c"
-     $907 = tempRet0; //@line 1140 "lpc.c"
+     $907 = (getTempRet0() | 0); //@line 1140 "lpc.c"
      $908 = $13; //@line 1140 "lpc.c"
      $909 = $908; //@line 1140 "lpc.c"
      HEAP32[$909>>2] = $906; //@line 1140 "lpc.c"
@@ -23791,7 +23728,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $921 = ($920|0)<(0); //@line 1141 "lpc.c"
      $922 = $921 << 31 >> 31; //@line 1141 "lpc.c"
      $923 = (___muldi3(($913|0),($915|0),($920|0),($922|0))|0); //@line 1141 "lpc.c"
-     $924 = tempRet0; //@line 1141 "lpc.c"
+     $924 = (getTempRet0() | 0); //@line 1141 "lpc.c"
      $925 = $13; //@line 1141 "lpc.c"
      $926 = $925; //@line 1141 "lpc.c"
      $927 = HEAP32[$926>>2]|0; //@line 1141 "lpc.c"
@@ -23799,7 +23736,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $929 = $928; //@line 1141 "lpc.c"
      $930 = HEAP32[$929>>2]|0; //@line 1141 "lpc.c"
      $931 = (_i64Add(($927|0),($930|0),($923|0),($924|0))|0); //@line 1141 "lpc.c"
-     $932 = tempRet0; //@line 1141 "lpc.c"
+     $932 = (getTempRet0() | 0); //@line 1141 "lpc.c"
      $933 = $13; //@line 1141 "lpc.c"
      $934 = $933; //@line 1141 "lpc.c"
      HEAP32[$934>>2] = $931; //@line 1141 "lpc.c"
@@ -23818,7 +23755,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $946 = HEAP32[$945>>2]|0; //@line 1142 "lpc.c"
      $947 = $10; //@line 1142 "lpc.c"
      $948 = (_bitshift64Ashr(($943|0),($946|0),($947|0))|0); //@line 1142 "lpc.c"
-     $949 = tempRet0; //@line 1142 "lpc.c"
+     $949 = (getTempRet0() | 0); //@line 1142 "lpc.c"
      $950 = (($940) + ($948))|0; //@line 1142 "lpc.c"
      $951 = $11; //@line 1142 "lpc.c"
      $952 = $12; //@line 1142 "lpc.c"
@@ -23856,7 +23793,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $973 = ($972|0)<(0); //@line 1148 "lpc.c"
      $974 = $973 << 31 >> 31; //@line 1148 "lpc.c"
      $975 = (___muldi3(($965|0),($967|0),($972|0),($974|0))|0); //@line 1148 "lpc.c"
-     $976 = tempRet0; //@line 1148 "lpc.c"
+     $976 = (getTempRet0() | 0); //@line 1148 "lpc.c"
      $977 = $13; //@line 1148 "lpc.c"
      $978 = $977; //@line 1148 "lpc.c"
      $979 = HEAP32[$978>>2]|0; //@line 1148 "lpc.c"
@@ -23864,7 +23801,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $981 = $980; //@line 1148 "lpc.c"
      $982 = HEAP32[$981>>2]|0; //@line 1148 "lpc.c"
      $983 = (_i64Add(($979|0),($982|0),($975|0),($976|0))|0); //@line 1148 "lpc.c"
-     $984 = tempRet0; //@line 1148 "lpc.c"
+     $984 = (getTempRet0() | 0); //@line 1148 "lpc.c"
      $985 = $13; //@line 1148 "lpc.c"
      $986 = $985; //@line 1148 "lpc.c"
      HEAP32[$986>>2] = $983; //@line 1148 "lpc.c"
@@ -23884,7 +23821,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $999 = ($998|0)<(0); //@line 1149 "lpc.c"
      $1000 = $999 << 31 >> 31; //@line 1149 "lpc.c"
      $1001 = (___muldi3(($991|0),($993|0),($998|0),($1000|0))|0); //@line 1149 "lpc.c"
-     $1002 = tempRet0; //@line 1149 "lpc.c"
+     $1002 = (getTempRet0() | 0); //@line 1149 "lpc.c"
      $1003 = $13; //@line 1149 "lpc.c"
      $1004 = $1003; //@line 1149 "lpc.c"
      $1005 = HEAP32[$1004>>2]|0; //@line 1149 "lpc.c"
@@ -23892,7 +23829,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1007 = $1006; //@line 1149 "lpc.c"
      $1008 = HEAP32[$1007>>2]|0; //@line 1149 "lpc.c"
      $1009 = (_i64Add(($1005|0),($1008|0),($1001|0),($1002|0))|0); //@line 1149 "lpc.c"
-     $1010 = tempRet0; //@line 1149 "lpc.c"
+     $1010 = (getTempRet0() | 0); //@line 1149 "lpc.c"
      $1011 = $13; //@line 1149 "lpc.c"
      $1012 = $1011; //@line 1149 "lpc.c"
      HEAP32[$1012>>2] = $1009; //@line 1149 "lpc.c"
@@ -23912,7 +23849,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1025 = ($1024|0)<(0); //@line 1150 "lpc.c"
      $1026 = $1025 << 31 >> 31; //@line 1150 "lpc.c"
      $1027 = (___muldi3(($1017|0),($1019|0),($1024|0),($1026|0))|0); //@line 1150 "lpc.c"
-     $1028 = tempRet0; //@line 1150 "lpc.c"
+     $1028 = (getTempRet0() | 0); //@line 1150 "lpc.c"
      $1029 = $13; //@line 1150 "lpc.c"
      $1030 = $1029; //@line 1150 "lpc.c"
      $1031 = HEAP32[$1030>>2]|0; //@line 1150 "lpc.c"
@@ -23920,7 +23857,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1033 = $1032; //@line 1150 "lpc.c"
      $1034 = HEAP32[$1033>>2]|0; //@line 1150 "lpc.c"
      $1035 = (_i64Add(($1031|0),($1034|0),($1027|0),($1028|0))|0); //@line 1150 "lpc.c"
-     $1036 = tempRet0; //@line 1150 "lpc.c"
+     $1036 = (getTempRet0() | 0); //@line 1150 "lpc.c"
      $1037 = $13; //@line 1150 "lpc.c"
      $1038 = $1037; //@line 1150 "lpc.c"
      HEAP32[$1038>>2] = $1035; //@line 1150 "lpc.c"
@@ -23940,7 +23877,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1051 = ($1050|0)<(0); //@line 1151 "lpc.c"
      $1052 = $1051 << 31 >> 31; //@line 1151 "lpc.c"
      $1053 = (___muldi3(($1043|0),($1045|0),($1050|0),($1052|0))|0); //@line 1151 "lpc.c"
-     $1054 = tempRet0; //@line 1151 "lpc.c"
+     $1054 = (getTempRet0() | 0); //@line 1151 "lpc.c"
      $1055 = $13; //@line 1151 "lpc.c"
      $1056 = $1055; //@line 1151 "lpc.c"
      $1057 = HEAP32[$1056>>2]|0; //@line 1151 "lpc.c"
@@ -23948,7 +23885,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1059 = $1058; //@line 1151 "lpc.c"
      $1060 = HEAP32[$1059>>2]|0; //@line 1151 "lpc.c"
      $1061 = (_i64Add(($1057|0),($1060|0),($1053|0),($1054|0))|0); //@line 1151 "lpc.c"
-     $1062 = tempRet0; //@line 1151 "lpc.c"
+     $1062 = (getTempRet0() | 0); //@line 1151 "lpc.c"
      $1063 = $13; //@line 1151 "lpc.c"
      $1064 = $1063; //@line 1151 "lpc.c"
      HEAP32[$1064>>2] = $1061; //@line 1151 "lpc.c"
@@ -23968,7 +23905,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1077 = ($1076|0)<(0); //@line 1152 "lpc.c"
      $1078 = $1077 << 31 >> 31; //@line 1152 "lpc.c"
      $1079 = (___muldi3(($1069|0),($1071|0),($1076|0),($1078|0))|0); //@line 1152 "lpc.c"
-     $1080 = tempRet0; //@line 1152 "lpc.c"
+     $1080 = (getTempRet0() | 0); //@line 1152 "lpc.c"
      $1081 = $13; //@line 1152 "lpc.c"
      $1082 = $1081; //@line 1152 "lpc.c"
      $1083 = HEAP32[$1082>>2]|0; //@line 1152 "lpc.c"
@@ -23976,7 +23913,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1085 = $1084; //@line 1152 "lpc.c"
      $1086 = HEAP32[$1085>>2]|0; //@line 1152 "lpc.c"
      $1087 = (_i64Add(($1083|0),($1086|0),($1079|0),($1080|0))|0); //@line 1152 "lpc.c"
-     $1088 = tempRet0; //@line 1152 "lpc.c"
+     $1088 = (getTempRet0() | 0); //@line 1152 "lpc.c"
      $1089 = $13; //@line 1152 "lpc.c"
      $1090 = $1089; //@line 1152 "lpc.c"
      HEAP32[$1090>>2] = $1087; //@line 1152 "lpc.c"
@@ -23996,7 +23933,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1103 = ($1102|0)<(0); //@line 1153 "lpc.c"
      $1104 = $1103 << 31 >> 31; //@line 1153 "lpc.c"
      $1105 = (___muldi3(($1095|0),($1097|0),($1102|0),($1104|0))|0); //@line 1153 "lpc.c"
-     $1106 = tempRet0; //@line 1153 "lpc.c"
+     $1106 = (getTempRet0() | 0); //@line 1153 "lpc.c"
      $1107 = $13; //@line 1153 "lpc.c"
      $1108 = $1107; //@line 1153 "lpc.c"
      $1109 = HEAP32[$1108>>2]|0; //@line 1153 "lpc.c"
@@ -24004,7 +23941,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1111 = $1110; //@line 1153 "lpc.c"
      $1112 = HEAP32[$1111>>2]|0; //@line 1153 "lpc.c"
      $1113 = (_i64Add(($1109|0),($1112|0),($1105|0),($1106|0))|0); //@line 1153 "lpc.c"
-     $1114 = tempRet0; //@line 1153 "lpc.c"
+     $1114 = (getTempRet0() | 0); //@line 1153 "lpc.c"
      $1115 = $13; //@line 1153 "lpc.c"
      $1116 = $1115; //@line 1153 "lpc.c"
      HEAP32[$1116>>2] = $1113; //@line 1153 "lpc.c"
@@ -24024,7 +23961,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1129 = ($1128|0)<(0); //@line 1154 "lpc.c"
      $1130 = $1129 << 31 >> 31; //@line 1154 "lpc.c"
      $1131 = (___muldi3(($1121|0),($1123|0),($1128|0),($1130|0))|0); //@line 1154 "lpc.c"
-     $1132 = tempRet0; //@line 1154 "lpc.c"
+     $1132 = (getTempRet0() | 0); //@line 1154 "lpc.c"
      $1133 = $13; //@line 1154 "lpc.c"
      $1134 = $1133; //@line 1154 "lpc.c"
      $1135 = HEAP32[$1134>>2]|0; //@line 1154 "lpc.c"
@@ -24032,7 +23969,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1137 = $1136; //@line 1154 "lpc.c"
      $1138 = HEAP32[$1137>>2]|0; //@line 1154 "lpc.c"
      $1139 = (_i64Add(($1135|0),($1138|0),($1131|0),($1132|0))|0); //@line 1154 "lpc.c"
-     $1140 = tempRet0; //@line 1154 "lpc.c"
+     $1140 = (getTempRet0() | 0); //@line 1154 "lpc.c"
      $1141 = $13; //@line 1154 "lpc.c"
      $1142 = $1141; //@line 1154 "lpc.c"
      HEAP32[$1142>>2] = $1139; //@line 1154 "lpc.c"
@@ -24052,7 +23989,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1155 = ($1154|0)<(0); //@line 1155 "lpc.c"
      $1156 = $1155 << 31 >> 31; //@line 1155 "lpc.c"
      $1157 = (___muldi3(($1147|0),($1149|0),($1154|0),($1156|0))|0); //@line 1155 "lpc.c"
-     $1158 = tempRet0; //@line 1155 "lpc.c"
+     $1158 = (getTempRet0() | 0); //@line 1155 "lpc.c"
      $1159 = $13; //@line 1155 "lpc.c"
      $1160 = $1159; //@line 1155 "lpc.c"
      $1161 = HEAP32[$1160>>2]|0; //@line 1155 "lpc.c"
@@ -24060,7 +23997,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1163 = $1162; //@line 1155 "lpc.c"
      $1164 = HEAP32[$1163>>2]|0; //@line 1155 "lpc.c"
      $1165 = (_i64Add(($1161|0),($1164|0),($1157|0),($1158|0))|0); //@line 1155 "lpc.c"
-     $1166 = tempRet0; //@line 1155 "lpc.c"
+     $1166 = (getTempRet0() | 0); //@line 1155 "lpc.c"
      $1167 = $13; //@line 1155 "lpc.c"
      $1168 = $1167; //@line 1155 "lpc.c"
      HEAP32[$1168>>2] = $1165; //@line 1155 "lpc.c"
@@ -24079,7 +24016,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1180 = ($1179|0)<(0); //@line 1156 "lpc.c"
      $1181 = $1180 << 31 >> 31; //@line 1156 "lpc.c"
      $1182 = (___muldi3(($1172|0),($1174|0),($1179|0),($1181|0))|0); //@line 1156 "lpc.c"
-     $1183 = tempRet0; //@line 1156 "lpc.c"
+     $1183 = (getTempRet0() | 0); //@line 1156 "lpc.c"
      $1184 = $13; //@line 1156 "lpc.c"
      $1185 = $1184; //@line 1156 "lpc.c"
      $1186 = HEAP32[$1185>>2]|0; //@line 1156 "lpc.c"
@@ -24087,7 +24024,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1188 = $1187; //@line 1156 "lpc.c"
      $1189 = HEAP32[$1188>>2]|0; //@line 1156 "lpc.c"
      $1190 = (_i64Add(($1186|0),($1189|0),($1182|0),($1183|0))|0); //@line 1156 "lpc.c"
-     $1191 = tempRet0; //@line 1156 "lpc.c"
+     $1191 = (getTempRet0() | 0); //@line 1156 "lpc.c"
      $1192 = $13; //@line 1156 "lpc.c"
      $1193 = $1192; //@line 1156 "lpc.c"
      HEAP32[$1193>>2] = $1190; //@line 1156 "lpc.c"
@@ -24106,7 +24043,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1205 = HEAP32[$1204>>2]|0; //@line 1157 "lpc.c"
      $1206 = $10; //@line 1157 "lpc.c"
      $1207 = (_bitshift64Ashr(($1202|0),($1205|0),($1206|0))|0); //@line 1157 "lpc.c"
-     $1208 = tempRet0; //@line 1157 "lpc.c"
+     $1208 = (getTempRet0() | 0); //@line 1157 "lpc.c"
      $1209 = (($1199) + ($1207))|0; //@line 1157 "lpc.c"
      $1210 = $11; //@line 1157 "lpc.c"
      $1211 = $12; //@line 1157 "lpc.c"
@@ -24155,7 +24092,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1237 = ($1236|0)<(0); //@line 1167 "lpc.c"
      $1238 = $1237 << 31 >> 31; //@line 1167 "lpc.c"
      $1239 = (___muldi3(($1229|0),($1231|0),($1236|0),($1238|0))|0); //@line 1167 "lpc.c"
-     $1240 = tempRet0; //@line 1167 "lpc.c"
+     $1240 = (getTempRet0() | 0); //@line 1167 "lpc.c"
      $1241 = $13; //@line 1167 "lpc.c"
      $1242 = $1241; //@line 1167 "lpc.c"
      $1243 = HEAP32[$1242>>2]|0; //@line 1167 "lpc.c"
@@ -24163,7 +24100,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1245 = $1244; //@line 1167 "lpc.c"
      $1246 = HEAP32[$1245>>2]|0; //@line 1167 "lpc.c"
      $1247 = (_i64Add(($1243|0),($1246|0),($1239|0),($1240|0))|0); //@line 1167 "lpc.c"
-     $1248 = tempRet0; //@line 1167 "lpc.c"
+     $1248 = (getTempRet0() | 0); //@line 1167 "lpc.c"
      $1249 = $13; //@line 1167 "lpc.c"
      $1250 = $1249; //@line 1167 "lpc.c"
      HEAP32[$1250>>2] = $1247; //@line 1167 "lpc.c"
@@ -24183,7 +24120,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1263 = ($1262|0)<(0); //@line 1168 "lpc.c"
      $1264 = $1263 << 31 >> 31; //@line 1168 "lpc.c"
      $1265 = (___muldi3(($1255|0),($1257|0),($1262|0),($1264|0))|0); //@line 1168 "lpc.c"
-     $1266 = tempRet0; //@line 1168 "lpc.c"
+     $1266 = (getTempRet0() | 0); //@line 1168 "lpc.c"
      $1267 = $13; //@line 1168 "lpc.c"
      $1268 = $1267; //@line 1168 "lpc.c"
      $1269 = HEAP32[$1268>>2]|0; //@line 1168 "lpc.c"
@@ -24191,7 +24128,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1271 = $1270; //@line 1168 "lpc.c"
      $1272 = HEAP32[$1271>>2]|0; //@line 1168 "lpc.c"
      $1273 = (_i64Add(($1269|0),($1272|0),($1265|0),($1266|0))|0); //@line 1168 "lpc.c"
-     $1274 = tempRet0; //@line 1168 "lpc.c"
+     $1274 = (getTempRet0() | 0); //@line 1168 "lpc.c"
      $1275 = $13; //@line 1168 "lpc.c"
      $1276 = $1275; //@line 1168 "lpc.c"
      HEAP32[$1276>>2] = $1273; //@line 1168 "lpc.c"
@@ -24211,7 +24148,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1289 = ($1288|0)<(0); //@line 1169 "lpc.c"
      $1290 = $1289 << 31 >> 31; //@line 1169 "lpc.c"
      $1291 = (___muldi3(($1281|0),($1283|0),($1288|0),($1290|0))|0); //@line 1169 "lpc.c"
-     $1292 = tempRet0; //@line 1169 "lpc.c"
+     $1292 = (getTempRet0() | 0); //@line 1169 "lpc.c"
      $1293 = $13; //@line 1169 "lpc.c"
      $1294 = $1293; //@line 1169 "lpc.c"
      $1295 = HEAP32[$1294>>2]|0; //@line 1169 "lpc.c"
@@ -24219,7 +24156,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1297 = $1296; //@line 1169 "lpc.c"
      $1298 = HEAP32[$1297>>2]|0; //@line 1169 "lpc.c"
      $1299 = (_i64Add(($1295|0),($1298|0),($1291|0),($1292|0))|0); //@line 1169 "lpc.c"
-     $1300 = tempRet0; //@line 1169 "lpc.c"
+     $1300 = (getTempRet0() | 0); //@line 1169 "lpc.c"
      $1301 = $13; //@line 1169 "lpc.c"
      $1302 = $1301; //@line 1169 "lpc.c"
      HEAP32[$1302>>2] = $1299; //@line 1169 "lpc.c"
@@ -24239,7 +24176,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1315 = ($1314|0)<(0); //@line 1170 "lpc.c"
      $1316 = $1315 << 31 >> 31; //@line 1170 "lpc.c"
      $1317 = (___muldi3(($1307|0),($1309|0),($1314|0),($1316|0))|0); //@line 1170 "lpc.c"
-     $1318 = tempRet0; //@line 1170 "lpc.c"
+     $1318 = (getTempRet0() | 0); //@line 1170 "lpc.c"
      $1319 = $13; //@line 1170 "lpc.c"
      $1320 = $1319; //@line 1170 "lpc.c"
      $1321 = HEAP32[$1320>>2]|0; //@line 1170 "lpc.c"
@@ -24247,7 +24184,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1323 = $1322; //@line 1170 "lpc.c"
      $1324 = HEAP32[$1323>>2]|0; //@line 1170 "lpc.c"
      $1325 = (_i64Add(($1321|0),($1324|0),($1317|0),($1318|0))|0); //@line 1170 "lpc.c"
-     $1326 = tempRet0; //@line 1170 "lpc.c"
+     $1326 = (getTempRet0() | 0); //@line 1170 "lpc.c"
      $1327 = $13; //@line 1170 "lpc.c"
      $1328 = $1327; //@line 1170 "lpc.c"
      HEAP32[$1328>>2] = $1325; //@line 1170 "lpc.c"
@@ -24267,7 +24204,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1341 = ($1340|0)<(0); //@line 1171 "lpc.c"
      $1342 = $1341 << 31 >> 31; //@line 1171 "lpc.c"
      $1343 = (___muldi3(($1333|0),($1335|0),($1340|0),($1342|0))|0); //@line 1171 "lpc.c"
-     $1344 = tempRet0; //@line 1171 "lpc.c"
+     $1344 = (getTempRet0() | 0); //@line 1171 "lpc.c"
      $1345 = $13; //@line 1171 "lpc.c"
      $1346 = $1345; //@line 1171 "lpc.c"
      $1347 = HEAP32[$1346>>2]|0; //@line 1171 "lpc.c"
@@ -24275,7 +24212,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1349 = $1348; //@line 1171 "lpc.c"
      $1350 = HEAP32[$1349>>2]|0; //@line 1171 "lpc.c"
      $1351 = (_i64Add(($1347|0),($1350|0),($1343|0),($1344|0))|0); //@line 1171 "lpc.c"
-     $1352 = tempRet0; //@line 1171 "lpc.c"
+     $1352 = (getTempRet0() | 0); //@line 1171 "lpc.c"
      $1353 = $13; //@line 1171 "lpc.c"
      $1354 = $1353; //@line 1171 "lpc.c"
      HEAP32[$1354>>2] = $1351; //@line 1171 "lpc.c"
@@ -24295,7 +24232,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1367 = ($1366|0)<(0); //@line 1172 "lpc.c"
      $1368 = $1367 << 31 >> 31; //@line 1172 "lpc.c"
      $1369 = (___muldi3(($1359|0),($1361|0),($1366|0),($1368|0))|0); //@line 1172 "lpc.c"
-     $1370 = tempRet0; //@line 1172 "lpc.c"
+     $1370 = (getTempRet0() | 0); //@line 1172 "lpc.c"
      $1371 = $13; //@line 1172 "lpc.c"
      $1372 = $1371; //@line 1172 "lpc.c"
      $1373 = HEAP32[$1372>>2]|0; //@line 1172 "lpc.c"
@@ -24303,7 +24240,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1375 = $1374; //@line 1172 "lpc.c"
      $1376 = HEAP32[$1375>>2]|0; //@line 1172 "lpc.c"
      $1377 = (_i64Add(($1373|0),($1376|0),($1369|0),($1370|0))|0); //@line 1172 "lpc.c"
-     $1378 = tempRet0; //@line 1172 "lpc.c"
+     $1378 = (getTempRet0() | 0); //@line 1172 "lpc.c"
      $1379 = $13; //@line 1172 "lpc.c"
      $1380 = $1379; //@line 1172 "lpc.c"
      HEAP32[$1380>>2] = $1377; //@line 1172 "lpc.c"
@@ -24323,7 +24260,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1393 = ($1392|0)<(0); //@line 1173 "lpc.c"
      $1394 = $1393 << 31 >> 31; //@line 1173 "lpc.c"
      $1395 = (___muldi3(($1385|0),($1387|0),($1392|0),($1394|0))|0); //@line 1173 "lpc.c"
-     $1396 = tempRet0; //@line 1173 "lpc.c"
+     $1396 = (getTempRet0() | 0); //@line 1173 "lpc.c"
      $1397 = $13; //@line 1173 "lpc.c"
      $1398 = $1397; //@line 1173 "lpc.c"
      $1399 = HEAP32[$1398>>2]|0; //@line 1173 "lpc.c"
@@ -24331,7 +24268,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1401 = $1400; //@line 1173 "lpc.c"
      $1402 = HEAP32[$1401>>2]|0; //@line 1173 "lpc.c"
      $1403 = (_i64Add(($1399|0),($1402|0),($1395|0),($1396|0))|0); //@line 1173 "lpc.c"
-     $1404 = tempRet0; //@line 1173 "lpc.c"
+     $1404 = (getTempRet0() | 0); //@line 1173 "lpc.c"
      $1405 = $13; //@line 1173 "lpc.c"
      $1406 = $1405; //@line 1173 "lpc.c"
      HEAP32[$1406>>2] = $1403; //@line 1173 "lpc.c"
@@ -24350,7 +24287,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1418 = ($1417|0)<(0); //@line 1174 "lpc.c"
      $1419 = $1418 << 31 >> 31; //@line 1174 "lpc.c"
      $1420 = (___muldi3(($1410|0),($1412|0),($1417|0),($1419|0))|0); //@line 1174 "lpc.c"
-     $1421 = tempRet0; //@line 1174 "lpc.c"
+     $1421 = (getTempRet0() | 0); //@line 1174 "lpc.c"
      $1422 = $13; //@line 1174 "lpc.c"
      $1423 = $1422; //@line 1174 "lpc.c"
      $1424 = HEAP32[$1423>>2]|0; //@line 1174 "lpc.c"
@@ -24358,7 +24295,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1426 = $1425; //@line 1174 "lpc.c"
      $1427 = HEAP32[$1426>>2]|0; //@line 1174 "lpc.c"
      $1428 = (_i64Add(($1424|0),($1427|0),($1420|0),($1421|0))|0); //@line 1174 "lpc.c"
-     $1429 = tempRet0; //@line 1174 "lpc.c"
+     $1429 = (getTempRet0() | 0); //@line 1174 "lpc.c"
      $1430 = $13; //@line 1174 "lpc.c"
      $1431 = $1430; //@line 1174 "lpc.c"
      HEAP32[$1431>>2] = $1428; //@line 1174 "lpc.c"
@@ -24377,7 +24314,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1443 = HEAP32[$1442>>2]|0; //@line 1175 "lpc.c"
      $1444 = $10; //@line 1175 "lpc.c"
      $1445 = (_bitshift64Ashr(($1440|0),($1443|0),($1444|0))|0); //@line 1175 "lpc.c"
-     $1446 = tempRet0; //@line 1175 "lpc.c"
+     $1446 = (getTempRet0() | 0); //@line 1175 "lpc.c"
      $1447 = (($1437) + ($1445))|0; //@line 1175 "lpc.c"
      $1448 = $11; //@line 1175 "lpc.c"
      $1449 = $12; //@line 1175 "lpc.c"
@@ -24415,7 +24352,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1470 = ($1469|0)<(0); //@line 1181 "lpc.c"
      $1471 = $1470 << 31 >> 31; //@line 1181 "lpc.c"
      $1472 = (___muldi3(($1462|0),($1464|0),($1469|0),($1471|0))|0); //@line 1181 "lpc.c"
-     $1473 = tempRet0; //@line 1181 "lpc.c"
+     $1473 = (getTempRet0() | 0); //@line 1181 "lpc.c"
      $1474 = $13; //@line 1181 "lpc.c"
      $1475 = $1474; //@line 1181 "lpc.c"
      $1476 = HEAP32[$1475>>2]|0; //@line 1181 "lpc.c"
@@ -24423,7 +24360,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1478 = $1477; //@line 1181 "lpc.c"
      $1479 = HEAP32[$1478>>2]|0; //@line 1181 "lpc.c"
      $1480 = (_i64Add(($1476|0),($1479|0),($1472|0),($1473|0))|0); //@line 1181 "lpc.c"
-     $1481 = tempRet0; //@line 1181 "lpc.c"
+     $1481 = (getTempRet0() | 0); //@line 1181 "lpc.c"
      $1482 = $13; //@line 1181 "lpc.c"
      $1483 = $1482; //@line 1181 "lpc.c"
      HEAP32[$1483>>2] = $1480; //@line 1181 "lpc.c"
@@ -24443,7 +24380,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1496 = ($1495|0)<(0); //@line 1182 "lpc.c"
      $1497 = $1496 << 31 >> 31; //@line 1182 "lpc.c"
      $1498 = (___muldi3(($1488|0),($1490|0),($1495|0),($1497|0))|0); //@line 1182 "lpc.c"
-     $1499 = tempRet0; //@line 1182 "lpc.c"
+     $1499 = (getTempRet0() | 0); //@line 1182 "lpc.c"
      $1500 = $13; //@line 1182 "lpc.c"
      $1501 = $1500; //@line 1182 "lpc.c"
      $1502 = HEAP32[$1501>>2]|0; //@line 1182 "lpc.c"
@@ -24451,7 +24388,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1504 = $1503; //@line 1182 "lpc.c"
      $1505 = HEAP32[$1504>>2]|0; //@line 1182 "lpc.c"
      $1506 = (_i64Add(($1502|0),($1505|0),($1498|0),($1499|0))|0); //@line 1182 "lpc.c"
-     $1507 = tempRet0; //@line 1182 "lpc.c"
+     $1507 = (getTempRet0() | 0); //@line 1182 "lpc.c"
      $1508 = $13; //@line 1182 "lpc.c"
      $1509 = $1508; //@line 1182 "lpc.c"
      HEAP32[$1509>>2] = $1506; //@line 1182 "lpc.c"
@@ -24471,7 +24408,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1522 = ($1521|0)<(0); //@line 1183 "lpc.c"
      $1523 = $1522 << 31 >> 31; //@line 1183 "lpc.c"
      $1524 = (___muldi3(($1514|0),($1516|0),($1521|0),($1523|0))|0); //@line 1183 "lpc.c"
-     $1525 = tempRet0; //@line 1183 "lpc.c"
+     $1525 = (getTempRet0() | 0); //@line 1183 "lpc.c"
      $1526 = $13; //@line 1183 "lpc.c"
      $1527 = $1526; //@line 1183 "lpc.c"
      $1528 = HEAP32[$1527>>2]|0; //@line 1183 "lpc.c"
@@ -24479,7 +24416,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1530 = $1529; //@line 1183 "lpc.c"
      $1531 = HEAP32[$1530>>2]|0; //@line 1183 "lpc.c"
      $1532 = (_i64Add(($1528|0),($1531|0),($1524|0),($1525|0))|0); //@line 1183 "lpc.c"
-     $1533 = tempRet0; //@line 1183 "lpc.c"
+     $1533 = (getTempRet0() | 0); //@line 1183 "lpc.c"
      $1534 = $13; //@line 1183 "lpc.c"
      $1535 = $1534; //@line 1183 "lpc.c"
      HEAP32[$1535>>2] = $1532; //@line 1183 "lpc.c"
@@ -24499,7 +24436,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1548 = ($1547|0)<(0); //@line 1184 "lpc.c"
      $1549 = $1548 << 31 >> 31; //@line 1184 "lpc.c"
      $1550 = (___muldi3(($1540|0),($1542|0),($1547|0),($1549|0))|0); //@line 1184 "lpc.c"
-     $1551 = tempRet0; //@line 1184 "lpc.c"
+     $1551 = (getTempRet0() | 0); //@line 1184 "lpc.c"
      $1552 = $13; //@line 1184 "lpc.c"
      $1553 = $1552; //@line 1184 "lpc.c"
      $1554 = HEAP32[$1553>>2]|0; //@line 1184 "lpc.c"
@@ -24507,7 +24444,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1556 = $1555; //@line 1184 "lpc.c"
      $1557 = HEAP32[$1556>>2]|0; //@line 1184 "lpc.c"
      $1558 = (_i64Add(($1554|0),($1557|0),($1550|0),($1551|0))|0); //@line 1184 "lpc.c"
-     $1559 = tempRet0; //@line 1184 "lpc.c"
+     $1559 = (getTempRet0() | 0); //@line 1184 "lpc.c"
      $1560 = $13; //@line 1184 "lpc.c"
      $1561 = $1560; //@line 1184 "lpc.c"
      HEAP32[$1561>>2] = $1558; //@line 1184 "lpc.c"
@@ -24527,7 +24464,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1574 = ($1573|0)<(0); //@line 1185 "lpc.c"
      $1575 = $1574 << 31 >> 31; //@line 1185 "lpc.c"
      $1576 = (___muldi3(($1566|0),($1568|0),($1573|0),($1575|0))|0); //@line 1185 "lpc.c"
-     $1577 = tempRet0; //@line 1185 "lpc.c"
+     $1577 = (getTempRet0() | 0); //@line 1185 "lpc.c"
      $1578 = $13; //@line 1185 "lpc.c"
      $1579 = $1578; //@line 1185 "lpc.c"
      $1580 = HEAP32[$1579>>2]|0; //@line 1185 "lpc.c"
@@ -24535,7 +24472,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1582 = $1581; //@line 1185 "lpc.c"
      $1583 = HEAP32[$1582>>2]|0; //@line 1185 "lpc.c"
      $1584 = (_i64Add(($1580|0),($1583|0),($1576|0),($1577|0))|0); //@line 1185 "lpc.c"
-     $1585 = tempRet0; //@line 1185 "lpc.c"
+     $1585 = (getTempRet0() | 0); //@line 1185 "lpc.c"
      $1586 = $13; //@line 1185 "lpc.c"
      $1587 = $1586; //@line 1185 "lpc.c"
      HEAP32[$1587>>2] = $1584; //@line 1185 "lpc.c"
@@ -24555,7 +24492,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1600 = ($1599|0)<(0); //@line 1186 "lpc.c"
      $1601 = $1600 << 31 >> 31; //@line 1186 "lpc.c"
      $1602 = (___muldi3(($1592|0),($1594|0),($1599|0),($1601|0))|0); //@line 1186 "lpc.c"
-     $1603 = tempRet0; //@line 1186 "lpc.c"
+     $1603 = (getTempRet0() | 0); //@line 1186 "lpc.c"
      $1604 = $13; //@line 1186 "lpc.c"
      $1605 = $1604; //@line 1186 "lpc.c"
      $1606 = HEAP32[$1605>>2]|0; //@line 1186 "lpc.c"
@@ -24563,7 +24500,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1608 = $1607; //@line 1186 "lpc.c"
      $1609 = HEAP32[$1608>>2]|0; //@line 1186 "lpc.c"
      $1610 = (_i64Add(($1606|0),($1609|0),($1602|0),($1603|0))|0); //@line 1186 "lpc.c"
-     $1611 = tempRet0; //@line 1186 "lpc.c"
+     $1611 = (getTempRet0() | 0); //@line 1186 "lpc.c"
      $1612 = $13; //@line 1186 "lpc.c"
      $1613 = $1612; //@line 1186 "lpc.c"
      HEAP32[$1613>>2] = $1610; //@line 1186 "lpc.c"
@@ -24582,7 +24519,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1625 = ($1624|0)<(0); //@line 1187 "lpc.c"
      $1626 = $1625 << 31 >> 31; //@line 1187 "lpc.c"
      $1627 = (___muldi3(($1617|0),($1619|0),($1624|0),($1626|0))|0); //@line 1187 "lpc.c"
-     $1628 = tempRet0; //@line 1187 "lpc.c"
+     $1628 = (getTempRet0() | 0); //@line 1187 "lpc.c"
      $1629 = $13; //@line 1187 "lpc.c"
      $1630 = $1629; //@line 1187 "lpc.c"
      $1631 = HEAP32[$1630>>2]|0; //@line 1187 "lpc.c"
@@ -24590,7 +24527,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1633 = $1632; //@line 1187 "lpc.c"
      $1634 = HEAP32[$1633>>2]|0; //@line 1187 "lpc.c"
      $1635 = (_i64Add(($1631|0),($1634|0),($1627|0),($1628|0))|0); //@line 1187 "lpc.c"
-     $1636 = tempRet0; //@line 1187 "lpc.c"
+     $1636 = (getTempRet0() | 0); //@line 1187 "lpc.c"
      $1637 = $13; //@line 1187 "lpc.c"
      $1638 = $1637; //@line 1187 "lpc.c"
      HEAP32[$1638>>2] = $1635; //@line 1187 "lpc.c"
@@ -24609,7 +24546,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1650 = HEAP32[$1649>>2]|0; //@line 1188 "lpc.c"
      $1651 = $10; //@line 1188 "lpc.c"
      $1652 = (_bitshift64Ashr(($1647|0),($1650|0),($1651|0))|0); //@line 1188 "lpc.c"
-     $1653 = tempRet0; //@line 1188 "lpc.c"
+     $1653 = (getTempRet0() | 0); //@line 1188 "lpc.c"
      $1654 = (($1644) + ($1652))|0; //@line 1188 "lpc.c"
      $1655 = $11; //@line 1188 "lpc.c"
      $1656 = $12; //@line 1188 "lpc.c"
@@ -24651,7 +24588,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1678 = ($1677|0)<(0); //@line 1196 "lpc.c"
      $1679 = $1678 << 31 >> 31; //@line 1196 "lpc.c"
      $1680 = (___muldi3(($1670|0),($1672|0),($1677|0),($1679|0))|0); //@line 1196 "lpc.c"
-     $1681 = tempRet0; //@line 1196 "lpc.c"
+     $1681 = (getTempRet0() | 0); //@line 1196 "lpc.c"
      $1682 = $13; //@line 1196 "lpc.c"
      $1683 = $1682; //@line 1196 "lpc.c"
      $1684 = HEAP32[$1683>>2]|0; //@line 1196 "lpc.c"
@@ -24659,7 +24596,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1686 = $1685; //@line 1196 "lpc.c"
      $1687 = HEAP32[$1686>>2]|0; //@line 1196 "lpc.c"
      $1688 = (_i64Add(($1684|0),($1687|0),($1680|0),($1681|0))|0); //@line 1196 "lpc.c"
-     $1689 = tempRet0; //@line 1196 "lpc.c"
+     $1689 = (getTempRet0() | 0); //@line 1196 "lpc.c"
      $1690 = $13; //@line 1196 "lpc.c"
      $1691 = $1690; //@line 1196 "lpc.c"
      HEAP32[$1691>>2] = $1688; //@line 1196 "lpc.c"
@@ -24679,7 +24616,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1704 = ($1703|0)<(0); //@line 1197 "lpc.c"
      $1705 = $1704 << 31 >> 31; //@line 1197 "lpc.c"
      $1706 = (___muldi3(($1696|0),($1698|0),($1703|0),($1705|0))|0); //@line 1197 "lpc.c"
-     $1707 = tempRet0; //@line 1197 "lpc.c"
+     $1707 = (getTempRet0() | 0); //@line 1197 "lpc.c"
      $1708 = $13; //@line 1197 "lpc.c"
      $1709 = $1708; //@line 1197 "lpc.c"
      $1710 = HEAP32[$1709>>2]|0; //@line 1197 "lpc.c"
@@ -24687,7 +24624,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1712 = $1711; //@line 1197 "lpc.c"
      $1713 = HEAP32[$1712>>2]|0; //@line 1197 "lpc.c"
      $1714 = (_i64Add(($1710|0),($1713|0),($1706|0),($1707|0))|0); //@line 1197 "lpc.c"
-     $1715 = tempRet0; //@line 1197 "lpc.c"
+     $1715 = (getTempRet0() | 0); //@line 1197 "lpc.c"
      $1716 = $13; //@line 1197 "lpc.c"
      $1717 = $1716; //@line 1197 "lpc.c"
      HEAP32[$1717>>2] = $1714; //@line 1197 "lpc.c"
@@ -24707,7 +24644,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1730 = ($1729|0)<(0); //@line 1198 "lpc.c"
      $1731 = $1730 << 31 >> 31; //@line 1198 "lpc.c"
      $1732 = (___muldi3(($1722|0),($1724|0),($1729|0),($1731|0))|0); //@line 1198 "lpc.c"
-     $1733 = tempRet0; //@line 1198 "lpc.c"
+     $1733 = (getTempRet0() | 0); //@line 1198 "lpc.c"
      $1734 = $13; //@line 1198 "lpc.c"
      $1735 = $1734; //@line 1198 "lpc.c"
      $1736 = HEAP32[$1735>>2]|0; //@line 1198 "lpc.c"
@@ -24715,7 +24652,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1738 = $1737; //@line 1198 "lpc.c"
      $1739 = HEAP32[$1738>>2]|0; //@line 1198 "lpc.c"
      $1740 = (_i64Add(($1736|0),($1739|0),($1732|0),($1733|0))|0); //@line 1198 "lpc.c"
-     $1741 = tempRet0; //@line 1198 "lpc.c"
+     $1741 = (getTempRet0() | 0); //@line 1198 "lpc.c"
      $1742 = $13; //@line 1198 "lpc.c"
      $1743 = $1742; //@line 1198 "lpc.c"
      HEAP32[$1743>>2] = $1740; //@line 1198 "lpc.c"
@@ -24735,7 +24672,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1756 = ($1755|0)<(0); //@line 1199 "lpc.c"
      $1757 = $1756 << 31 >> 31; //@line 1199 "lpc.c"
      $1758 = (___muldi3(($1748|0),($1750|0),($1755|0),($1757|0))|0); //@line 1199 "lpc.c"
-     $1759 = tempRet0; //@line 1199 "lpc.c"
+     $1759 = (getTempRet0() | 0); //@line 1199 "lpc.c"
      $1760 = $13; //@line 1199 "lpc.c"
      $1761 = $1760; //@line 1199 "lpc.c"
      $1762 = HEAP32[$1761>>2]|0; //@line 1199 "lpc.c"
@@ -24743,7 +24680,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1764 = $1763; //@line 1199 "lpc.c"
      $1765 = HEAP32[$1764>>2]|0; //@line 1199 "lpc.c"
      $1766 = (_i64Add(($1762|0),($1765|0),($1758|0),($1759|0))|0); //@line 1199 "lpc.c"
-     $1767 = tempRet0; //@line 1199 "lpc.c"
+     $1767 = (getTempRet0() | 0); //@line 1199 "lpc.c"
      $1768 = $13; //@line 1199 "lpc.c"
      $1769 = $1768; //@line 1199 "lpc.c"
      HEAP32[$1769>>2] = $1766; //@line 1199 "lpc.c"
@@ -24763,7 +24700,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1782 = ($1781|0)<(0); //@line 1200 "lpc.c"
      $1783 = $1782 << 31 >> 31; //@line 1200 "lpc.c"
      $1784 = (___muldi3(($1774|0),($1776|0),($1781|0),($1783|0))|0); //@line 1200 "lpc.c"
-     $1785 = tempRet0; //@line 1200 "lpc.c"
+     $1785 = (getTempRet0() | 0); //@line 1200 "lpc.c"
      $1786 = $13; //@line 1200 "lpc.c"
      $1787 = $1786; //@line 1200 "lpc.c"
      $1788 = HEAP32[$1787>>2]|0; //@line 1200 "lpc.c"
@@ -24771,7 +24708,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1790 = $1789; //@line 1200 "lpc.c"
      $1791 = HEAP32[$1790>>2]|0; //@line 1200 "lpc.c"
      $1792 = (_i64Add(($1788|0),($1791|0),($1784|0),($1785|0))|0); //@line 1200 "lpc.c"
-     $1793 = tempRet0; //@line 1200 "lpc.c"
+     $1793 = (getTempRet0() | 0); //@line 1200 "lpc.c"
      $1794 = $13; //@line 1200 "lpc.c"
      $1795 = $1794; //@line 1200 "lpc.c"
      HEAP32[$1795>>2] = $1792; //@line 1200 "lpc.c"
@@ -24790,7 +24727,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1807 = ($1806|0)<(0); //@line 1201 "lpc.c"
      $1808 = $1807 << 31 >> 31; //@line 1201 "lpc.c"
      $1809 = (___muldi3(($1799|0),($1801|0),($1806|0),($1808|0))|0); //@line 1201 "lpc.c"
-     $1810 = tempRet0; //@line 1201 "lpc.c"
+     $1810 = (getTempRet0() | 0); //@line 1201 "lpc.c"
      $1811 = $13; //@line 1201 "lpc.c"
      $1812 = $1811; //@line 1201 "lpc.c"
      $1813 = HEAP32[$1812>>2]|0; //@line 1201 "lpc.c"
@@ -24798,7 +24735,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1815 = $1814; //@line 1201 "lpc.c"
      $1816 = HEAP32[$1815>>2]|0; //@line 1201 "lpc.c"
      $1817 = (_i64Add(($1813|0),($1816|0),($1809|0),($1810|0))|0); //@line 1201 "lpc.c"
-     $1818 = tempRet0; //@line 1201 "lpc.c"
+     $1818 = (getTempRet0() | 0); //@line 1201 "lpc.c"
      $1819 = $13; //@line 1201 "lpc.c"
      $1820 = $1819; //@line 1201 "lpc.c"
      HEAP32[$1820>>2] = $1817; //@line 1201 "lpc.c"
@@ -24817,7 +24754,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1832 = HEAP32[$1831>>2]|0; //@line 1202 "lpc.c"
      $1833 = $10; //@line 1202 "lpc.c"
      $1834 = (_bitshift64Ashr(($1829|0),($1832|0),($1833|0))|0); //@line 1202 "lpc.c"
-     $1835 = tempRet0; //@line 1202 "lpc.c"
+     $1835 = (getTempRet0() | 0); //@line 1202 "lpc.c"
      $1836 = (($1826) + ($1834))|0; //@line 1202 "lpc.c"
      $1837 = $11; //@line 1202 "lpc.c"
      $1838 = $12; //@line 1202 "lpc.c"
@@ -24855,7 +24792,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1859 = ($1858|0)<(0); //@line 1208 "lpc.c"
      $1860 = $1859 << 31 >> 31; //@line 1208 "lpc.c"
      $1861 = (___muldi3(($1851|0),($1853|0),($1858|0),($1860|0))|0); //@line 1208 "lpc.c"
-     $1862 = tempRet0; //@line 1208 "lpc.c"
+     $1862 = (getTempRet0() | 0); //@line 1208 "lpc.c"
      $1863 = $13; //@line 1208 "lpc.c"
      $1864 = $1863; //@line 1208 "lpc.c"
      $1865 = HEAP32[$1864>>2]|0; //@line 1208 "lpc.c"
@@ -24863,7 +24800,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1867 = $1866; //@line 1208 "lpc.c"
      $1868 = HEAP32[$1867>>2]|0; //@line 1208 "lpc.c"
      $1869 = (_i64Add(($1865|0),($1868|0),($1861|0),($1862|0))|0); //@line 1208 "lpc.c"
-     $1870 = tempRet0; //@line 1208 "lpc.c"
+     $1870 = (getTempRet0() | 0); //@line 1208 "lpc.c"
      $1871 = $13; //@line 1208 "lpc.c"
      $1872 = $1871; //@line 1208 "lpc.c"
      HEAP32[$1872>>2] = $1869; //@line 1208 "lpc.c"
@@ -24883,7 +24820,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1885 = ($1884|0)<(0); //@line 1209 "lpc.c"
      $1886 = $1885 << 31 >> 31; //@line 1209 "lpc.c"
      $1887 = (___muldi3(($1877|0),($1879|0),($1884|0),($1886|0))|0); //@line 1209 "lpc.c"
-     $1888 = tempRet0; //@line 1209 "lpc.c"
+     $1888 = (getTempRet0() | 0); //@line 1209 "lpc.c"
      $1889 = $13; //@line 1209 "lpc.c"
      $1890 = $1889; //@line 1209 "lpc.c"
      $1891 = HEAP32[$1890>>2]|0; //@line 1209 "lpc.c"
@@ -24891,7 +24828,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1893 = $1892; //@line 1209 "lpc.c"
      $1894 = HEAP32[$1893>>2]|0; //@line 1209 "lpc.c"
      $1895 = (_i64Add(($1891|0),($1894|0),($1887|0),($1888|0))|0); //@line 1209 "lpc.c"
-     $1896 = tempRet0; //@line 1209 "lpc.c"
+     $1896 = (getTempRet0() | 0); //@line 1209 "lpc.c"
      $1897 = $13; //@line 1209 "lpc.c"
      $1898 = $1897; //@line 1209 "lpc.c"
      HEAP32[$1898>>2] = $1895; //@line 1209 "lpc.c"
@@ -24911,7 +24848,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1911 = ($1910|0)<(0); //@line 1210 "lpc.c"
      $1912 = $1911 << 31 >> 31; //@line 1210 "lpc.c"
      $1913 = (___muldi3(($1903|0),($1905|0),($1910|0),($1912|0))|0); //@line 1210 "lpc.c"
-     $1914 = tempRet0; //@line 1210 "lpc.c"
+     $1914 = (getTempRet0() | 0); //@line 1210 "lpc.c"
      $1915 = $13; //@line 1210 "lpc.c"
      $1916 = $1915; //@line 1210 "lpc.c"
      $1917 = HEAP32[$1916>>2]|0; //@line 1210 "lpc.c"
@@ -24919,7 +24856,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1919 = $1918; //@line 1210 "lpc.c"
      $1920 = HEAP32[$1919>>2]|0; //@line 1210 "lpc.c"
      $1921 = (_i64Add(($1917|0),($1920|0),($1913|0),($1914|0))|0); //@line 1210 "lpc.c"
-     $1922 = tempRet0; //@line 1210 "lpc.c"
+     $1922 = (getTempRet0() | 0); //@line 1210 "lpc.c"
      $1923 = $13; //@line 1210 "lpc.c"
      $1924 = $1923; //@line 1210 "lpc.c"
      HEAP32[$1924>>2] = $1921; //@line 1210 "lpc.c"
@@ -24939,7 +24876,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1937 = ($1936|0)<(0); //@line 1211 "lpc.c"
      $1938 = $1937 << 31 >> 31; //@line 1211 "lpc.c"
      $1939 = (___muldi3(($1929|0),($1931|0),($1936|0),($1938|0))|0); //@line 1211 "lpc.c"
-     $1940 = tempRet0; //@line 1211 "lpc.c"
+     $1940 = (getTempRet0() | 0); //@line 1211 "lpc.c"
      $1941 = $13; //@line 1211 "lpc.c"
      $1942 = $1941; //@line 1211 "lpc.c"
      $1943 = HEAP32[$1942>>2]|0; //@line 1211 "lpc.c"
@@ -24947,7 +24884,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1945 = $1944; //@line 1211 "lpc.c"
      $1946 = HEAP32[$1945>>2]|0; //@line 1211 "lpc.c"
      $1947 = (_i64Add(($1943|0),($1946|0),($1939|0),($1940|0))|0); //@line 1211 "lpc.c"
-     $1948 = tempRet0; //@line 1211 "lpc.c"
+     $1948 = (getTempRet0() | 0); //@line 1211 "lpc.c"
      $1949 = $13; //@line 1211 "lpc.c"
      $1950 = $1949; //@line 1211 "lpc.c"
      HEAP32[$1950>>2] = $1947; //@line 1211 "lpc.c"
@@ -24966,7 +24903,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1962 = ($1961|0)<(0); //@line 1212 "lpc.c"
      $1963 = $1962 << 31 >> 31; //@line 1212 "lpc.c"
      $1964 = (___muldi3(($1954|0),($1956|0),($1961|0),($1963|0))|0); //@line 1212 "lpc.c"
-     $1965 = tempRet0; //@line 1212 "lpc.c"
+     $1965 = (getTempRet0() | 0); //@line 1212 "lpc.c"
      $1966 = $13; //@line 1212 "lpc.c"
      $1967 = $1966; //@line 1212 "lpc.c"
      $1968 = HEAP32[$1967>>2]|0; //@line 1212 "lpc.c"
@@ -24974,7 +24911,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1970 = $1969; //@line 1212 "lpc.c"
      $1971 = HEAP32[$1970>>2]|0; //@line 1212 "lpc.c"
      $1972 = (_i64Add(($1968|0),($1971|0),($1964|0),($1965|0))|0); //@line 1212 "lpc.c"
-     $1973 = tempRet0; //@line 1212 "lpc.c"
+     $1973 = (getTempRet0() | 0); //@line 1212 "lpc.c"
      $1974 = $13; //@line 1212 "lpc.c"
      $1975 = $1974; //@line 1212 "lpc.c"
      HEAP32[$1975>>2] = $1972; //@line 1212 "lpc.c"
@@ -24993,7 +24930,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $1987 = HEAP32[$1986>>2]|0; //@line 1213 "lpc.c"
      $1988 = $10; //@line 1213 "lpc.c"
      $1989 = (_bitshift64Ashr(($1984|0),($1987|0),($1988|0))|0); //@line 1213 "lpc.c"
-     $1990 = tempRet0; //@line 1213 "lpc.c"
+     $1990 = (getTempRet0() | 0); //@line 1213 "lpc.c"
      $1991 = (($1981) + ($1989))|0; //@line 1213 "lpc.c"
      $1992 = $11; //@line 1213 "lpc.c"
      $1993 = $12; //@line 1213 "lpc.c"
@@ -25039,7 +24976,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2017 = ($2016|0)<(0); //@line 1223 "lpc.c"
      $2018 = $2017 << 31 >> 31; //@line 1223 "lpc.c"
      $2019 = (___muldi3(($2009|0),($2011|0),($2016|0),($2018|0))|0); //@line 1223 "lpc.c"
-     $2020 = tempRet0; //@line 1223 "lpc.c"
+     $2020 = (getTempRet0() | 0); //@line 1223 "lpc.c"
      $2021 = $13; //@line 1223 "lpc.c"
      $2022 = $2021; //@line 1223 "lpc.c"
      $2023 = HEAP32[$2022>>2]|0; //@line 1223 "lpc.c"
@@ -25047,7 +24984,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2025 = $2024; //@line 1223 "lpc.c"
      $2026 = HEAP32[$2025>>2]|0; //@line 1223 "lpc.c"
      $2027 = (_i64Add(($2023|0),($2026|0),($2019|0),($2020|0))|0); //@line 1223 "lpc.c"
-     $2028 = tempRet0; //@line 1223 "lpc.c"
+     $2028 = (getTempRet0() | 0); //@line 1223 "lpc.c"
      $2029 = $13; //@line 1223 "lpc.c"
      $2030 = $2029; //@line 1223 "lpc.c"
      HEAP32[$2030>>2] = $2027; //@line 1223 "lpc.c"
@@ -25067,7 +25004,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2043 = ($2042|0)<(0); //@line 1224 "lpc.c"
      $2044 = $2043 << 31 >> 31; //@line 1224 "lpc.c"
      $2045 = (___muldi3(($2035|0),($2037|0),($2042|0),($2044|0))|0); //@line 1224 "lpc.c"
-     $2046 = tempRet0; //@line 1224 "lpc.c"
+     $2046 = (getTempRet0() | 0); //@line 1224 "lpc.c"
      $2047 = $13; //@line 1224 "lpc.c"
      $2048 = $2047; //@line 1224 "lpc.c"
      $2049 = HEAP32[$2048>>2]|0; //@line 1224 "lpc.c"
@@ -25075,7 +25012,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2051 = $2050; //@line 1224 "lpc.c"
      $2052 = HEAP32[$2051>>2]|0; //@line 1224 "lpc.c"
      $2053 = (_i64Add(($2049|0),($2052|0),($2045|0),($2046|0))|0); //@line 1224 "lpc.c"
-     $2054 = tempRet0; //@line 1224 "lpc.c"
+     $2054 = (getTempRet0() | 0); //@line 1224 "lpc.c"
      $2055 = $13; //@line 1224 "lpc.c"
      $2056 = $2055; //@line 1224 "lpc.c"
      HEAP32[$2056>>2] = $2053; //@line 1224 "lpc.c"
@@ -25095,7 +25032,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2069 = ($2068|0)<(0); //@line 1225 "lpc.c"
      $2070 = $2069 << 31 >> 31; //@line 1225 "lpc.c"
      $2071 = (___muldi3(($2061|0),($2063|0),($2068|0),($2070|0))|0); //@line 1225 "lpc.c"
-     $2072 = tempRet0; //@line 1225 "lpc.c"
+     $2072 = (getTempRet0() | 0); //@line 1225 "lpc.c"
      $2073 = $13; //@line 1225 "lpc.c"
      $2074 = $2073; //@line 1225 "lpc.c"
      $2075 = HEAP32[$2074>>2]|0; //@line 1225 "lpc.c"
@@ -25103,7 +25040,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2077 = $2076; //@line 1225 "lpc.c"
      $2078 = HEAP32[$2077>>2]|0; //@line 1225 "lpc.c"
      $2079 = (_i64Add(($2075|0),($2078|0),($2071|0),($2072|0))|0); //@line 1225 "lpc.c"
-     $2080 = tempRet0; //@line 1225 "lpc.c"
+     $2080 = (getTempRet0() | 0); //@line 1225 "lpc.c"
      $2081 = $13; //@line 1225 "lpc.c"
      $2082 = $2081; //@line 1225 "lpc.c"
      HEAP32[$2082>>2] = $2079; //@line 1225 "lpc.c"
@@ -25122,7 +25059,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2094 = ($2093|0)<(0); //@line 1226 "lpc.c"
      $2095 = $2094 << 31 >> 31; //@line 1226 "lpc.c"
      $2096 = (___muldi3(($2086|0),($2088|0),($2093|0),($2095|0))|0); //@line 1226 "lpc.c"
-     $2097 = tempRet0; //@line 1226 "lpc.c"
+     $2097 = (getTempRet0() | 0); //@line 1226 "lpc.c"
      $2098 = $13; //@line 1226 "lpc.c"
      $2099 = $2098; //@line 1226 "lpc.c"
      $2100 = HEAP32[$2099>>2]|0; //@line 1226 "lpc.c"
@@ -25130,7 +25067,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2102 = $2101; //@line 1226 "lpc.c"
      $2103 = HEAP32[$2102>>2]|0; //@line 1226 "lpc.c"
      $2104 = (_i64Add(($2100|0),($2103|0),($2096|0),($2097|0))|0); //@line 1226 "lpc.c"
-     $2105 = tempRet0; //@line 1226 "lpc.c"
+     $2105 = (getTempRet0() | 0); //@line 1226 "lpc.c"
      $2106 = $13; //@line 1226 "lpc.c"
      $2107 = $2106; //@line 1226 "lpc.c"
      HEAP32[$2107>>2] = $2104; //@line 1226 "lpc.c"
@@ -25149,7 +25086,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2119 = HEAP32[$2118>>2]|0; //@line 1227 "lpc.c"
      $2120 = $10; //@line 1227 "lpc.c"
      $2121 = (_bitshift64Ashr(($2116|0),($2119|0),($2120|0))|0); //@line 1227 "lpc.c"
-     $2122 = tempRet0; //@line 1227 "lpc.c"
+     $2122 = (getTempRet0() | 0); //@line 1227 "lpc.c"
      $2123 = (($2113) + ($2121))|0; //@line 1227 "lpc.c"
      $2124 = $11; //@line 1227 "lpc.c"
      $2125 = $12; //@line 1227 "lpc.c"
@@ -25187,7 +25124,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2146 = ($2145|0)<(0); //@line 1233 "lpc.c"
      $2147 = $2146 << 31 >> 31; //@line 1233 "lpc.c"
      $2148 = (___muldi3(($2138|0),($2140|0),($2145|0),($2147|0))|0); //@line 1233 "lpc.c"
-     $2149 = tempRet0; //@line 1233 "lpc.c"
+     $2149 = (getTempRet0() | 0); //@line 1233 "lpc.c"
      $2150 = $13; //@line 1233 "lpc.c"
      $2151 = $2150; //@line 1233 "lpc.c"
      $2152 = HEAP32[$2151>>2]|0; //@line 1233 "lpc.c"
@@ -25195,7 +25132,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2154 = $2153; //@line 1233 "lpc.c"
      $2155 = HEAP32[$2154>>2]|0; //@line 1233 "lpc.c"
      $2156 = (_i64Add(($2152|0),($2155|0),($2148|0),($2149|0))|0); //@line 1233 "lpc.c"
-     $2157 = tempRet0; //@line 1233 "lpc.c"
+     $2157 = (getTempRet0() | 0); //@line 1233 "lpc.c"
      $2158 = $13; //@line 1233 "lpc.c"
      $2159 = $2158; //@line 1233 "lpc.c"
      HEAP32[$2159>>2] = $2156; //@line 1233 "lpc.c"
@@ -25215,7 +25152,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2172 = ($2171|0)<(0); //@line 1234 "lpc.c"
      $2173 = $2172 << 31 >> 31; //@line 1234 "lpc.c"
      $2174 = (___muldi3(($2164|0),($2166|0),($2171|0),($2173|0))|0); //@line 1234 "lpc.c"
-     $2175 = tempRet0; //@line 1234 "lpc.c"
+     $2175 = (getTempRet0() | 0); //@line 1234 "lpc.c"
      $2176 = $13; //@line 1234 "lpc.c"
      $2177 = $2176; //@line 1234 "lpc.c"
      $2178 = HEAP32[$2177>>2]|0; //@line 1234 "lpc.c"
@@ -25223,7 +25160,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2180 = $2179; //@line 1234 "lpc.c"
      $2181 = HEAP32[$2180>>2]|0; //@line 1234 "lpc.c"
      $2182 = (_i64Add(($2178|0),($2181|0),($2174|0),($2175|0))|0); //@line 1234 "lpc.c"
-     $2183 = tempRet0; //@line 1234 "lpc.c"
+     $2183 = (getTempRet0() | 0); //@line 1234 "lpc.c"
      $2184 = $13; //@line 1234 "lpc.c"
      $2185 = $2184; //@line 1234 "lpc.c"
      HEAP32[$2185>>2] = $2182; //@line 1234 "lpc.c"
@@ -25242,7 +25179,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2197 = ($2196|0)<(0); //@line 1235 "lpc.c"
      $2198 = $2197 << 31 >> 31; //@line 1235 "lpc.c"
      $2199 = (___muldi3(($2189|0),($2191|0),($2196|0),($2198|0))|0); //@line 1235 "lpc.c"
-     $2200 = tempRet0; //@line 1235 "lpc.c"
+     $2200 = (getTempRet0() | 0); //@line 1235 "lpc.c"
      $2201 = $13; //@line 1235 "lpc.c"
      $2202 = $2201; //@line 1235 "lpc.c"
      $2203 = HEAP32[$2202>>2]|0; //@line 1235 "lpc.c"
@@ -25250,7 +25187,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2205 = $2204; //@line 1235 "lpc.c"
      $2206 = HEAP32[$2205>>2]|0; //@line 1235 "lpc.c"
      $2207 = (_i64Add(($2203|0),($2206|0),($2199|0),($2200|0))|0); //@line 1235 "lpc.c"
-     $2208 = tempRet0; //@line 1235 "lpc.c"
+     $2208 = (getTempRet0() | 0); //@line 1235 "lpc.c"
      $2209 = $13; //@line 1235 "lpc.c"
      $2210 = $2209; //@line 1235 "lpc.c"
      HEAP32[$2210>>2] = $2207; //@line 1235 "lpc.c"
@@ -25269,7 +25206,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2222 = HEAP32[$2221>>2]|0; //@line 1236 "lpc.c"
      $2223 = $10; //@line 1236 "lpc.c"
      $2224 = (_bitshift64Ashr(($2219|0),($2222|0),($2223|0))|0); //@line 1236 "lpc.c"
-     $2225 = tempRet0; //@line 1236 "lpc.c"
+     $2225 = (getTempRet0() | 0); //@line 1236 "lpc.c"
      $2226 = (($2216) + ($2224))|0; //@line 1236 "lpc.c"
      $2227 = $11; //@line 1236 "lpc.c"
      $2228 = $12; //@line 1236 "lpc.c"
@@ -25311,7 +25248,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2250 = ($2249|0)<(0); //@line 1244 "lpc.c"
      $2251 = $2250 << 31 >> 31; //@line 1244 "lpc.c"
      $2252 = (___muldi3(($2242|0),($2244|0),($2249|0),($2251|0))|0); //@line 1244 "lpc.c"
-     $2253 = tempRet0; //@line 1244 "lpc.c"
+     $2253 = (getTempRet0() | 0); //@line 1244 "lpc.c"
      $2254 = $13; //@line 1244 "lpc.c"
      $2255 = $2254; //@line 1244 "lpc.c"
      $2256 = HEAP32[$2255>>2]|0; //@line 1244 "lpc.c"
@@ -25319,7 +25256,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2258 = $2257; //@line 1244 "lpc.c"
      $2259 = HEAP32[$2258>>2]|0; //@line 1244 "lpc.c"
      $2260 = (_i64Add(($2256|0),($2259|0),($2252|0),($2253|0))|0); //@line 1244 "lpc.c"
-     $2261 = tempRet0; //@line 1244 "lpc.c"
+     $2261 = (getTempRet0() | 0); //@line 1244 "lpc.c"
      $2262 = $13; //@line 1244 "lpc.c"
      $2263 = $2262; //@line 1244 "lpc.c"
      HEAP32[$2263>>2] = $2260; //@line 1244 "lpc.c"
@@ -25338,7 +25275,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2275 = ($2274|0)<(0); //@line 1245 "lpc.c"
      $2276 = $2275 << 31 >> 31; //@line 1245 "lpc.c"
      $2277 = (___muldi3(($2267|0),($2269|0),($2274|0),($2276|0))|0); //@line 1245 "lpc.c"
-     $2278 = tempRet0; //@line 1245 "lpc.c"
+     $2278 = (getTempRet0() | 0); //@line 1245 "lpc.c"
      $2279 = $13; //@line 1245 "lpc.c"
      $2280 = $2279; //@line 1245 "lpc.c"
      $2281 = HEAP32[$2280>>2]|0; //@line 1245 "lpc.c"
@@ -25346,7 +25283,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2283 = $2282; //@line 1245 "lpc.c"
      $2284 = HEAP32[$2283>>2]|0; //@line 1245 "lpc.c"
      $2285 = (_i64Add(($2281|0),($2284|0),($2277|0),($2278|0))|0); //@line 1245 "lpc.c"
-     $2286 = tempRet0; //@line 1245 "lpc.c"
+     $2286 = (getTempRet0() | 0); //@line 1245 "lpc.c"
      $2287 = $13; //@line 1245 "lpc.c"
      $2288 = $2287; //@line 1245 "lpc.c"
      HEAP32[$2288>>2] = $2285; //@line 1245 "lpc.c"
@@ -25365,7 +25302,7 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2300 = HEAP32[$2299>>2]|0; //@line 1246 "lpc.c"
      $2301 = $10; //@line 1246 "lpc.c"
      $2302 = (_bitshift64Ashr(($2297|0),($2300|0),($2301|0))|0); //@line 1246 "lpc.c"
-     $2303 = tempRet0; //@line 1246 "lpc.c"
+     $2303 = (getTempRet0() | 0); //@line 1246 "lpc.c"
      $2304 = (($2294) + ($2302))|0; //@line 1246 "lpc.c"
      $2305 = $11; //@line 1246 "lpc.c"
      $2306 = $12; //@line 1246 "lpc.c"
@@ -25400,10 +25337,10 @@ function _FLAC__lpc_restore_signal_wide($0,$1,$2,$3,$4,$5) {
      $2326 = ($2325|0)<(0); //@line 1251 "lpc.c"
      $2327 = $2326 << 31 >> 31; //@line 1251 "lpc.c"
      $2328 = (___muldi3(($2318|0),($2320|0),($2325|0),($2327|0))|0); //@line 1251 "lpc.c"
-     $2329 = tempRet0; //@line 1251 "lpc.c"
+     $2329 = (getTempRet0() | 0); //@line 1251 "lpc.c"
      $2330 = $10; //@line 1251 "lpc.c"
      $2331 = (_bitshift64Ashr(($2328|0),($2329|0),($2330|0))|0); //@line 1251 "lpc.c"
-     $2332 = tempRet0; //@line 1251 "lpc.c"
+     $2332 = (getTempRet0() | 0); //@line 1251 "lpc.c"
      $2333 = (($2316) + ($2331))|0; //@line 1251 "lpc.c"
      $2334 = $11; //@line 1251 "lpc.c"
      $2335 = $12; //@line 1251 "lpc.c"
@@ -29059,7 +28996,7 @@ function _FLAC__stream_decoder_new() {
  }
  $39 = ((($35)) + 1128|0); //@line 274 "stream_decoder.c"
  HEAP32[$39>>2] = 16; //@line 274 "stream_decoder.c"
- $40 = HEAP32[265]|0; //@line 275 "stream_decoder.c"
+ $40 = HEAP32[275]|0; //@line 275 "stream_decoder.c"
  $41 = (($40>>>0) / 8)&-1; //@line 275 "stream_decoder.c"
  $42 = $1; //@line 275 "stream_decoder.c"
  $43 = ((($42)) + 4|0); //@line 275 "stream_decoder.c"
@@ -29452,7 +29389,7 @@ function _FLAC__stream_decoder_finish($0) {
   $105 = HEAP32[$104>>2]|0; //@line 676 "stream_decoder.c"
   $106 = ((($105)) + 52|0); //@line 676 "stream_decoder.c"
   $107 = HEAP32[$106>>2]|0; //@line 676 "stream_decoder.c"
-  $108 = HEAP32[380]|0; //@line 676 "stream_decoder.c"
+  $108 = HEAP32[390]|0; //@line 676 "stream_decoder.c"
   $109 = ($107|0)!=($108|0); //@line 676 "stream_decoder.c"
   if ($109) {
    $110 = $2; //@line 677 "stream_decoder.c"
@@ -29963,7 +29900,7 @@ function _FLAC__stream_decoder_reset($0) {
  } else {
   $15 = ((($14)) + 52|0); //@line 968 "stream_decoder.c"
   $16 = HEAP32[$15>>2]|0; //@line 968 "stream_decoder.c"
-  $17 = HEAP32[380]|0; //@line 968 "stream_decoder.c"
+  $17 = HEAP32[390]|0; //@line 968 "stream_decoder.c"
   $18 = ($16|0)==($17|0); //@line 968 "stream_decoder.c"
   if ($18) {
    $1 = 0; //@line 969 "stream_decoder.c"
@@ -30266,7 +30203,7 @@ function _FLAC__stream_decoder_get_total_samples($0) {
  $7 = ($6|0)!=(0); //@line 860 "stream_decoder.c"
  if (!($7)) {
   $20 = 0;$21 = 0;
-  tempRet0 = ($20); //@line 860 "stream_decoder.c"
+  setTempRet0(($20) | 0); //@line 860 "stream_decoder.c"
   STACKTOP = sp;return ($21|0); //@line 860 "stream_decoder.c"
  }
  $8 = $1; //@line 860 "stream_decoder.c"
@@ -30282,7 +30219,7 @@ function _FLAC__stream_decoder_get_total_samples($0) {
  $18 = $17; //@line 860 "stream_decoder.c"
  $19 = HEAP32[$18>>2]|0; //@line 860 "stream_decoder.c"
  $20 = $19;$21 = $16;
- tempRet0 = ($20); //@line 860 "stream_decoder.c"
+ setTempRet0(($20) | 0); //@line 860 "stream_decoder.c"
  STACKTOP = sp;return ($21|0); //@line 860 "stream_decoder.c"
 }
 function _FLAC__stream_decoder_get_decode_position($0,$1) {
@@ -30343,7 +30280,7 @@ function _FLAC__stream_decoder_get_decode_position($0,$1) {
   $39 = $38; //@line 915 "stream_decoder.c"
   $40 = HEAP32[$39>>2]|0; //@line 915 "stream_decoder.c"
   $41 = (_i64Subtract(($37|0),($40|0),($33|0),0)|0); //@line 915 "stream_decoder.c"
-  $42 = tempRet0; //@line 915 "stream_decoder.c"
+  $42 = (getTempRet0() | 0); //@line 915 "stream_decoder.c"
   $43 = $34; //@line 915 "stream_decoder.c"
   $44 = $43; //@line 915 "stream_decoder.c"
   HEAP32[$44>>2] = $41; //@line 915 "stream_decoder.c"
@@ -30527,7 +30464,7 @@ function _find_metadata_($0) {
   }
   $29 = HEAP32[$3>>2]|0; //@line 1345 "stream_decoder.c"
   $30 = $4; //@line 1345 "stream_decoder.c"
-  $31 = (2353 + ($30)|0); //@line 1345 "stream_decoder.c"
+  $31 = (2361 + ($30)|0); //@line 1345 "stream_decoder.c"
   $32 = HEAP8[$31>>0]|0; //@line 1345 "stream_decoder.c"
   $33 = $32&255; //@line 1345 "stream_decoder.c"
   $34 = ($29|0)==($33|0); //@line 1345 "stream_decoder.c"
@@ -30547,7 +30484,7 @@ function _find_metadata_($0) {
   }
   $39 = HEAP32[$3>>2]|0; //@line 1355 "stream_decoder.c"
   $40 = $5; //@line 1355 "stream_decoder.c"
-  $41 = (3178 + ($40)|0); //@line 1355 "stream_decoder.c"
+  $41 = (3186 + ($40)|0); //@line 1355 "stream_decoder.c"
   $42 = HEAP8[$41>>0]|0; //@line 1355 "stream_decoder.c"
   $43 = $42&255; //@line 1355 "stream_decoder.c"
   $44 = ($39|0)==($43|0); //@line 1355 "stream_decoder.c"
@@ -30709,7 +30646,7 @@ function _read_metadata_($0) {
  $14 = HEAP32[$13>>2]|0; //@line 1400 "stream_decoder.c"
  $15 = ((($14)) + 56|0); //@line 1400 "stream_decoder.c"
  $16 = HEAP32[$15>>2]|0; //@line 1400 "stream_decoder.c"
- $17 = HEAP32[277]|0; //@line 1400 "stream_decoder.c"
+ $17 = HEAP32[287]|0; //@line 1400 "stream_decoder.c"
  $18 = (_FLAC__bitreader_read_raw_uint32($16,$5,$17)|0); //@line 1400 "stream_decoder.c"
  $19 = ($18|0)!=(0); //@line 1400 "stream_decoder.c"
  if (!($19)) {
@@ -30726,7 +30663,7 @@ function _read_metadata_($0) {
  $25 = HEAP32[$24>>2]|0; //@line 1404 "stream_decoder.c"
  $26 = ((($25)) + 56|0); //@line 1404 "stream_decoder.c"
  $27 = HEAP32[$26>>2]|0; //@line 1404 "stream_decoder.c"
- $28 = HEAP32[266]|0; //@line 1404 "stream_decoder.c"
+ $28 = HEAP32[276]|0; //@line 1404 "stream_decoder.c"
  $29 = (_FLAC__bitreader_read_raw_uint32($27,$6,$28)|0); //@line 1404 "stream_decoder.c"
  $30 = ($29|0)!=(0); //@line 1404 "stream_decoder.c"
  if (!($30)) {
@@ -30739,7 +30676,7 @@ function _read_metadata_($0) {
  $33 = HEAP32[$32>>2]|0; //@line 1407 "stream_decoder.c"
  $34 = ((($33)) + 56|0); //@line 1407 "stream_decoder.c"
  $35 = HEAP32[$34>>2]|0; //@line 1407 "stream_decoder.c"
- $36 = HEAP32[267]|0; //@line 1407 "stream_decoder.c"
+ $36 = HEAP32[277]|0; //@line 1407 "stream_decoder.c"
  $37 = (_FLAC__bitreader_read_raw_uint32($35,$7,$36)|0); //@line 1407 "stream_decoder.c"
  $38 = ($37|0)!=(0); //@line 1407 "stream_decoder.c"
  if (!($38)) {
@@ -30772,7 +30709,7 @@ function _read_metadata_($0) {
    $53 = ((($52)) + 256|0); //@line 1415 "stream_decoder.c"
    $54 = ((($53)) + 16|0); //@line 1415 "stream_decoder.c"
    $55 = ((($54)) + 40|0); //@line 1415 "stream_decoder.c"
-   $56 = (_memcmp($55,4056,16)|0); //@line 1415 "stream_decoder.c"
+   $56 = (_memcmp($55,6148,16)|0); //@line 1415 "stream_decoder.c"
    $57 = (0)==($56|0); //@line 1415 "stream_decoder.c"
    if ($57) {
     $58 = $2; //@line 1416 "stream_decoder.c"
@@ -30919,7 +30856,7 @@ function _read_metadata_($0) {
     $162 = ((($161)) + 56|0); //@line 1442 "stream_decoder.c"
     $163 = HEAP32[$162>>2]|0; //@line 1442 "stream_decoder.c"
     $164 = ((($10)) + 16|0); //@line 1442 "stream_decoder.c"
-    $165 = HEAP32[265]|0; //@line 1442 "stream_decoder.c"
+    $165 = HEAP32[275]|0; //@line 1442 "stream_decoder.c"
     $166 = (($165>>>0) / 8)&-1; //@line 1442 "stream_decoder.c"
     $167 = (_FLAC__bitreader_read_byte_block_aligned_no_crc($163,$164,$166)|0); //@line 1442 "stream_decoder.c"
     $168 = ($167|0)!=(0); //@line 1442 "stream_decoder.c"
@@ -30929,7 +30866,7 @@ function _read_metadata_($0) {
      STACKTOP = sp;return ($417|0); //@line 1569 "stream_decoder.c"
     }
     $169 = $9; //@line 1445 "stream_decoder.c"
-    $170 = HEAP32[265]|0; //@line 1445 "stream_decoder.c"
+    $170 = HEAP32[275]|0; //@line 1445 "stream_decoder.c"
     $171 = (($170>>>0) / 8)&-1; //@line 1445 "stream_decoder.c"
     $172 = ($169>>>0)<($171>>>0); //@line 1445 "stream_decoder.c"
     if ($172) {
@@ -30940,7 +30877,7 @@ function _read_metadata_($0) {
      $417 = $1; //@line 1569 "stream_decoder.c"
      STACKTOP = sp;return ($417|0); //@line 1569 "stream_decoder.c"
     }
-    $175 = HEAP32[265]|0; //@line 1450 "stream_decoder.c"
+    $175 = HEAP32[275]|0; //@line 1450 "stream_decoder.c"
     $176 = (($175>>>0) / 8)&-1; //@line 1450 "stream_decoder.c"
     $177 = $9; //@line 1450 "stream_decoder.c"
     $178 = (($177) - ($176))|0; //@line 1450 "stream_decoder.c"
@@ -31371,7 +31308,7 @@ function _frame_sync_($0) {
  $4 = 1; //@line 1963 "stream_decoder.c"
  $5 = $2; //@line 1967 "stream_decoder.c"
  $6 = (_FLAC__stream_decoder_get_total_samples($5)|0); //@line 1967 "stream_decoder.c"
- $7 = tempRet0; //@line 1967 "stream_decoder.c"
+ $7 = (getTempRet0() | 0); //@line 1967 "stream_decoder.c"
  $8 = ($7>>>0)>(0); //@line 1967 "stream_decoder.c"
  $9 = ($6>>>0)>(0); //@line 1967 "stream_decoder.c"
  $10 = ($7|0)==(0); //@line 1967 "stream_decoder.c"
@@ -31390,7 +31327,7 @@ function _frame_sync_($0) {
   $22 = HEAP32[$21>>2]|0; //@line 1968 "stream_decoder.c"
   $23 = $2; //@line 1968 "stream_decoder.c"
   $24 = (_FLAC__stream_decoder_get_total_samples($23)|0); //@line 1968 "stream_decoder.c"
-  $25 = tempRet0; //@line 1968 "stream_decoder.c"
+  $25 = (getTempRet0() | 0); //@line 1968 "stream_decoder.c"
   $26 = ($22>>>0)>($25>>>0); //@line 1968 "stream_decoder.c"
   $27 = ($19>>>0)>=($24>>>0); //@line 1968 "stream_decoder.c"
   $28 = ($22|0)==($25|0); //@line 1968 "stream_decoder.c"
@@ -31593,7 +31530,7 @@ function _read_frame_($0,$1,$2) {
  $24 = HEAP8[$23>>0]|0; //@line 2027 "stream_decoder.c"
  $25 = $24&255; //@line 2027 "stream_decoder.c"
  $26 = $19 ^ $25; //@line 2027 "stream_decoder.c"
- $27 = (8 + ($26<<2)|0); //@line 2027 "stream_decoder.c"
+ $27 = (48 + ($26<<2)|0); //@line 2027 "stream_decoder.c"
  $28 = HEAP32[$27>>2]|0; //@line 2027 "stream_decoder.c"
  $29 = $17 ^ $28; //@line 2027 "stream_decoder.c"
  $11 = $29; //@line 2027 "stream_decoder.c"
@@ -31610,7 +31547,7 @@ function _read_frame_($0,$1,$2) {
  $40 = HEAP8[$39>>0]|0; //@line 2028 "stream_decoder.c"
  $41 = $40&255; //@line 2028 "stream_decoder.c"
  $42 = $34 ^ $41; //@line 2028 "stream_decoder.c"
- $43 = (8 + ($42<<2)|0); //@line 2028 "stream_decoder.c"
+ $43 = (48 + ($42<<2)|0); //@line 2028 "stream_decoder.c"
  $44 = HEAP32[$43>>2]|0; //@line 2028 "stream_decoder.c"
  $45 = $32 ^ $44; //@line 2028 "stream_decoder.c"
  $11 = $45; //@line 2028 "stream_decoder.c"
@@ -31781,7 +31718,7 @@ function _read_frame_($0,$1,$2) {
   $133 = HEAP32[$132>>2]|0; //@line 2081 "stream_decoder.c"
   $134 = ((($133)) + 56|0); //@line 2081 "stream_decoder.c"
   $135 = HEAP32[$134>>2]|0; //@line 2081 "stream_decoder.c"
-  $136 = HEAP32[279]|0; //@line 2081 "stream_decoder.c"
+  $136 = HEAP32[289]|0; //@line 2081 "stream_decoder.c"
   $137 = (_FLAC__bitreader_read_raw_uint32($135,$12,$136)|0); //@line 2081 "stream_decoder.c"
   $138 = ($137|0)!=(0); //@line 2081 "stream_decoder.c"
   if (!($138)) {
@@ -32090,7 +32027,7 @@ function _read_frame_($0,$1,$2) {
   $367 = ((($366)) + 1136|0); //@line 2148 "stream_decoder.c"
   $368 = HEAP32[$367>>2]|0; //@line 2148 "stream_decoder.c"
   $369 = (_i64Add(($360|0),($363|0),($368|0),0)|0); //@line 2148 "stream_decoder.c"
-  $370 = tempRet0; //@line 2148 "stream_decoder.c"
+  $370 = (getTempRet0() | 0); //@line 2148 "stream_decoder.c"
   $371 = $4; //@line 2148 "stream_decoder.c"
   $372 = ((($371)) + 4|0); //@line 2148 "stream_decoder.c"
   $373 = HEAP32[$372>>2]|0; //@line 2148 "stream_decoder.c"
@@ -33020,7 +32957,7 @@ function _read_frame_header_($0) {
      $511 = HEAP32[$510>>2]|0; //@line 2443 "stream_decoder.c"
      $512 = HEAP32[$3>>2]|0; //@line 2443 "stream_decoder.c"
      $513 = (___muldi3(($511|0),0,($512|0),0)|0); //@line 2443 "stream_decoder.c"
-     $514 = tempRet0; //@line 2443 "stream_decoder.c"
+     $514 = (getTempRet0() | 0); //@line 2443 "stream_decoder.c"
      $515 = $2; //@line 2443 "stream_decoder.c"
      $516 = ((($515)) + 4|0); //@line 2443 "stream_decoder.c"
      $517 = HEAP32[$516>>2]|0; //@line 2443 "stream_decoder.c"
@@ -33061,7 +32998,7 @@ function _read_frame_header_($0) {
       $546 = HEAP32[$545>>2]|0; //@line 2446 "stream_decoder.c"
       $547 = HEAP32[$3>>2]|0; //@line 2446 "stream_decoder.c"
       $548 = (___muldi3(($546|0),0,($547|0),0)|0); //@line 2446 "stream_decoder.c"
-      $549 = tempRet0; //@line 2446 "stream_decoder.c"
+      $549 = (getTempRet0() | 0); //@line 2446 "stream_decoder.c"
       $550 = $2; //@line 2446 "stream_decoder.c"
       $551 = ((($550)) + 4|0); //@line 2446 "stream_decoder.c"
       $552 = HEAP32[$551>>2]|0; //@line 2446 "stream_decoder.c"
@@ -33120,7 +33057,7 @@ function _read_frame_header_($0) {
       $590 = HEAP32[$575>>2]|0; //@line 2458 "stream_decoder.c"
       $591 = HEAP32[$3>>2]|0; //@line 2458 "stream_decoder.c"
       $592 = (___muldi3(($590|0),0,($591|0),0)|0); //@line 2458 "stream_decoder.c"
-      $593 = tempRet0; //@line 2458 "stream_decoder.c"
+      $593 = (getTempRet0() | 0); //@line 2458 "stream_decoder.c"
       $594 = $2; //@line 2458 "stream_decoder.c"
       $595 = ((($594)) + 4|0); //@line 2458 "stream_decoder.c"
       $596 = HEAP32[$595>>2]|0; //@line 2458 "stream_decoder.c"
@@ -33853,7 +33790,7 @@ function _write_audio_frame_to_client_($0,$1,$2) {
  $37 = $5; //@line 2937 "stream_decoder.c"
  $38 = HEAP32[$37>>2]|0; //@line 2937 "stream_decoder.c"
  $39 = (_i64Add(($33|0),($36|0),($38|0),0)|0); //@line 2937 "stream_decoder.c"
- $40 = tempRet0; //@line 2937 "stream_decoder.c"
+ $40 = (getTempRet0() | 0); //@line 2937 "stream_decoder.c"
  $41 = $8; //@line 2937 "stream_decoder.c"
  $42 = $41; //@line 2937 "stream_decoder.c"
  HEAP32[$42>>2] = $39; //@line 2937 "stream_decoder.c"
@@ -33931,7 +33868,7 @@ function _write_audio_frame_to_client_($0,$1,$2) {
    $108 = $107; //@line 2947 "stream_decoder.c"
    $109 = HEAP32[$108>>2]|0; //@line 2947 "stream_decoder.c"
    $110 = (_i64Subtract(($100|0),($103|0),($106|0),($109|0))|0); //@line 2947 "stream_decoder.c"
-   $111 = tempRet0; //@line 2947 "stream_decoder.c"
+   $111 = (getTempRet0() | 0); //@line 2947 "stream_decoder.c"
    $10 = $110; //@line 2947 "stream_decoder.c"
    $112 = $4; //@line 2949 "stream_decoder.c"
    $113 = ((($112)) + 4|0); //@line 2949 "stream_decoder.c"
@@ -34003,7 +33940,7 @@ function _write_audio_frame_to_client_($0,$1,$2) {
    $150 = $149; //@line 2957 "stream_decoder.c"
    $151 = HEAP32[$150>>2]|0; //@line 2957 "stream_decoder.c"
    $152 = (_i64Add(($148|0),($151|0),($140|0),0)|0); //@line 2957 "stream_decoder.c"
-   $153 = tempRet0; //@line 2957 "stream_decoder.c"
+   $153 = (getTempRet0() | 0); //@line 2957 "stream_decoder.c"
    $154 = $145; //@line 2957 "stream_decoder.c"
    $155 = $154; //@line 2957 "stream_decoder.c"
    HEAP32[$155>>2] = $152; //@line 2957 "stream_decoder.c"
@@ -34318,7 +34255,7 @@ function _read_subframe_fixed_($0,$1,$2,$3,$4) {
   $164 = $5; //@line 2628 "stream_decoder.c"
   STACKTOP = sp;return ($164|0); //@line 2628 "stream_decoder.c"
  }
- $60 = HEAP32[278]|0; //@line 2588 "stream_decoder.c"
+ $60 = HEAP32[288]|0; //@line 2588 "stream_decoder.c"
  $61 = (_FLAC__bitreader_read_raw_uint32($49,$13,$60)|0); //@line 2588 "stream_decoder.c"
  $62 = ($61|0)!=(0); //@line 2588 "stream_decoder.c"
  if (!($62)) {
@@ -34346,7 +34283,7 @@ function _read_subframe_fixed_($0,$1,$2,$3,$4) {
  $69 = HEAP32[$68>>2]|0; //@line 2594 "stream_decoder.c"
  $70 = ((($69)) + 56|0); //@line 2594 "stream_decoder.c"
  $71 = HEAP32[$70>>2]|0; //@line 2594 "stream_decoder.c"
- $72 = HEAP32[274]|0; //@line 2594 "stream_decoder.c"
+ $72 = HEAP32[284]|0; //@line 2594 "stream_decoder.c"
  $73 = (_FLAC__bitreader_read_raw_uint32($71,$13,$72)|0); //@line 2594 "stream_decoder.c"
  $74 = ($73|0)!=(0); //@line 2594 "stream_decoder.c"
  if (!($74)) {
@@ -34563,7 +34500,7 @@ function _read_subframe_lpc_($0,$1,$2,$3,$4) {
   $308 = $5; //@line 2723 "stream_decoder.c"
   STACKTOP = sp;return ($308|0); //@line 2723 "stream_decoder.c"
  }
- $60 = HEAP32[274]|0; //@line 2650 "stream_decoder.c"
+ $60 = HEAP32[284]|0; //@line 2650 "stream_decoder.c"
  $61 = (_FLAC__bitreader_read_raw_uint32($49,$13,$60)|0); //@line 2650 "stream_decoder.c"
  $62 = ($61|0)!=(0); //@line 2650 "stream_decoder.c"
  if (!($62)) {
@@ -34572,7 +34509,7 @@ function _read_subframe_lpc_($0,$1,$2,$3,$4) {
   STACKTOP = sp;return ($308|0); //@line 2723 "stream_decoder.c"
  }
  $63 = HEAP32[$13>>2]|0; //@line 2652 "stream_decoder.c"
- $64 = HEAP32[274]|0; //@line 2652 "stream_decoder.c"
+ $64 = HEAP32[284]|0; //@line 2652 "stream_decoder.c"
  $65 = 1 << $64; //@line 2652 "stream_decoder.c"
  $66 = (($65) - 1)|0; //@line 2652 "stream_decoder.c"
  $67 = ($63|0)==($66|0); //@line 2652 "stream_decoder.c"
@@ -34596,7 +34533,7 @@ function _read_subframe_lpc_($0,$1,$2,$3,$4) {
  $77 = HEAP32[$76>>2]|0; //@line 2660 "stream_decoder.c"
  $78 = ((($77)) + 56|0); //@line 2660 "stream_decoder.c"
  $79 = HEAP32[$78>>2]|0; //@line 2660 "stream_decoder.c"
- $80 = HEAP32[275]|0; //@line 2660 "stream_decoder.c"
+ $80 = HEAP32[285]|0; //@line 2660 "stream_decoder.c"
  $81 = (_FLAC__bitreader_read_raw_int32($79,$12,$80)|0); //@line 2660 "stream_decoder.c"
  $82 = ($81|0)!=(0); //@line 2660 "stream_decoder.c"
  if (!($82)) {
@@ -34657,7 +34594,7 @@ function _read_subframe_lpc_($0,$1,$2,$3,$4) {
   $308 = $5; //@line 2723 "stream_decoder.c"
   STACKTOP = sp;return ($308|0); //@line 2723 "stream_decoder.c"
  }
- $111 = HEAP32[278]|0; //@line 2677 "stream_decoder.c"
+ $111 = HEAP32[288]|0; //@line 2677 "stream_decoder.c"
  $112 = (_FLAC__bitreader_read_raw_uint32($98,$13,$111)|0); //@line 2677 "stream_decoder.c"
  $113 = ($112|0)!=(0); //@line 2677 "stream_decoder.c"
  if (!($113)) {
@@ -34685,7 +34622,7 @@ function _read_subframe_lpc_($0,$1,$2,$3,$4) {
  $120 = HEAP32[$119>>2]|0; //@line 2683 "stream_decoder.c"
  $121 = ((($120)) + 56|0); //@line 2683 "stream_decoder.c"
  $122 = HEAP32[$121>>2]|0; //@line 2683 "stream_decoder.c"
- $123 = HEAP32[274]|0; //@line 2683 "stream_decoder.c"
+ $123 = HEAP32[284]|0; //@line 2683 "stream_decoder.c"
  $124 = (_FLAC__bitreader_read_raw_uint32($122,$13,$123)|0); //@line 2683 "stream_decoder.c"
  $125 = ($124|0)!=(0); //@line 2683 "stream_decoder.c"
  if (!($125)) {
@@ -34953,14 +34890,14 @@ function _read_residual_partitioned_rice_($0,$1,$2,$3,$4,$5) {
  $19 = $35; //@line 2754 "stream_decoder.c"
  $36 = $12; //@line 2755 "stream_decoder.c"
  $37 = ($36|0)!=(0); //@line 2755 "stream_decoder.c"
- $38 = HEAP32[275]|0; //@line 2755 "stream_decoder.c"
- $39 = HEAP32[274]|0; //@line 2755 "stream_decoder.c"
+ $38 = HEAP32[285]|0; //@line 2755 "stream_decoder.c"
+ $39 = HEAP32[284]|0; //@line 2755 "stream_decoder.c"
  $40 = $37 ? $38 : $39; //@line 2755 "stream_decoder.c"
  $20 = $40; //@line 2755 "stream_decoder.c"
  $41 = $12; //@line 2756 "stream_decoder.c"
  $42 = ($41|0)!=(0); //@line 2756 "stream_decoder.c"
- $43 = HEAP32[273]|0; //@line 2756 "stream_decoder.c"
- $44 = HEAP32[272]|0; //@line 2756 "stream_decoder.c"
+ $43 = HEAP32[283]|0; //@line 2756 "stream_decoder.c"
+ $44 = HEAP32[282]|0; //@line 2756 "stream_decoder.c"
  $45 = $42 ? $43 : $44; //@line 2756 "stream_decoder.c"
  $21 = $45; //@line 2756 "stream_decoder.c"
  $46 = $10; //@line 2761 "stream_decoder.c"
@@ -35053,7 +34990,7 @@ function _read_residual_partitioned_rice_($0,$1,$2,$3,$4,$5) {
     $104 = HEAP32[$103>>2]|0; //@line 2779 "stream_decoder.c"
     $105 = ((($104)) + 56|0); //@line 2779 "stream_decoder.c"
     $106 = HEAP32[$105>>2]|0; //@line 2779 "stream_decoder.c"
-    $107 = HEAP32[275]|0; //@line 2779 "stream_decoder.c"
+    $107 = HEAP32[285]|0; //@line 2779 "stream_decoder.c"
     $108 = (_FLAC__bitreader_read_raw_uint32($106,$13,$107)|0); //@line 2779 "stream_decoder.c"
     $109 = ($108|0)!=(0); //@line 2779 "stream_decoder.c"
     if (!($109)) {
@@ -35262,7 +35199,7 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $24 = ((($23)) + 256|0); //@line 1580 "stream_decoder.c"
  $25 = ((($24)) + 8|0); //@line 1580 "stream_decoder.c"
  HEAP32[$25>>2] = $20; //@line 1580 "stream_decoder.c"
- $26 = HEAP32[279]|0; //@line 1582 "stream_decoder.c"
+ $26 = HEAP32[289]|0; //@line 1582 "stream_decoder.c"
  $8 = $26; //@line 1582 "stream_decoder.c"
  $27 = $4; //@line 1583 "stream_decoder.c"
  $28 = ((($27)) + 4|0); //@line 1583 "stream_decoder.c"
@@ -35288,14 +35225,14 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $42 = $9; //@line 1586 "stream_decoder.c"
  $43 = (($42) + ($41))|0; //@line 1586 "stream_decoder.c"
  $9 = $43; //@line 1586 "stream_decoder.c"
- $44 = HEAP32[279]|0; //@line 1588 "stream_decoder.c"
+ $44 = HEAP32[289]|0; //@line 1588 "stream_decoder.c"
  $8 = $44; //@line 1588 "stream_decoder.c"
  $45 = $4; //@line 1589 "stream_decoder.c"
  $46 = ((($45)) + 4|0); //@line 1589 "stream_decoder.c"
  $47 = HEAP32[$46>>2]|0; //@line 1589 "stream_decoder.c"
  $48 = ((($47)) + 56|0); //@line 1589 "stream_decoder.c"
  $49 = HEAP32[$48>>2]|0; //@line 1589 "stream_decoder.c"
- $50 = HEAP32[279]|0; //@line 1589 "stream_decoder.c"
+ $50 = HEAP32[289]|0; //@line 1589 "stream_decoder.c"
  $51 = (_FLAC__bitreader_read_raw_uint32($49,$7,$50)|0); //@line 1589 "stream_decoder.c"
  $52 = ($51|0)!=(0); //@line 1589 "stream_decoder.c"
  if (!($52)) {
@@ -35315,14 +35252,14 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $61 = $9; //@line 1592 "stream_decoder.c"
  $62 = (($61) + ($60))|0; //@line 1592 "stream_decoder.c"
  $9 = $62; //@line 1592 "stream_decoder.c"
- $63 = HEAP32[267]|0; //@line 1594 "stream_decoder.c"
+ $63 = HEAP32[277]|0; //@line 1594 "stream_decoder.c"
  $8 = $63; //@line 1594 "stream_decoder.c"
  $64 = $4; //@line 1595 "stream_decoder.c"
  $65 = ((($64)) + 4|0); //@line 1595 "stream_decoder.c"
  $66 = HEAP32[$65>>2]|0; //@line 1595 "stream_decoder.c"
  $67 = ((($66)) + 56|0); //@line 1595 "stream_decoder.c"
  $68 = HEAP32[$67>>2]|0; //@line 1595 "stream_decoder.c"
- $69 = HEAP32[267]|0; //@line 1595 "stream_decoder.c"
+ $69 = HEAP32[277]|0; //@line 1595 "stream_decoder.c"
  $70 = (_FLAC__bitreader_read_raw_uint32($68,$7,$69)|0); //@line 1595 "stream_decoder.c"
  $71 = ($70|0)!=(0); //@line 1595 "stream_decoder.c"
  if (!($71)) {
@@ -35342,14 +35279,14 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $80 = $9; //@line 1598 "stream_decoder.c"
  $81 = (($80) + ($79))|0; //@line 1598 "stream_decoder.c"
  $9 = $81; //@line 1598 "stream_decoder.c"
- $82 = HEAP32[267]|0; //@line 1600 "stream_decoder.c"
+ $82 = HEAP32[277]|0; //@line 1600 "stream_decoder.c"
  $8 = $82; //@line 1600 "stream_decoder.c"
  $83 = $4; //@line 1601 "stream_decoder.c"
  $84 = ((($83)) + 4|0); //@line 1601 "stream_decoder.c"
  $85 = HEAP32[$84>>2]|0; //@line 1601 "stream_decoder.c"
  $86 = ((($85)) + 56|0); //@line 1601 "stream_decoder.c"
  $87 = HEAP32[$86>>2]|0; //@line 1601 "stream_decoder.c"
- $88 = HEAP32[267]|0; //@line 1601 "stream_decoder.c"
+ $88 = HEAP32[277]|0; //@line 1601 "stream_decoder.c"
  $89 = (_FLAC__bitreader_read_raw_uint32($87,$7,$88)|0); //@line 1601 "stream_decoder.c"
  $90 = ($89|0)!=(0); //@line 1601 "stream_decoder.c"
  if (!($90)) {
@@ -35369,14 +35306,14 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $99 = $9; //@line 1604 "stream_decoder.c"
  $100 = (($99) + ($98))|0; //@line 1604 "stream_decoder.c"
  $9 = $100; //@line 1604 "stream_decoder.c"
- $101 = HEAP32[259]|0; //@line 1606 "stream_decoder.c"
+ $101 = HEAP32[269]|0; //@line 1606 "stream_decoder.c"
  $8 = $101; //@line 1606 "stream_decoder.c"
  $102 = $4; //@line 1607 "stream_decoder.c"
  $103 = ((($102)) + 4|0); //@line 1607 "stream_decoder.c"
  $104 = HEAP32[$103>>2]|0; //@line 1607 "stream_decoder.c"
  $105 = ((($104)) + 56|0); //@line 1607 "stream_decoder.c"
  $106 = HEAP32[$105>>2]|0; //@line 1607 "stream_decoder.c"
- $107 = HEAP32[259]|0; //@line 1607 "stream_decoder.c"
+ $107 = HEAP32[269]|0; //@line 1607 "stream_decoder.c"
  $108 = (_FLAC__bitreader_read_raw_uint32($106,$7,$107)|0); //@line 1607 "stream_decoder.c"
  $109 = ($108|0)!=(0); //@line 1607 "stream_decoder.c"
  if (!($109)) {
@@ -35396,14 +35333,14 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $118 = $9; //@line 1610 "stream_decoder.c"
  $119 = (($118) + ($117))|0; //@line 1610 "stream_decoder.c"
  $9 = $119; //@line 1610 "stream_decoder.c"
- $120 = HEAP32[270]|0; //@line 1612 "stream_decoder.c"
+ $120 = HEAP32[280]|0; //@line 1612 "stream_decoder.c"
  $8 = $120; //@line 1612 "stream_decoder.c"
  $121 = $4; //@line 1613 "stream_decoder.c"
  $122 = ((($121)) + 4|0); //@line 1613 "stream_decoder.c"
  $123 = HEAP32[$122>>2]|0; //@line 1613 "stream_decoder.c"
  $124 = ((($123)) + 56|0); //@line 1613 "stream_decoder.c"
  $125 = HEAP32[$124>>2]|0; //@line 1613 "stream_decoder.c"
- $126 = HEAP32[270]|0; //@line 1613 "stream_decoder.c"
+ $126 = HEAP32[280]|0; //@line 1613 "stream_decoder.c"
  $127 = (_FLAC__bitreader_read_raw_uint32($125,$7,$126)|0); //@line 1613 "stream_decoder.c"
  $128 = ($127|0)!=(0); //@line 1613 "stream_decoder.c"
  if (!($128)) {
@@ -35424,14 +35361,14 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $138 = $9; //@line 1616 "stream_decoder.c"
  $139 = (($138) + ($137))|0; //@line 1616 "stream_decoder.c"
  $9 = $139; //@line 1616 "stream_decoder.c"
- $140 = HEAP32[275]|0; //@line 1618 "stream_decoder.c"
+ $140 = HEAP32[285]|0; //@line 1618 "stream_decoder.c"
  $8 = $140; //@line 1618 "stream_decoder.c"
  $141 = $4; //@line 1619 "stream_decoder.c"
  $142 = ((($141)) + 4|0); //@line 1619 "stream_decoder.c"
  $143 = HEAP32[$142>>2]|0; //@line 1619 "stream_decoder.c"
  $144 = ((($143)) + 56|0); //@line 1619 "stream_decoder.c"
  $145 = HEAP32[$144>>2]|0; //@line 1619 "stream_decoder.c"
- $146 = HEAP32[275]|0; //@line 1619 "stream_decoder.c"
+ $146 = HEAP32[285]|0; //@line 1619 "stream_decoder.c"
  $147 = (_FLAC__bitreader_read_raw_uint32($145,$7,$146)|0); //@line 1619 "stream_decoder.c"
  $148 = ($147|0)!=(0); //@line 1619 "stream_decoder.c"
  if (!($148)) {
@@ -35452,7 +35389,7 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $158 = $9; //@line 1622 "stream_decoder.c"
  $159 = (($158) + ($157))|0; //@line 1622 "stream_decoder.c"
  $9 = $159; //@line 1622 "stream_decoder.c"
- $160 = HEAP32[260]|0; //@line 1624 "stream_decoder.c"
+ $160 = HEAP32[270]|0; //@line 1624 "stream_decoder.c"
  $8 = $160; //@line 1624 "stream_decoder.c"
  $161 = $4; //@line 1625 "stream_decoder.c"
  $162 = ((($161)) + 4|0); //@line 1625 "stream_decoder.c"
@@ -35465,7 +35402,7 @@ function _read_metadata_streaminfo_($0,$1,$2) {
  $169 = ((($168)) + 256|0); //@line 1625 "stream_decoder.c"
  $170 = ((($169)) + 16|0); //@line 1625 "stream_decoder.c"
  $171 = ((($170)) + 32|0); //@line 1625 "stream_decoder.c"
- $172 = HEAP32[260]|0; //@line 1625 "stream_decoder.c"
+ $172 = HEAP32[270]|0; //@line 1625 "stream_decoder.c"
  $173 = (_FLAC__bitreader_read_raw_uint64($165,$171,$172)|0); //@line 1625 "stream_decoder.c"
  $174 = ($173|0)!=(0); //@line 1625 "stream_decoder.c"
  if (!($174)) {
@@ -35617,7 +35554,7 @@ function _read_metadata_seektable_($0,$1,$2) {
   }
   $67 = ((($66)) + 56|0); //@line 1661 "stream_decoder.c"
   $68 = HEAP32[$67>>2]|0; //@line 1661 "stream_decoder.c"
-  $69 = HEAP32[280]|0; //@line 1661 "stream_decoder.c"
+  $69 = HEAP32[290]|0; //@line 1661 "stream_decoder.c"
   $70 = (_FLAC__bitreader_read_raw_uint64($68,$9,$69)|0); //@line 1661 "stream_decoder.c"
   $71 = ($70|0)!=(0); //@line 1661 "stream_decoder.c"
   if (!($71)) {
@@ -35650,7 +35587,7 @@ function _read_metadata_seektable_($0,$1,$2) {
   $93 = HEAP32[$92>>2]|0; //@line 1665 "stream_decoder.c"
   $94 = ((($93)) + 56|0); //@line 1665 "stream_decoder.c"
   $95 = HEAP32[$94>>2]|0; //@line 1665 "stream_decoder.c"
-  $96 = HEAP32[280]|0; //@line 1665 "stream_decoder.c"
+  $96 = HEAP32[290]|0; //@line 1665 "stream_decoder.c"
   $97 = (_FLAC__bitreader_read_raw_uint64($95,$9,$96)|0); //@line 1665 "stream_decoder.c"
   $98 = ($97|0)!=(0); //@line 1665 "stream_decoder.c"
   if (!($98)) {
@@ -35684,7 +35621,7 @@ function _read_metadata_seektable_($0,$1,$2) {
   $121 = HEAP32[$120>>2]|0; //@line 1669 "stream_decoder.c"
   $122 = ((($121)) + 56|0); //@line 1669 "stream_decoder.c"
   $123 = HEAP32[$122>>2]|0; //@line 1669 "stream_decoder.c"
-  $124 = HEAP32[279]|0; //@line 1669 "stream_decoder.c"
+  $124 = HEAP32[289]|0; //@line 1669 "stream_decoder.c"
   $125 = (_FLAC__bitreader_read_raw_uint32($123,$8,$124)|0); //@line 1669 "stream_decoder.c"
   $126 = ($125|0)!=(0); //@line 1669 "stream_decoder.c"
   if (!($126)) {
@@ -35781,12 +35718,12 @@ function _has_id_filtered_($0,$1) {
   $16 = ((($15)) + 1120|0); //@line 1322 "stream_decoder.c"
   $17 = HEAP32[$16>>2]|0; //@line 1322 "stream_decoder.c"
   $18 = $5; //@line 1322 "stream_decoder.c"
-  $19 = HEAP32[265]|0; //@line 1322 "stream_decoder.c"
+  $19 = HEAP32[275]|0; //@line 1322 "stream_decoder.c"
   $20 = (($19>>>0) / 8)&-1; //@line 1322 "stream_decoder.c"
   $21 = Math_imul($18, $20)|0; //@line 1322 "stream_decoder.c"
   $22 = (($17) + ($21)|0); //@line 1322 "stream_decoder.c"
   $23 = $4; //@line 1322 "stream_decoder.c"
-  $24 = HEAP32[265]|0; //@line 1322 "stream_decoder.c"
+  $24 = HEAP32[275]|0; //@line 1322 "stream_decoder.c"
   $25 = (($24>>>0) / 8)&-1; //@line 1322 "stream_decoder.c"
   $26 = (_memcmp($22,$23,$25)|0); //@line 1322 "stream_decoder.c"
   $27 = (0)==($26|0); //@line 1322 "stream_decoder.c"
@@ -36235,7 +36172,7 @@ function _read_metadata_cuesheet_($0,$1) {
  $14 = ((($13)) + 56|0); //@line 1796 "stream_decoder.c"
  $15 = HEAP32[$14>>2]|0; //@line 1796 "stream_decoder.c"
  $16 = $4; //@line 1796 "stream_decoder.c"
- $17 = HEAP32[263]|0; //@line 1796 "stream_decoder.c"
+ $17 = HEAP32[273]|0; //@line 1796 "stream_decoder.c"
  $18 = (($17>>>0) / 8)&-1; //@line 1796 "stream_decoder.c"
  $19 = (_FLAC__bitreader_read_byte_block_aligned_no_crc($15,$16,$18)|0); //@line 1796 "stream_decoder.c"
  $20 = ($19|0)!=(0); //@line 1796 "stream_decoder.c"
@@ -36251,7 +36188,7 @@ function _read_metadata_cuesheet_($0,$1) {
  $25 = HEAP32[$24>>2]|0; //@line 1799 "stream_decoder.c"
  $26 = $4; //@line 1799 "stream_decoder.c"
  $27 = ((($26)) + 136|0); //@line 1799 "stream_decoder.c"
- $28 = HEAP32[280]|0; //@line 1799 "stream_decoder.c"
+ $28 = HEAP32[290]|0; //@line 1799 "stream_decoder.c"
  $29 = (_FLAC__bitreader_read_raw_uint64($25,$27,$28)|0); //@line 1799 "stream_decoder.c"
  $30 = ($29|0)!=(0); //@line 1799 "stream_decoder.c"
  if (!($30)) {
@@ -36264,7 +36201,7 @@ function _read_metadata_cuesheet_($0,$1) {
  $33 = HEAP32[$32>>2]|0; //@line 1802 "stream_decoder.c"
  $34 = ((($33)) + 56|0); //@line 1802 "stream_decoder.c"
  $35 = HEAP32[$34>>2]|0; //@line 1802 "stream_decoder.c"
- $36 = HEAP32[277]|0; //@line 1802 "stream_decoder.c"
+ $36 = HEAP32[287]|0; //@line 1802 "stream_decoder.c"
  $37 = (_FLAC__bitreader_read_raw_uint32($35,$7,$36)|0); //@line 1802 "stream_decoder.c"
  $38 = ($37|0)!=(0); //@line 1802 "stream_decoder.c"
  if (!($38)) {
@@ -36283,7 +36220,7 @@ function _read_metadata_cuesheet_($0,$1) {
  $46 = HEAP32[$45>>2]|0; //@line 1806 "stream_decoder.c"
  $47 = ((($46)) + 56|0); //@line 1806 "stream_decoder.c"
  $48 = HEAP32[$47>>2]|0; //@line 1806 "stream_decoder.c"
- $49 = HEAP32[264]|0; //@line 1806 "stream_decoder.c"
+ $49 = HEAP32[274]|0; //@line 1806 "stream_decoder.c"
  $50 = (_FLAC__bitreader_skip_bits_no_crc($48,$49)|0); //@line 1806 "stream_decoder.c"
  $51 = ($50|0)!=(0); //@line 1806 "stream_decoder.c"
  if (!($51)) {
@@ -36296,7 +36233,7 @@ function _read_metadata_cuesheet_($0,$1) {
  $54 = HEAP32[$53>>2]|0; //@line 1809 "stream_decoder.c"
  $55 = ((($54)) + 56|0); //@line 1809 "stream_decoder.c"
  $56 = HEAP32[$55>>2]|0; //@line 1809 "stream_decoder.c"
- $57 = HEAP32[271]|0; //@line 1809 "stream_decoder.c"
+ $57 = HEAP32[281]|0; //@line 1809 "stream_decoder.c"
  $58 = (_FLAC__bitreader_read_raw_uint32($56,$7,$57)|0); //@line 1809 "stream_decoder.c"
  $59 = ($58|0)!=(0); //@line 1809 "stream_decoder.c"
  if (!($59)) {
@@ -36352,7 +36289,7 @@ function _read_metadata_cuesheet_($0,$1) {
     $89 = ((($88)) + 56|0); //@line 1820 "stream_decoder.c"
     $90 = HEAP32[$89>>2]|0; //@line 1820 "stream_decoder.c"
     $91 = $8; //@line 1820 "stream_decoder.c"
-    $92 = HEAP32[280]|0; //@line 1820 "stream_decoder.c"
+    $92 = HEAP32[290]|0; //@line 1820 "stream_decoder.c"
     $93 = (_FLAC__bitreader_read_raw_uint64($90,$91,$92)|0); //@line 1820 "stream_decoder.c"
     $94 = ($93|0)!=(0); //@line 1820 "stream_decoder.c"
     if (!($94)) {
@@ -36364,7 +36301,7 @@ function _read_metadata_cuesheet_($0,$1) {
     $97 = HEAP32[$96>>2]|0; //@line 1823 "stream_decoder.c"
     $98 = ((($97)) + 56|0); //@line 1823 "stream_decoder.c"
     $99 = HEAP32[$98>>2]|0; //@line 1823 "stream_decoder.c"
-    $100 = HEAP32[271]|0; //@line 1823 "stream_decoder.c"
+    $100 = HEAP32[281]|0; //@line 1823 "stream_decoder.c"
     $101 = (_FLAC__bitreader_read_raw_uint32($99,$7,$100)|0); //@line 1823 "stream_decoder.c"
     $102 = ($101|0)!=(0); //@line 1823 "stream_decoder.c"
     if (!($102)) {
@@ -36383,7 +36320,7 @@ function _read_metadata_cuesheet_($0,$1) {
     $111 = HEAP32[$110>>2]|0; //@line 1828 "stream_decoder.c"
     $112 = $8; //@line 1828 "stream_decoder.c"
     $113 = ((($112)) + 9|0); //@line 1828 "stream_decoder.c"
-    $114 = HEAP32[261]|0; //@line 1828 "stream_decoder.c"
+    $114 = HEAP32[271]|0; //@line 1828 "stream_decoder.c"
     $115 = (($114>>>0) / 8)&-1; //@line 1828 "stream_decoder.c"
     $116 = (_FLAC__bitreader_read_byte_block_aligned_no_crc($111,$113,$115)|0); //@line 1828 "stream_decoder.c"
     $117 = ($116|0)!=(0); //@line 1828 "stream_decoder.c"
@@ -36396,7 +36333,7 @@ function _read_metadata_cuesheet_($0,$1) {
     $120 = HEAP32[$119>>2]|0; //@line 1831 "stream_decoder.c"
     $121 = ((($120)) + 56|0); //@line 1831 "stream_decoder.c"
     $122 = HEAP32[$121>>2]|0; //@line 1831 "stream_decoder.c"
-    $123 = HEAP32[277]|0; //@line 1831 "stream_decoder.c"
+    $123 = HEAP32[287]|0; //@line 1831 "stream_decoder.c"
     $124 = (_FLAC__bitreader_read_raw_uint32($122,$7,$123)|0); //@line 1831 "stream_decoder.c"
     $125 = ($124|0)!=(0); //@line 1831 "stream_decoder.c"
     if (!($125)) {
@@ -36417,7 +36354,7 @@ function _read_metadata_cuesheet_($0,$1) {
     $136 = HEAP32[$135>>2]|0; //@line 1835 "stream_decoder.c"
     $137 = ((($136)) + 56|0); //@line 1835 "stream_decoder.c"
     $138 = HEAP32[$137>>2]|0; //@line 1835 "stream_decoder.c"
-    $139 = HEAP32[277]|0; //@line 1835 "stream_decoder.c"
+    $139 = HEAP32[287]|0; //@line 1835 "stream_decoder.c"
     $140 = (_FLAC__bitreader_read_raw_uint32($138,$7,$139)|0); //@line 1835 "stream_decoder.c"
     $141 = ($140|0)!=(0); //@line 1835 "stream_decoder.c"
     if (!($141)) {
@@ -36439,7 +36376,7 @@ function _read_metadata_cuesheet_($0,$1) {
     $153 = HEAP32[$152>>2]|0; //@line 1839 "stream_decoder.c"
     $154 = ((($153)) + 56|0); //@line 1839 "stream_decoder.c"
     $155 = HEAP32[$154>>2]|0; //@line 1839 "stream_decoder.c"
-    $156 = HEAP32[262]|0; //@line 1839 "stream_decoder.c"
+    $156 = HEAP32[272]|0; //@line 1839 "stream_decoder.c"
     $157 = (_FLAC__bitreader_skip_bits_no_crc($155,$156)|0); //@line 1839 "stream_decoder.c"
     $158 = ($157|0)!=(0); //@line 1839 "stream_decoder.c"
     if (!($158)) {
@@ -36451,7 +36388,7 @@ function _read_metadata_cuesheet_($0,$1) {
     $161 = HEAP32[$160>>2]|0; //@line 1842 "stream_decoder.c"
     $162 = ((($161)) + 56|0); //@line 1842 "stream_decoder.c"
     $163 = HEAP32[$162>>2]|0; //@line 1842 "stream_decoder.c"
-    $164 = HEAP32[271]|0; //@line 1842 "stream_decoder.c"
+    $164 = HEAP32[281]|0; //@line 1842 "stream_decoder.c"
     $165 = (_FLAC__bitreader_read_raw_uint32($163,$7,$164)|0); //@line 1842 "stream_decoder.c"
     $166 = ($165|0)!=(0); //@line 1842 "stream_decoder.c"
     if (!($166)) {
@@ -36506,7 +36443,7 @@ function _read_metadata_cuesheet_($0,$1) {
        $200 = ((($199)) + 56|0); //@line 1853 "stream_decoder.c"
        $201 = HEAP32[$200>>2]|0; //@line 1853 "stream_decoder.c"
        $202 = $9; //@line 1853 "stream_decoder.c"
-       $203 = HEAP32[280]|0; //@line 1853 "stream_decoder.c"
+       $203 = HEAP32[290]|0; //@line 1853 "stream_decoder.c"
        $204 = (_FLAC__bitreader_read_raw_uint64($201,$202,$203)|0); //@line 1853 "stream_decoder.c"
        $205 = ($204|0)!=(0); //@line 1853 "stream_decoder.c"
        if (!($205)) {
@@ -36518,7 +36455,7 @@ function _read_metadata_cuesheet_($0,$1) {
        $208 = HEAP32[$207>>2]|0; //@line 1856 "stream_decoder.c"
        $209 = ((($208)) + 56|0); //@line 1856 "stream_decoder.c"
        $210 = HEAP32[$209>>2]|0; //@line 1856 "stream_decoder.c"
-       $211 = HEAP32[271]|0; //@line 1856 "stream_decoder.c"
+       $211 = HEAP32[281]|0; //@line 1856 "stream_decoder.c"
        $212 = (_FLAC__bitreader_read_raw_uint32($210,$7,$211)|0); //@line 1856 "stream_decoder.c"
        $213 = ($212|0)!=(0); //@line 1856 "stream_decoder.c"
        if (!($213)) {
@@ -36535,7 +36472,7 @@ function _read_metadata_cuesheet_($0,$1) {
        $220 = HEAP32[$219>>2]|0; //@line 1860 "stream_decoder.c"
        $221 = ((($220)) + 56|0); //@line 1860 "stream_decoder.c"
        $222 = HEAP32[$221>>2]|0; //@line 1860 "stream_decoder.c"
-       $223 = HEAP32[267]|0; //@line 1860 "stream_decoder.c"
+       $223 = HEAP32[277]|0; //@line 1860 "stream_decoder.c"
        $224 = (_FLAC__bitreader_skip_bits_no_crc($222,$223)|0); //@line 1860 "stream_decoder.c"
        $225 = ($224|0)!=(0); //@line 1860 "stream_decoder.c"
        if (!($225)) {
@@ -36650,7 +36587,7 @@ function _read_metadata_picture_($0,$1) {
  $8 = HEAP32[$7>>2]|0; //@line 1877 "stream_decoder.c"
  $9 = ((($8)) + 56|0); //@line 1877 "stream_decoder.c"
  $10 = HEAP32[$9>>2]|0; //@line 1877 "stream_decoder.c"
- $11 = HEAP32[265]|0; //@line 1877 "stream_decoder.c"
+ $11 = HEAP32[275]|0; //@line 1877 "stream_decoder.c"
  $12 = (_FLAC__bitreader_read_raw_uint32($10,$5,$11)|0); //@line 1877 "stream_decoder.c"
  $13 = ($12|0)!=(0); //@line 1877 "stream_decoder.c"
  if (!($13)) {
@@ -36666,7 +36603,7 @@ function _read_metadata_picture_($0,$1) {
  $18 = HEAP32[$17>>2]|0; //@line 1882 "stream_decoder.c"
  $19 = ((($18)) + 56|0); //@line 1882 "stream_decoder.c"
  $20 = HEAP32[$19>>2]|0; //@line 1882 "stream_decoder.c"
- $21 = HEAP32[265]|0; //@line 1882 "stream_decoder.c"
+ $21 = HEAP32[275]|0; //@line 1882 "stream_decoder.c"
  $22 = (_FLAC__bitreader_read_raw_uint32($20,$5,$21)|0); //@line 1882 "stream_decoder.c"
  $23 = ($22|0)!=(0); //@line 1882 "stream_decoder.c"
  if (!($23)) {
@@ -36719,7 +36656,7 @@ function _read_metadata_picture_($0,$1) {
  $51 = HEAP32[$50>>2]|0; //@line 1895 "stream_decoder.c"
  $52 = ((($51)) + 56|0); //@line 1895 "stream_decoder.c"
  $53 = HEAP32[$52>>2]|0; //@line 1895 "stream_decoder.c"
- $54 = HEAP32[265]|0; //@line 1895 "stream_decoder.c"
+ $54 = HEAP32[275]|0; //@line 1895 "stream_decoder.c"
  $55 = (_FLAC__bitreader_read_raw_uint32($53,$5,$54)|0); //@line 1895 "stream_decoder.c"
  $56 = ($55|0)!=(0); //@line 1895 "stream_decoder.c"
  if (!($56)) {
@@ -36774,7 +36711,7 @@ function _read_metadata_picture_($0,$1) {
  $86 = HEAP32[$85>>2]|0; //@line 1908 "stream_decoder.c"
  $87 = $4; //@line 1908 "stream_decoder.c"
  $88 = ((($87)) + 12|0); //@line 1908 "stream_decoder.c"
- $89 = HEAP32[265]|0; //@line 1908 "stream_decoder.c"
+ $89 = HEAP32[275]|0; //@line 1908 "stream_decoder.c"
  $90 = (_FLAC__bitreader_read_raw_uint32($86,$88,$89)|0); //@line 1908 "stream_decoder.c"
  $91 = ($90|0)!=(0); //@line 1908 "stream_decoder.c"
  if (!($91)) {
@@ -36789,7 +36726,7 @@ function _read_metadata_picture_($0,$1) {
  $96 = HEAP32[$95>>2]|0; //@line 1912 "stream_decoder.c"
  $97 = $4; //@line 1912 "stream_decoder.c"
  $98 = ((($97)) + 16|0); //@line 1912 "stream_decoder.c"
- $99 = HEAP32[265]|0; //@line 1912 "stream_decoder.c"
+ $99 = HEAP32[275]|0; //@line 1912 "stream_decoder.c"
  $100 = (_FLAC__bitreader_read_raw_uint32($96,$98,$99)|0); //@line 1912 "stream_decoder.c"
  $101 = ($100|0)!=(0); //@line 1912 "stream_decoder.c"
  if (!($101)) {
@@ -36804,7 +36741,7 @@ function _read_metadata_picture_($0,$1) {
  $106 = HEAP32[$105>>2]|0; //@line 1916 "stream_decoder.c"
  $107 = $4; //@line 1916 "stream_decoder.c"
  $108 = ((($107)) + 20|0); //@line 1916 "stream_decoder.c"
- $109 = HEAP32[265]|0; //@line 1916 "stream_decoder.c"
+ $109 = HEAP32[275]|0; //@line 1916 "stream_decoder.c"
  $110 = (_FLAC__bitreader_read_raw_uint32($106,$108,$109)|0); //@line 1916 "stream_decoder.c"
  $111 = ($110|0)!=(0); //@line 1916 "stream_decoder.c"
  if (!($111)) {
@@ -36819,7 +36756,7 @@ function _read_metadata_picture_($0,$1) {
  $116 = HEAP32[$115>>2]|0; //@line 1920 "stream_decoder.c"
  $117 = $4; //@line 1920 "stream_decoder.c"
  $118 = ((($117)) + 24|0); //@line 1920 "stream_decoder.c"
- $119 = HEAP32[265]|0; //@line 1920 "stream_decoder.c"
+ $119 = HEAP32[275]|0; //@line 1920 "stream_decoder.c"
  $120 = (_FLAC__bitreader_read_raw_uint32($116,$118,$119)|0); //@line 1920 "stream_decoder.c"
  $121 = ($120|0)!=(0); //@line 1920 "stream_decoder.c"
  if (!($121)) {
@@ -36834,7 +36771,7 @@ function _read_metadata_picture_($0,$1) {
  $126 = HEAP32[$125>>2]|0; //@line 1924 "stream_decoder.c"
  $127 = $4; //@line 1924 "stream_decoder.c"
  $128 = ((($127)) + 28|0); //@line 1924 "stream_decoder.c"
- $129 = HEAP32[265]|0; //@line 1924 "stream_decoder.c"
+ $129 = HEAP32[275]|0; //@line 1924 "stream_decoder.c"
  $130 = (_FLAC__bitreader_read_raw_uint32($126,$128,$129)|0); //@line 1924 "stream_decoder.c"
  $131 = ($130|0)!=(0); //@line 1924 "stream_decoder.c"
  if (!($131)) {
@@ -37697,7 +37634,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  }
  $12 = $3; //@line 1601 "stream_encoder.c"
  $13 = $4; //@line 1601 "stream_encoder.c"
- $14 = (1124 + (($13*44)|0)|0); //@line 1601 "stream_encoder.c"
+ $14 = (1164 + (($13*44)|0)|0); //@line 1601 "stream_encoder.c"
  $15 = HEAP32[$14>>2]|0; //@line 1601 "stream_encoder.c"
  $16 = (_FLAC__stream_encoder_set_do_mid_side_stereo($12,$15)|0); //@line 1601 "stream_encoder.c"
  $17 = $5; //@line 1601 "stream_encoder.c"
@@ -37705,7 +37642,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $18; //@line 1601 "stream_encoder.c"
  $19 = $3; //@line 1602 "stream_encoder.c"
  $20 = $4; //@line 1602 "stream_encoder.c"
- $21 = (1124 + (($20*44)|0)|0); //@line 1602 "stream_encoder.c"
+ $21 = (1164 + (($20*44)|0)|0); //@line 1602 "stream_encoder.c"
  $22 = ((($21)) + 4|0); //@line 1602 "stream_encoder.c"
  $23 = HEAP32[$22>>2]|0; //@line 1602 "stream_encoder.c"
  $24 = (_FLAC__stream_encoder_set_loose_mid_side_stereo($19,$23)|0); //@line 1602 "stream_encoder.c"
@@ -37714,7 +37651,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $26; //@line 1602 "stream_encoder.c"
  $27 = $3; //@line 1605 "stream_encoder.c"
  $28 = $4; //@line 1605 "stream_encoder.c"
- $29 = (1124 + (($28*44)|0)|0); //@line 1605 "stream_encoder.c"
+ $29 = (1164 + (($28*44)|0)|0); //@line 1605 "stream_encoder.c"
  $30 = ((($29)) + 40|0); //@line 1605 "stream_encoder.c"
  $31 = HEAP32[$30>>2]|0; //@line 1605 "stream_encoder.c"
  $32 = (_FLAC__stream_encoder_set_apodization($27,$31)|0); //@line 1605 "stream_encoder.c"
@@ -37723,7 +37660,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $34; //@line 1605 "stream_encoder.c"
  $35 = $3; //@line 1613 "stream_encoder.c"
  $36 = $4; //@line 1613 "stream_encoder.c"
- $37 = (1124 + (($36*44)|0)|0); //@line 1613 "stream_encoder.c"
+ $37 = (1164 + (($36*44)|0)|0); //@line 1613 "stream_encoder.c"
  $38 = ((($37)) + 8|0); //@line 1613 "stream_encoder.c"
  $39 = HEAP32[$38>>2]|0; //@line 1613 "stream_encoder.c"
  $40 = (_FLAC__stream_encoder_set_max_lpc_order($35,$39)|0); //@line 1613 "stream_encoder.c"
@@ -37732,7 +37669,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $42; //@line 1613 "stream_encoder.c"
  $43 = $3; //@line 1614 "stream_encoder.c"
  $44 = $4; //@line 1614 "stream_encoder.c"
- $45 = (1124 + (($44*44)|0)|0); //@line 1614 "stream_encoder.c"
+ $45 = (1164 + (($44*44)|0)|0); //@line 1614 "stream_encoder.c"
  $46 = ((($45)) + 12|0); //@line 1614 "stream_encoder.c"
  $47 = HEAP32[$46>>2]|0; //@line 1614 "stream_encoder.c"
  $48 = (_FLAC__stream_encoder_set_qlp_coeff_precision($43,$47)|0); //@line 1614 "stream_encoder.c"
@@ -37741,7 +37678,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $50; //@line 1614 "stream_encoder.c"
  $51 = $3; //@line 1615 "stream_encoder.c"
  $52 = $4; //@line 1615 "stream_encoder.c"
- $53 = (1124 + (($52*44)|0)|0); //@line 1615 "stream_encoder.c"
+ $53 = (1164 + (($52*44)|0)|0); //@line 1615 "stream_encoder.c"
  $54 = ((($53)) + 16|0); //@line 1615 "stream_encoder.c"
  $55 = HEAP32[$54>>2]|0; //@line 1615 "stream_encoder.c"
  $56 = (_FLAC__stream_encoder_set_do_qlp_coeff_prec_search($51,$55)|0); //@line 1615 "stream_encoder.c"
@@ -37750,7 +37687,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $58; //@line 1615 "stream_encoder.c"
  $59 = $3; //@line 1616 "stream_encoder.c"
  $60 = $4; //@line 1616 "stream_encoder.c"
- $61 = (1124 + (($60*44)|0)|0); //@line 1616 "stream_encoder.c"
+ $61 = (1164 + (($60*44)|0)|0); //@line 1616 "stream_encoder.c"
  $62 = ((($61)) + 20|0); //@line 1616 "stream_encoder.c"
  $63 = HEAP32[$62>>2]|0; //@line 1616 "stream_encoder.c"
  $64 = (_FLAC__stream_encoder_set_do_escape_coding($59,$63)|0); //@line 1616 "stream_encoder.c"
@@ -37759,7 +37696,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $66; //@line 1616 "stream_encoder.c"
  $67 = $3; //@line 1617 "stream_encoder.c"
  $68 = $4; //@line 1617 "stream_encoder.c"
- $69 = (1124 + (($68*44)|0)|0); //@line 1617 "stream_encoder.c"
+ $69 = (1164 + (($68*44)|0)|0); //@line 1617 "stream_encoder.c"
  $70 = ((($69)) + 24|0); //@line 1617 "stream_encoder.c"
  $71 = HEAP32[$70>>2]|0; //@line 1617 "stream_encoder.c"
  $72 = (_FLAC__stream_encoder_set_do_exhaustive_model_search($67,$71)|0); //@line 1617 "stream_encoder.c"
@@ -37768,7 +37705,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $74; //@line 1617 "stream_encoder.c"
  $75 = $3; //@line 1618 "stream_encoder.c"
  $76 = $4; //@line 1618 "stream_encoder.c"
- $77 = (1124 + (($76*44)|0)|0); //@line 1618 "stream_encoder.c"
+ $77 = (1164 + (($76*44)|0)|0); //@line 1618 "stream_encoder.c"
  $78 = ((($77)) + 28|0); //@line 1618 "stream_encoder.c"
  $79 = HEAP32[$78>>2]|0; //@line 1618 "stream_encoder.c"
  $80 = (_FLAC__stream_encoder_set_min_residual_partition_order($75,$79)|0); //@line 1618 "stream_encoder.c"
@@ -37777,7 +37714,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $82; //@line 1618 "stream_encoder.c"
  $83 = $3; //@line 1619 "stream_encoder.c"
  $84 = $4; //@line 1619 "stream_encoder.c"
- $85 = (1124 + (($84*44)|0)|0); //@line 1619 "stream_encoder.c"
+ $85 = (1164 + (($84*44)|0)|0); //@line 1619 "stream_encoder.c"
  $86 = ((($85)) + 32|0); //@line 1619 "stream_encoder.c"
  $87 = HEAP32[$86>>2]|0; //@line 1619 "stream_encoder.c"
  $88 = (_FLAC__stream_encoder_set_max_residual_partition_order($83,$87)|0); //@line 1619 "stream_encoder.c"
@@ -37786,7 +37723,7 @@ function _FLAC__stream_encoder_set_compression_level($0,$1) {
  $5 = $90; //@line 1619 "stream_encoder.c"
  $91 = $3; //@line 1620 "stream_encoder.c"
  $92 = $4; //@line 1620 "stream_encoder.c"
- $93 = (1124 + (($92*44)|0)|0); //@line 1620 "stream_encoder.c"
+ $93 = (1164 + (($92*44)|0)|0); //@line 1620 "stream_encoder.c"
  $94 = ((($93)) + 36|0); //@line 1620 "stream_encoder.c"
  $95 = HEAP32[$94>>2]|0; //@line 1620 "stream_encoder.c"
  $96 = (_FLAC__stream_encoder_set_rice_parameter_search_dist($91,$95)|0); //@line 1620 "stream_encoder.c"
@@ -37928,7 +37865,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
   if ($43) {
    $44 = $4; //@line 1673 "stream_encoder.c"
    $45 = $6; //@line 1673 "stream_encoder.c"
-   $46 = (_strncmp(3181,$44,$45)|0); //@line 1673 "stream_encoder.c"
+   $46 = (_strncmp(3189,$44,$45)|0); //@line 1673 "stream_encoder.c"
    $47 = (0)==($46|0); //@line 1673 "stream_encoder.c"
    if ($47) {
     $48 = $3; //@line 1674 "stream_encoder.c"
@@ -37956,7 +37893,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($58) {
      $59 = $4; //@line 1675 "stream_encoder.c"
      $60 = $6; //@line 1675 "stream_encoder.c"
-     $61 = (_strncmp(3190,$59,$60)|0); //@line 1675 "stream_encoder.c"
+     $61 = (_strncmp(3198,$59,$60)|0); //@line 1675 "stream_encoder.c"
      $62 = (0)==($61|0); //@line 1675 "stream_encoder.c"
      if ($62) {
       $63 = $3; //@line 1676 "stream_encoder.c"
@@ -37978,7 +37915,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($73) {
      $74 = $4; //@line 1677 "stream_encoder.c"
      $75 = $6; //@line 1677 "stream_encoder.c"
-     $76 = (_strncmp(3204,$74,$75)|0); //@line 1677 "stream_encoder.c"
+     $76 = (_strncmp(3212,$74,$75)|0); //@line 1677 "stream_encoder.c"
      $77 = (0)==($76|0); //@line 1677 "stream_encoder.c"
      if ($77) {
       $78 = $3; //@line 1678 "stream_encoder.c"
@@ -38000,7 +37937,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($88) {
      $89 = $4; //@line 1679 "stream_encoder.c"
      $90 = $6; //@line 1679 "stream_encoder.c"
-     $91 = (_strncmp(3213,$89,$90)|0); //@line 1679 "stream_encoder.c"
+     $91 = (_strncmp(3221,$89,$90)|0); //@line 1679 "stream_encoder.c"
      $92 = (0)==($91|0); //@line 1679 "stream_encoder.c"
      if ($92) {
       $93 = $3; //@line 1680 "stream_encoder.c"
@@ -38022,7 +37959,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($103) {
      $104 = $4; //@line 1681 "stream_encoder.c"
      $105 = $6; //@line 1681 "stream_encoder.c"
-     $106 = (_strncmp(3240,$104,$105)|0); //@line 1681 "stream_encoder.c"
+     $106 = (_strncmp(3248,$104,$105)|0); //@line 1681 "stream_encoder.c"
      $107 = (0)==($106|0); //@line 1681 "stream_encoder.c"
      if ($107) {
       $108 = $3; //@line 1682 "stream_encoder.c"
@@ -38044,7 +37981,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($118) {
      $119 = $4; //@line 1683 "stream_encoder.c"
      $120 = $6; //@line 1683 "stream_encoder.c"
-     $121 = (_strncmp(3247,$119,$120)|0); //@line 1683 "stream_encoder.c"
+     $121 = (_strncmp(3255,$119,$120)|0); //@line 1683 "stream_encoder.c"
      $122 = (0)==($121|0); //@line 1683 "stream_encoder.c"
      if ($122) {
       $123 = $3; //@line 1684 "stream_encoder.c"
@@ -38065,7 +38002,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     $133 = ($132>>>0)>(7); //@line 1685 "stream_encoder.c"
     if ($133) {
      $134 = $4; //@line 1685 "stream_encoder.c"
-     $135 = (_strncmp(3255,$134,6)|0); //@line 1685 "stream_encoder.c"
+     $135 = (_strncmp(3263,$134,6)|0); //@line 1685 "stream_encoder.c"
      $136 = (0)==($135|0); //@line 1685 "stream_encoder.c"
      if ($136) {
       $137 = $4; //@line 1686 "stream_encoder.c"
@@ -38115,7 +38052,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($167) {
      $168 = $4; //@line 1692 "stream_encoder.c"
      $169 = $6; //@line 1692 "stream_encoder.c"
-     $170 = (_strncmp(3262,$168,$169)|0); //@line 1692 "stream_encoder.c"
+     $170 = (_strncmp(3270,$168,$169)|0); //@line 1692 "stream_encoder.c"
      $171 = (0)==($170|0); //@line 1692 "stream_encoder.c"
      if ($171) {
       $172 = $3; //@line 1693 "stream_encoder.c"
@@ -38137,7 +38074,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($182) {
      $183 = $4; //@line 1694 "stream_encoder.c"
      $184 = $6; //@line 1694 "stream_encoder.c"
-     $185 = (_strncmp(3270,$183,$184)|0); //@line 1694 "stream_encoder.c"
+     $185 = (_strncmp(3278,$183,$184)|0); //@line 1694 "stream_encoder.c"
      $186 = (0)==($185|0); //@line 1694 "stream_encoder.c"
      if ($186) {
       $187 = $3; //@line 1695 "stream_encoder.c"
@@ -38159,7 +38096,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($197) {
      $198 = $4; //@line 1696 "stream_encoder.c"
      $199 = $6; //@line 1696 "stream_encoder.c"
-     $200 = (_strncmp(3275,$198,$199)|0); //@line 1696 "stream_encoder.c"
+     $200 = (_strncmp(3283,$198,$199)|0); //@line 1696 "stream_encoder.c"
      $201 = (0)==($200|0); //@line 1696 "stream_encoder.c"
      if ($201) {
       $202 = $3; //@line 1697 "stream_encoder.c"
@@ -38181,7 +38118,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($212) {
      $213 = $4; //@line 1698 "stream_encoder.c"
      $214 = $6; //@line 1698 "stream_encoder.c"
-     $215 = (_strncmp(3289,$213,$214)|0); //@line 1698 "stream_encoder.c"
+     $215 = (_strncmp(3297,$213,$214)|0); //@line 1698 "stream_encoder.c"
      $216 = (0)==($215|0); //@line 1698 "stream_encoder.c"
      if ($216) {
       $217 = $3; //@line 1699 "stream_encoder.c"
@@ -38203,7 +38140,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($227) {
      $228 = $4; //@line 1700 "stream_encoder.c"
      $229 = $6; //@line 1700 "stream_encoder.c"
-     $230 = (_strncmp(3297,$228,$229)|0); //@line 1700 "stream_encoder.c"
+     $230 = (_strncmp(3305,$228,$229)|0); //@line 1700 "stream_encoder.c"
      $231 = (0)==($230|0); //@line 1700 "stream_encoder.c"
      if ($231) {
       $232 = $3; //@line 1701 "stream_encoder.c"
@@ -38225,7 +38162,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     if ($242) {
      $243 = $4; //@line 1702 "stream_encoder.c"
      $244 = $6; //@line 1702 "stream_encoder.c"
-     $245 = (_strncmp(3307,$243,$244)|0); //@line 1702 "stream_encoder.c"
+     $245 = (_strncmp(3315,$243,$244)|0); //@line 1702 "stream_encoder.c"
      $246 = (0)==($245|0); //@line 1702 "stream_encoder.c"
      if ($246) {
       $247 = $3; //@line 1703 "stream_encoder.c"
@@ -38246,7 +38183,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     $257 = ($256>>>0)>(7); //@line 1704 "stream_encoder.c"
     if ($257) {
      $258 = $4; //@line 1704 "stream_encoder.c"
-     $259 = (_strncmp(3316,$258,6)|0); //@line 1704 "stream_encoder.c"
+     $259 = (_strncmp(3324,$258,6)|0); //@line 1704 "stream_encoder.c"
      $260 = (0)==($259|0); //@line 1704 "stream_encoder.c"
      if ($260) {
       $261 = $4; //@line 1705 "stream_encoder.c"
@@ -38296,7 +38233,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     do {
      if ($291) {
       $292 = $4; //@line 1711 "stream_encoder.c"
-      $293 = (_strncmp(3323,$292,14)|0); //@line 1711 "stream_encoder.c"
+      $293 = (_strncmp(3331,$292,14)|0); //@line 1711 "stream_encoder.c"
       $294 = (0)==($293|0); //@line 1711 "stream_encoder.c"
       if (!($294)) {
        break;
@@ -38474,7 +38411,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     do {
      if ($421) {
       $422 = $4; //@line 1732 "stream_encoder.c"
-      $423 = (_strncmp(3338,$422,15)|0); //@line 1732 "stream_encoder.c"
+      $423 = (_strncmp(3346,$422,15)|0); //@line 1732 "stream_encoder.c"
       $424 = (0)==($423|0); //@line 1732 "stream_encoder.c"
       if (!($424)) {
        break;
@@ -38654,7 +38591,7 @@ function _FLAC__stream_encoder_set_apodization($0,$1) {
     }
     $552 = $4; //@line 1753 "stream_encoder.c"
     $553 = $6; //@line 1753 "stream_encoder.c"
-    $554 = (_strncmp(3354,$552,$553)|0); //@line 1753 "stream_encoder.c"
+    $554 = (_strncmp(3362,$552,$553)|0); //@line 1753 "stream_encoder.c"
     $555 = (0)==($554|0); //@line 1753 "stream_encoder.c"
     if (!($555)) {
      break;
@@ -39229,7 +39166,7 @@ function _FLAC__stream_encoder_finish($0) {
   $135 = HEAP32[$134>>2]|0; //@line 1487 "stream_encoder.c"
   $136 = ((($135)) + 7320|0); //@line 1487 "stream_encoder.c"
   $137 = HEAP32[$136>>2]|0; //@line 1487 "stream_encoder.c"
-  $138 = HEAP32[412]|0; //@line 1487 "stream_encoder.c"
+  $138 = HEAP32[422]|0; //@line 1487 "stream_encoder.c"
   $139 = ($137|0)!=($138|0); //@line 1487 "stream_encoder.c"
   if ($139) {
    $140 = $2; //@line 1488 "stream_encoder.c"
@@ -39357,7 +39294,7 @@ function _process_frame_($0,$1,$2) {
   $62 = HEAP32[$61>>2]|0; //@line 3083 "stream_encoder.c"
   $63 = HEAP16[$7>>1]|0; //@line 3083 "stream_encoder.c"
   $64 = $63&65535; //@line 3083 "stream_encoder.c"
-  $65 = HEAP32[279]|0; //@line 3083 "stream_encoder.c"
+  $65 = HEAP32[289]|0; //@line 3083 "stream_encoder.c"
   $66 = (_FLAC__bitwriter_write_raw_uint32($62,$64,$65)|0); //@line 3083 "stream_encoder.c"
   $67 = ($66|0)!=(0); //@line 3083 "stream_encoder.c"
   if ($67) {
@@ -39399,7 +39336,7 @@ function _process_frame_($0,$1,$2) {
     $102 = $101; //@line 3102 "stream_encoder.c"
     $103 = HEAP32[$102>>2]|0; //@line 3102 "stream_encoder.c"
     $104 = (_i64Add(($100|0),($103|0),($91|0),0)|0); //@line 3102 "stream_encoder.c"
-    $105 = tempRet0; //@line 3102 "stream_encoder.c"
+    $105 = (getTempRet0() | 0); //@line 3102 "stream_encoder.c"
     $106 = $97; //@line 3102 "stream_encoder.c"
     $107 = $106; //@line 3102 "stream_encoder.c"
     HEAP32[$107>>2] = $104; //@line 3102 "stream_encoder.c"
@@ -39505,20 +39442,20 @@ function _update_metadata_($0) {
  $42 = ((($41)) + 24|0); //@line 2710 "stream_encoder.c"
  $43 = HEAP32[$42>>2]|0; //@line 2710 "stream_encoder.c"
  $7 = $43; //@line 2710 "stream_encoder.c"
- $44 = HEAP32[279]|0; //@line 2727 "stream_encoder.c"
- $45 = HEAP32[279]|0; //@line 2728 "stream_encoder.c"
+ $44 = HEAP32[289]|0; //@line 2727 "stream_encoder.c"
+ $45 = HEAP32[289]|0; //@line 2728 "stream_encoder.c"
  $46 = (($44) + ($45))|0; //@line 2727 "stream_encoder.c"
- $47 = HEAP32[267]|0; //@line 2729 "stream_encoder.c"
+ $47 = HEAP32[277]|0; //@line 2729 "stream_encoder.c"
  $48 = (($46) + ($47))|0; //@line 2728 "stream_encoder.c"
- $49 = HEAP32[267]|0; //@line 2730 "stream_encoder.c"
+ $49 = HEAP32[277]|0; //@line 2730 "stream_encoder.c"
  $50 = (($48) + ($49))|0; //@line 2729 "stream_encoder.c"
- $51 = HEAP32[259]|0; //@line 2731 "stream_encoder.c"
+ $51 = HEAP32[269]|0; //@line 2731 "stream_encoder.c"
  $52 = (($50) + ($51))|0; //@line 2730 "stream_encoder.c"
- $53 = HEAP32[270]|0; //@line 2732 "stream_encoder.c"
+ $53 = HEAP32[280]|0; //@line 2732 "stream_encoder.c"
  $54 = (($52) + ($53))|0; //@line 2731 "stream_encoder.c"
- $55 = HEAP32[275]|0; //@line 2733 "stream_encoder.c"
+ $55 = HEAP32[285]|0; //@line 2733 "stream_encoder.c"
  $56 = (($54) + ($55))|0; //@line 2732 "stream_encoder.c"
- $57 = HEAP32[260]|0; //@line 2734 "stream_encoder.c"
+ $57 = HEAP32[270]|0; //@line 2734 "stream_encoder.c"
  $58 = (($56) + ($57))|0; //@line 2733 "stream_encoder.c"
  $59 = (($58>>>0) / 8)&-1; //@line 2735 "stream_encoder.c"
  $60 = (4 + ($59))|0; //@line 2725 "stream_encoder.c"
@@ -39540,7 +39477,7 @@ function _update_metadata_($0) {
  $75 = HEAP32[$74>>2]|0; //@line 2737 "stream_encoder.c"
  $76 = $9; //@line 2737 "stream_encoder.c"
  $77 = (_i64Add(($72|0),($75|0),($76|0),0)|0); //@line 2737 "stream_encoder.c"
- $78 = tempRet0; //@line 2737 "stream_encoder.c"
+ $78 = (getTempRet0() | 0); //@line 2737 "stream_encoder.c"
  $79 = $1; //@line 2737 "stream_encoder.c"
  $80 = ((($79)) + 4|0); //@line 2737 "stream_encoder.c"
  $81 = HEAP32[$80>>2]|0; //@line 2737 "stream_encoder.c"
@@ -39582,18 +39519,18 @@ function _update_metadata_($0) {
   HEAP32[$107>>2] = 5; //@line 2743 "stream_encoder.c"
   STACKTOP = sp;return; //@line 2855 "stream_encoder.c"
  }
- $108 = HEAP32[279]|0; //@line 2755 "stream_encoder.c"
- $109 = HEAP32[279]|0; //@line 2756 "stream_encoder.c"
+ $108 = HEAP32[289]|0; //@line 2755 "stream_encoder.c"
+ $109 = HEAP32[289]|0; //@line 2756 "stream_encoder.c"
  $110 = (($108) + ($109))|0; //@line 2755 "stream_encoder.c"
- $111 = HEAP32[267]|0; //@line 2757 "stream_encoder.c"
+ $111 = HEAP32[277]|0; //@line 2757 "stream_encoder.c"
  $112 = (($110) + ($111))|0; //@line 2756 "stream_encoder.c"
- $113 = HEAP32[267]|0; //@line 2758 "stream_encoder.c"
+ $113 = HEAP32[277]|0; //@line 2758 "stream_encoder.c"
  $114 = (($112) + ($113))|0; //@line 2757 "stream_encoder.c"
- $115 = HEAP32[259]|0; //@line 2759 "stream_encoder.c"
+ $115 = HEAP32[269]|0; //@line 2759 "stream_encoder.c"
  $116 = (($114) + ($115))|0; //@line 2758 "stream_encoder.c"
- $117 = HEAP32[270]|0; //@line 2760 "stream_encoder.c"
+ $117 = HEAP32[280]|0; //@line 2760 "stream_encoder.c"
  $118 = (($116) + ($117))|0; //@line 2759 "stream_encoder.c"
- $119 = HEAP32[275]|0; //@line 2761 "stream_encoder.c"
+ $119 = HEAP32[285]|0; //@line 2761 "stream_encoder.c"
  $120 = (($118) + ($119))|0; //@line 2760 "stream_encoder.c"
  $121 = (($120) - 4)|0; //@line 2762 "stream_encoder.c"
  $122 = (($121>>>0) / 8)&-1; //@line 2763 "stream_encoder.c"
@@ -39623,7 +39560,7 @@ function _update_metadata_($0) {
  $144 = $143; //@line 2766 "stream_encoder.c"
  $145 = HEAP32[$144>>2]|0; //@line 2766 "stream_encoder.c"
  $146 = (_bitshift64Lshr(($142|0),($145|0),24)|0); //@line 2766 "stream_encoder.c"
- $147 = tempRet0; //@line 2766 "stream_encoder.c"
+ $147 = (getTempRet0() | 0); //@line 2766 "stream_encoder.c"
  $148 = $146 & 255; //@line 2766 "stream_encoder.c"
  $149 = $148&255; //@line 2766 "stream_encoder.c"
  $150 = ((($2)) + 1|0); //@line 2766 "stream_encoder.c"
@@ -39635,7 +39572,7 @@ function _update_metadata_($0) {
  $155 = $154; //@line 2767 "stream_encoder.c"
  $156 = HEAP32[$155>>2]|0; //@line 2767 "stream_encoder.c"
  $157 = (_bitshift64Lshr(($153|0),($156|0),16)|0); //@line 2767 "stream_encoder.c"
- $158 = tempRet0; //@line 2767 "stream_encoder.c"
+ $158 = (getTempRet0() | 0); //@line 2767 "stream_encoder.c"
  $159 = $157 & 255; //@line 2767 "stream_encoder.c"
  $160 = $159&255; //@line 2767 "stream_encoder.c"
  $161 = ((($2)) + 2|0); //@line 2767 "stream_encoder.c"
@@ -39647,7 +39584,7 @@ function _update_metadata_($0) {
  $166 = $165; //@line 2768 "stream_encoder.c"
  $167 = HEAP32[$166>>2]|0; //@line 2768 "stream_encoder.c"
  $168 = (_bitshift64Lshr(($164|0),($167|0),8)|0); //@line 2768 "stream_encoder.c"
- $169 = tempRet0; //@line 2768 "stream_encoder.c"
+ $169 = (getTempRet0() | 0); //@line 2768 "stream_encoder.c"
  $170 = $168 & 255; //@line 2768 "stream_encoder.c"
  $171 = $170&255; //@line 2768 "stream_encoder.c"
  $172 = ((($2)) + 3|0); //@line 2768 "stream_encoder.c"
@@ -39679,7 +39616,7 @@ function _update_metadata_($0) {
  $196 = HEAP32[$195>>2]|0; //@line 2770 "stream_encoder.c"
  $197 = $10; //@line 2770 "stream_encoder.c"
  $198 = (_i64Add(($193|0),($196|0),($197|0),0)|0); //@line 2770 "stream_encoder.c"
- $199 = tempRet0; //@line 2770 "stream_encoder.c"
+ $199 = (getTempRet0() | 0); //@line 2770 "stream_encoder.c"
  $200 = $1; //@line 2770 "stream_encoder.c"
  $201 = ((($200)) + 4|0); //@line 2770 "stream_encoder.c"
  $202 = HEAP32[$201>>2]|0; //@line 2770 "stream_encoder.c"
@@ -39718,8 +39655,8 @@ function _update_metadata_($0) {
   HEAP32[$225>>2] = 5; //@line 2776 "stream_encoder.c"
   STACKTOP = sp;return; //@line 2855 "stream_encoder.c"
  }
- $226 = HEAP32[279]|0; //@line 2788 "stream_encoder.c"
- $227 = HEAP32[279]|0; //@line 2789 "stream_encoder.c"
+ $226 = HEAP32[289]|0; //@line 2788 "stream_encoder.c"
+ $227 = HEAP32[289]|0; //@line 2789 "stream_encoder.c"
  $228 = (($226) + ($227))|0; //@line 2788 "stream_encoder.c"
  $229 = (($228>>>0) / 8)&-1; //@line 2790 "stream_encoder.c"
  $230 = (4 + ($229))|0; //@line 2786 "stream_encoder.c"
@@ -39774,7 +39711,7 @@ function _update_metadata_($0) {
  $272 = HEAP32[$271>>2]|0; //@line 2798 "stream_encoder.c"
  $273 = $11; //@line 2798 "stream_encoder.c"
  $274 = (_i64Add(($269|0),($272|0),($273|0),0)|0); //@line 2798 "stream_encoder.c"
- $275 = tempRet0; //@line 2798 "stream_encoder.c"
+ $275 = (getTempRet0() | 0); //@line 2798 "stream_encoder.c"
  $276 = $1; //@line 2798 "stream_encoder.c"
  $277 = ((($276)) + 4|0); //@line 2798 "stream_encoder.c"
  $278 = HEAP32[$277>>2]|0; //@line 2798 "stream_encoder.c"
@@ -39870,7 +39807,7 @@ function _update_metadata_($0) {
  $346 = $345; //@line 2819 "stream_encoder.c"
  $347 = HEAP32[$346>>2]|0; //@line 2819 "stream_encoder.c"
  $348 = (_i64Add(($344|0),($347|0),4,0)|0); //@line 2819 "stream_encoder.c"
- $349 = tempRet0; //@line 2819 "stream_encoder.c"
+ $349 = (getTempRet0() | 0); //@line 2819 "stream_encoder.c"
  $350 = $1; //@line 2819 "stream_encoder.c"
  $351 = ((($350)) + 4|0); //@line 2819 "stream_encoder.c"
  $352 = HEAP32[$351>>2]|0; //@line 2819 "stream_encoder.c"
@@ -39941,7 +39878,7 @@ function _update_metadata_($0) {
   $400 = $399; //@line 2829 "stream_encoder.c"
   $401 = HEAP32[$400>>2]|0; //@line 2829 "stream_encoder.c"
   $402 = (_bitshift64Lshr(($398|0),($401|0),8)|0); //@line 2829 "stream_encoder.c"
-  $403 = tempRet0; //@line 2829 "stream_encoder.c"
+  $403 = (getTempRet0() | 0); //@line 2829 "stream_encoder.c"
   $404 = $13; //@line 2829 "stream_encoder.c"
   $405 = $404; //@line 2829 "stream_encoder.c"
   HEAP32[$405>>2] = $402; //@line 2829 "stream_encoder.c"
@@ -39964,7 +39901,7 @@ function _update_metadata_($0) {
   $420 = $419; //@line 2830 "stream_encoder.c"
   $421 = HEAP32[$420>>2]|0; //@line 2830 "stream_encoder.c"
   $422 = (_bitshift64Lshr(($418|0),($421|0),8)|0); //@line 2830 "stream_encoder.c"
-  $423 = tempRet0; //@line 2830 "stream_encoder.c"
+  $423 = (getTempRet0() | 0); //@line 2830 "stream_encoder.c"
   $424 = $13; //@line 2830 "stream_encoder.c"
   $425 = $424; //@line 2830 "stream_encoder.c"
   HEAP32[$425>>2] = $422; //@line 2830 "stream_encoder.c"
@@ -39987,7 +39924,7 @@ function _update_metadata_($0) {
   $440 = $439; //@line 2831 "stream_encoder.c"
   $441 = HEAP32[$440>>2]|0; //@line 2831 "stream_encoder.c"
   $442 = (_bitshift64Lshr(($438|0),($441|0),8)|0); //@line 2831 "stream_encoder.c"
-  $443 = tempRet0; //@line 2831 "stream_encoder.c"
+  $443 = (getTempRet0() | 0); //@line 2831 "stream_encoder.c"
   $444 = $13; //@line 2831 "stream_encoder.c"
   $445 = $444; //@line 2831 "stream_encoder.c"
   HEAP32[$445>>2] = $442; //@line 2831 "stream_encoder.c"
@@ -40010,7 +39947,7 @@ function _update_metadata_($0) {
   $460 = $459; //@line 2832 "stream_encoder.c"
   $461 = HEAP32[$460>>2]|0; //@line 2832 "stream_encoder.c"
   $462 = (_bitshift64Lshr(($458|0),($461|0),8)|0); //@line 2832 "stream_encoder.c"
-  $463 = tempRet0; //@line 2832 "stream_encoder.c"
+  $463 = (getTempRet0() | 0); //@line 2832 "stream_encoder.c"
   $464 = $13; //@line 2832 "stream_encoder.c"
   $465 = $464; //@line 2832 "stream_encoder.c"
   HEAP32[$465>>2] = $462; //@line 2832 "stream_encoder.c"
@@ -40033,7 +39970,7 @@ function _update_metadata_($0) {
   $480 = $479; //@line 2833 "stream_encoder.c"
   $481 = HEAP32[$480>>2]|0; //@line 2833 "stream_encoder.c"
   $482 = (_bitshift64Lshr(($478|0),($481|0),8)|0); //@line 2833 "stream_encoder.c"
-  $483 = tempRet0; //@line 2833 "stream_encoder.c"
+  $483 = (getTempRet0() | 0); //@line 2833 "stream_encoder.c"
   $484 = $13; //@line 2833 "stream_encoder.c"
   $485 = $484; //@line 2833 "stream_encoder.c"
   HEAP32[$485>>2] = $482; //@line 2833 "stream_encoder.c"
@@ -40056,7 +39993,7 @@ function _update_metadata_($0) {
   $500 = $499; //@line 2834 "stream_encoder.c"
   $501 = HEAP32[$500>>2]|0; //@line 2834 "stream_encoder.c"
   $502 = (_bitshift64Lshr(($498|0),($501|0),8)|0); //@line 2834 "stream_encoder.c"
-  $503 = tempRet0; //@line 2834 "stream_encoder.c"
+  $503 = (getTempRet0() | 0); //@line 2834 "stream_encoder.c"
   $504 = $13; //@line 2834 "stream_encoder.c"
   $505 = $504; //@line 2834 "stream_encoder.c"
   HEAP32[$505>>2] = $502; //@line 2834 "stream_encoder.c"
@@ -40079,7 +40016,7 @@ function _update_metadata_($0) {
   $520 = $519; //@line 2835 "stream_encoder.c"
   $521 = HEAP32[$520>>2]|0; //@line 2835 "stream_encoder.c"
   $522 = (_bitshift64Lshr(($518|0),($521|0),8)|0); //@line 2835 "stream_encoder.c"
-  $523 = tempRet0; //@line 2835 "stream_encoder.c"
+  $523 = (getTempRet0() | 0); //@line 2835 "stream_encoder.c"
   $524 = $13; //@line 2835 "stream_encoder.c"
   $525 = $524; //@line 2835 "stream_encoder.c"
   HEAP32[$525>>2] = $522; //@line 2835 "stream_encoder.c"
@@ -40101,7 +40038,7 @@ function _update_metadata_($0) {
   $539 = $538; //@line 2836 "stream_encoder.c"
   $540 = HEAP32[$539>>2]|0; //@line 2836 "stream_encoder.c"
   $541 = (_bitshift64Lshr(($537|0),($540|0),8)|0); //@line 2836 "stream_encoder.c"
-  $542 = tempRet0; //@line 2836 "stream_encoder.c"
+  $542 = (getTempRet0() | 0); //@line 2836 "stream_encoder.c"
   $543 = $13; //@line 2836 "stream_encoder.c"
   $544 = $543; //@line 2836 "stream_encoder.c"
   HEAP32[$544>>2] = $541; //@line 2836 "stream_encoder.c"
@@ -40146,7 +40083,7 @@ function _update_metadata_($0) {
   $579 = $578; //@line 2838 "stream_encoder.c"
   $580 = HEAP32[$579>>2]|0; //@line 2838 "stream_encoder.c"
   $581 = (_bitshift64Lshr(($577|0),($580|0),8)|0); //@line 2838 "stream_encoder.c"
-  $582 = tempRet0; //@line 2838 "stream_encoder.c"
+  $582 = (getTempRet0() | 0); //@line 2838 "stream_encoder.c"
   $583 = $13; //@line 2838 "stream_encoder.c"
   $584 = $583; //@line 2838 "stream_encoder.c"
   HEAP32[$584>>2] = $581; //@line 2838 "stream_encoder.c"
@@ -40169,7 +40106,7 @@ function _update_metadata_($0) {
   $599 = $598; //@line 2839 "stream_encoder.c"
   $600 = HEAP32[$599>>2]|0; //@line 2839 "stream_encoder.c"
   $601 = (_bitshift64Lshr(($597|0),($600|0),8)|0); //@line 2839 "stream_encoder.c"
-  $602 = tempRet0; //@line 2839 "stream_encoder.c"
+  $602 = (getTempRet0() | 0); //@line 2839 "stream_encoder.c"
   $603 = $13; //@line 2839 "stream_encoder.c"
   $604 = $603; //@line 2839 "stream_encoder.c"
   HEAP32[$604>>2] = $601; //@line 2839 "stream_encoder.c"
@@ -40192,7 +40129,7 @@ function _update_metadata_($0) {
   $619 = $618; //@line 2840 "stream_encoder.c"
   $620 = HEAP32[$619>>2]|0; //@line 2840 "stream_encoder.c"
   $621 = (_bitshift64Lshr(($617|0),($620|0),8)|0); //@line 2840 "stream_encoder.c"
-  $622 = tempRet0; //@line 2840 "stream_encoder.c"
+  $622 = (getTempRet0() | 0); //@line 2840 "stream_encoder.c"
   $623 = $13; //@line 2840 "stream_encoder.c"
   $624 = $623; //@line 2840 "stream_encoder.c"
   HEAP32[$624>>2] = $621; //@line 2840 "stream_encoder.c"
@@ -40215,7 +40152,7 @@ function _update_metadata_($0) {
   $639 = $638; //@line 2841 "stream_encoder.c"
   $640 = HEAP32[$639>>2]|0; //@line 2841 "stream_encoder.c"
   $641 = (_bitshift64Lshr(($637|0),($640|0),8)|0); //@line 2841 "stream_encoder.c"
-  $642 = tempRet0; //@line 2841 "stream_encoder.c"
+  $642 = (getTempRet0() | 0); //@line 2841 "stream_encoder.c"
   $643 = $13; //@line 2841 "stream_encoder.c"
   $644 = $643; //@line 2841 "stream_encoder.c"
   HEAP32[$644>>2] = $641; //@line 2841 "stream_encoder.c"
@@ -40238,7 +40175,7 @@ function _update_metadata_($0) {
   $659 = $658; //@line 2842 "stream_encoder.c"
   $660 = HEAP32[$659>>2]|0; //@line 2842 "stream_encoder.c"
   $661 = (_bitshift64Lshr(($657|0),($660|0),8)|0); //@line 2842 "stream_encoder.c"
-  $662 = tempRet0; //@line 2842 "stream_encoder.c"
+  $662 = (getTempRet0() | 0); //@line 2842 "stream_encoder.c"
   $663 = $13; //@line 2842 "stream_encoder.c"
   $664 = $663; //@line 2842 "stream_encoder.c"
   HEAP32[$664>>2] = $661; //@line 2842 "stream_encoder.c"
@@ -40261,7 +40198,7 @@ function _update_metadata_($0) {
   $679 = $678; //@line 2843 "stream_encoder.c"
   $680 = HEAP32[$679>>2]|0; //@line 2843 "stream_encoder.c"
   $681 = (_bitshift64Lshr(($677|0),($680|0),8)|0); //@line 2843 "stream_encoder.c"
-  $682 = tempRet0; //@line 2843 "stream_encoder.c"
+  $682 = (getTempRet0() | 0); //@line 2843 "stream_encoder.c"
   $683 = $13; //@line 2843 "stream_encoder.c"
   $684 = $683; //@line 2843 "stream_encoder.c"
   HEAP32[$684>>2] = $681; //@line 2843 "stream_encoder.c"
@@ -40284,7 +40221,7 @@ function _update_metadata_($0) {
   $699 = $698; //@line 2844 "stream_encoder.c"
   $700 = HEAP32[$699>>2]|0; //@line 2844 "stream_encoder.c"
   $701 = (_bitshift64Lshr(($697|0),($700|0),8)|0); //@line 2844 "stream_encoder.c"
-  $702 = tempRet0; //@line 2844 "stream_encoder.c"
+  $702 = (getTempRet0() | 0); //@line 2844 "stream_encoder.c"
   $703 = $13; //@line 2844 "stream_encoder.c"
   $704 = $703; //@line 2844 "stream_encoder.c"
   HEAP32[$704>>2] = $701; //@line 2844 "stream_encoder.c"
@@ -40307,7 +40244,7 @@ function _update_metadata_($0) {
   $719 = $718; //@line 2845 "stream_encoder.c"
   $720 = HEAP32[$719>>2]|0; //@line 2845 "stream_encoder.c"
   $721 = (_bitshift64Lshr(($717|0),($720|0),8)|0); //@line 2845 "stream_encoder.c"
-  $722 = tempRet0; //@line 2845 "stream_encoder.c"
+  $722 = (getTempRet0() | 0); //@line 2845 "stream_encoder.c"
   $723 = $13; //@line 2845 "stream_encoder.c"
   $724 = $723; //@line 2845 "stream_encoder.c"
   HEAP32[$724>>2] = $721; //@line 2845 "stream_encoder.c"
@@ -42131,9 +42068,9 @@ function _write_frame_($0,$1,$2,$3,$4) {
      $140 = HEAP32[$139>>2]|0; //@line 2643 "stream_encoder.c"
      $141 = $14; //@line 2643 "stream_encoder.c"
      $142 = (_i64Add(($137|0),($140|0),($141|0),0)|0); //@line 2643 "stream_encoder.c"
-     $143 = tempRet0; //@line 2643 "stream_encoder.c"
+     $143 = (getTempRet0() | 0); //@line 2643 "stream_encoder.c"
      $144 = (_i64Subtract(($142|0),($143|0),1,0)|0); //@line 2643 "stream_encoder.c"
-     $145 = tempRet0; //@line 2643 "stream_encoder.c"
+     $145 = (getTempRet0() | 0); //@line 2643 "stream_encoder.c"
      $146 = $16; //@line 2643 "stream_encoder.c"
      $147 = $146; //@line 2643 "stream_encoder.c"
      HEAP32[$147>>2] = $144; //@line 2643 "stream_encoder.c"
@@ -42254,7 +42191,7 @@ function _write_frame_($0,$1,$2,$3,$4) {
        $248 = $247; //@line 2653 "stream_encoder.c"
        $249 = HEAP32[$248>>2]|0; //@line 2653 "stream_encoder.c"
        $250 = (_i64Subtract(($237|0),($240|0),($246|0),($249|0))|0); //@line 2653 "stream_encoder.c"
-       $251 = tempRet0; //@line 2653 "stream_encoder.c"
+       $251 = (getTempRet0() | 0); //@line 2653 "stream_encoder.c"
        $252 = $6; //@line 2653 "stream_encoder.c"
        $253 = ((($252)) + 4|0); //@line 2653 "stream_encoder.c"
        $254 = HEAP32[$253>>2]|0; //@line 2653 "stream_encoder.c"
@@ -42343,7 +42280,7 @@ function _write_frame_($0,$1,$2,$3,$4) {
   $322 = $321; //@line 2688 "stream_encoder.c"
   $323 = HEAP32[$322>>2]|0; //@line 2688 "stream_encoder.c"
   $324 = (_i64Add(($320|0),($323|0),($313|0),0)|0); //@line 2688 "stream_encoder.c"
-  $325 = tempRet0; //@line 2688 "stream_encoder.c"
+  $325 = (getTempRet0() | 0); //@line 2688 "stream_encoder.c"
   $326 = $317; //@line 2688 "stream_encoder.c"
   $327 = $326; //@line 2688 "stream_encoder.c"
   HEAP32[$327>>2] = $324; //@line 2688 "stream_encoder.c"
@@ -42362,7 +42299,7 @@ function _write_frame_($0,$1,$2,$3,$4) {
   $339 = $338; //@line 2689 "stream_encoder.c"
   $340 = HEAP32[$339>>2]|0; //@line 2689 "stream_encoder.c"
   $341 = (_i64Add(($337|0),($340|0),($330|0),0)|0); //@line 2689 "stream_encoder.c"
-  $342 = tempRet0; //@line 2689 "stream_encoder.c"
+  $342 = (getTempRet0() | 0); //@line 2689 "stream_encoder.c"
   $343 = $334; //@line 2689 "stream_encoder.c"
   $344 = $343; //@line 2689 "stream_encoder.c"
   HEAP32[$344>>2] = $341; //@line 2689 "stream_encoder.c"
@@ -42565,8 +42502,8 @@ function _process_subframe_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) {
  $45 = $11; //@line 3388 "stream_encoder.c"
  $46 = (_FLAC__stream_encoder_get_bits_per_sample($45)|0); //@line 3388 "stream_encoder.c"
  $47 = ($46>>>0)>(16); //@line 3388 "stream_encoder.c"
- $48 = HEAP32[273]|0; //@line 3388 "stream_encoder.c"
- $49 = HEAP32[272]|0; //@line 3388 "stream_encoder.c"
+ $48 = HEAP32[283]|0; //@line 3388 "stream_encoder.c"
+ $49 = HEAP32[282]|0; //@line 3388 "stream_encoder.c"
  $50 = $47 ? $48 : $49; //@line 3388 "stream_encoder.c"
  $40 = $50; //@line 3388 "stream_encoder.c"
  $39 = 0; //@line 3393 "stream_encoder.c"
@@ -43380,10 +43317,10 @@ function _evaluate_verbatim_subframe_($0,$1,$2,$3,$4) {
  $13 = $9; //@line 3849 "stream_encoder.c"
  $14 = ((($13)) + 4|0); //@line 3849 "stream_encoder.c"
  HEAP32[$14>>2] = $12; //@line 3849 "stream_encoder.c"
- $15 = HEAP32[277]|0; //@line 3851 "stream_encoder.c"
- $16 = HEAP32[276]|0; //@line 3851 "stream_encoder.c"
+ $15 = HEAP32[287]|0; //@line 3851 "stream_encoder.c"
+ $16 = HEAP32[286]|0; //@line 3851 "stream_encoder.c"
  $17 = (($15) + ($16))|0; //@line 3851 "stream_encoder.c"
- $18 = HEAP32[277]|0; //@line 3851 "stream_encoder.c"
+ $18 = HEAP32[287]|0; //@line 3851 "stream_encoder.c"
  $19 = (($17) + ($18))|0; //@line 3851 "stream_encoder.c"
  $20 = $9; //@line 3851 "stream_encoder.c"
  $21 = ((($20)) + 288|0); //@line 3851 "stream_encoder.c"
@@ -43429,10 +43366,10 @@ function _evaluate_constant_subframe_($0,$1,$2,$3,$4) {
  $13 = $9; //@line 3676 "stream_encoder.c"
  $14 = ((($13)) + 4|0); //@line 3676 "stream_encoder.c"
  HEAP32[$14>>2] = $12; //@line 3676 "stream_encoder.c"
- $15 = HEAP32[277]|0; //@line 3678 "stream_encoder.c"
- $16 = HEAP32[276]|0; //@line 3678 "stream_encoder.c"
+ $15 = HEAP32[287]|0; //@line 3678 "stream_encoder.c"
+ $16 = HEAP32[286]|0; //@line 3678 "stream_encoder.c"
  $17 = (($15) + ($16))|0; //@line 3678 "stream_encoder.c"
- $18 = HEAP32[277]|0; //@line 3678 "stream_encoder.c"
+ $18 = HEAP32[287]|0; //@line 3678 "stream_encoder.c"
  $19 = (($17) + ($18))|0; //@line 3678 "stream_encoder.c"
  $20 = $9; //@line 3678 "stream_encoder.c"
  $21 = ((($20)) + 288|0); //@line 3678 "stream_encoder.c"
@@ -43557,10 +43494,10 @@ function _evaluate_fixed_subframe_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13
   $92 = (($91) + 1)|0; //@line 3738 "stream_encoder.c"
   $32 = $92; //@line 3738 "stream_encoder.c"
  }
- $93 = HEAP32[277]|0; //@line 3741 "stream_encoder.c"
- $94 = HEAP32[276]|0; //@line 3741 "stream_encoder.c"
+ $93 = HEAP32[287]|0; //@line 3741 "stream_encoder.c"
+ $94 = HEAP32[286]|0; //@line 3741 "stream_encoder.c"
  $95 = (($93) + ($94))|0; //@line 3741 "stream_encoder.c"
- $96 = HEAP32[277]|0; //@line 3741 "stream_encoder.c"
+ $96 = HEAP32[287]|0; //@line 3741 "stream_encoder.c"
  $97 = (($95) + ($96))|0; //@line 3741 "stream_encoder.c"
  $98 = $30; //@line 3741 "stream_encoder.c"
  $99 = ((($98)) + 288|0); //@line 3741 "stream_encoder.c"
@@ -43800,18 +43737,18 @@ function _evaluate_lpc_subframe_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$
   $171 = (($170) + 1)|0; //@line 3824 "stream_encoder.c"
   $38 = $171; //@line 3824 "stream_encoder.c"
  }
- $172 = HEAP32[277]|0; //@line 3827 "stream_encoder.c"
- $173 = HEAP32[276]|0; //@line 3827 "stream_encoder.c"
+ $172 = HEAP32[287]|0; //@line 3827 "stream_encoder.c"
+ $173 = HEAP32[286]|0; //@line 3827 "stream_encoder.c"
  $174 = (($172) + ($173))|0; //@line 3827 "stream_encoder.c"
- $175 = HEAP32[277]|0; //@line 3827 "stream_encoder.c"
+ $175 = HEAP32[287]|0; //@line 3827 "stream_encoder.c"
  $176 = (($174) + ($175))|0; //@line 3827 "stream_encoder.c"
  $177 = $35; //@line 3827 "stream_encoder.c"
  $178 = ((($177)) + 288|0); //@line 3827 "stream_encoder.c"
  $179 = HEAP32[$178>>2]|0; //@line 3827 "stream_encoder.c"
  $180 = (($176) + ($179))|0; //@line 3827 "stream_encoder.c"
- $181 = HEAP32[274]|0; //@line 3827 "stream_encoder.c"
+ $181 = HEAP32[284]|0; //@line 3827 "stream_encoder.c"
  $182 = (($180) + ($181))|0; //@line 3827 "stream_encoder.c"
- $183 = HEAP32[275]|0; //@line 3827 "stream_encoder.c"
+ $183 = HEAP32[285]|0; //@line 3827 "stream_encoder.c"
  $184 = (($182) + ($183))|0; //@line 3827 "stream_encoder.c"
  $185 = $27; //@line 3827 "stream_encoder.c"
  $186 = $28; //@line 3827 "stream_encoder.c"
@@ -44034,7 +43971,7 @@ function _find_best_partition_order_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$
   $153 = $36; //@line 3949 "stream_encoder.c"
   $154 = (($152) + ($153<<2)|0); //@line 3949 "stream_encoder.c"
   $155 = HEAP32[$154>>2]|0; //@line 3949 "stream_encoder.c"
-  $156 = HEAP32[272]|0; //@line 3949 "stream_encoder.c"
+  $156 = HEAP32[282]|0; //@line 3949 "stream_encoder.c"
   $157 = ($155>>>0)>=($156>>>0); //@line 3949 "stream_encoder.c"
   if ($157) {
    break;
@@ -44272,8 +44209,8 @@ function _set_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) {
  $21 = $9;
  $22 = $10;
  $26 = 0; //@line 4133 "stream_encoder.c"
- $38 = HEAP32[278]|0; //@line 4134 "stream_encoder.c"
- $39 = HEAP32[274]|0; //@line 4134 "stream_encoder.c"
+ $38 = HEAP32[288]|0; //@line 4134 "stream_encoder.c"
+ $39 = HEAP32[284]|0; //@line 4134 "stream_encoder.c"
  $40 = (($38) + ($39))|0; //@line 4134 "stream_encoder.c"
  $27 = $40; //@line 4134 "stream_encoder.c"
  $41 = $21; //@line 4145 "stream_encoder.c"
@@ -44320,8 +44257,8 @@ function _set_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) {
    $70 = ($69|0)!=(0); //@line 4184 "stream_encoder.c"
    do {
     if ($70) {
-     $71 = HEAP32[275]|0; //@line 4185 "stream_encoder.c"
-     $72 = HEAP32[275]|0; //@line 4185 "stream_encoder.c"
+     $71 = HEAP32[285]|0; //@line 4185 "stream_encoder.c"
+     $72 = HEAP32[285]|0; //@line 4185 "stream_encoder.c"
      $73 = (($71) + ($72))|0; //@line 4185 "stream_encoder.c"
      $74 = $13; //@line 4185 "stream_encoder.c"
      $75 = HEAP32[$74>>2]|0; //@line 4185 "stream_encoder.c"
@@ -44485,7 +44422,7 @@ function _set_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) {
          $176 = $175; //@line 4240 "stream_encoder.c"
          $177 = HEAP32[$176>>2]|0; //@line 4240 "stream_encoder.c"
          $178 = (___muldi3(($174|0),($177|0),128,0)|0); //@line 4240 "stream_encoder.c"
-         $179 = tempRet0; //@line 4240 "stream_encoder.c"
+         $179 = (getTempRet0() | 0); //@line 4240 "stream_encoder.c"
          $180 = $33; //@line 4240 "stream_encoder.c"
          $181 = $180; //@line 4240 "stream_encoder.c"
          $182 = HEAP32[$181>>2]|0; //@line 4240 "stream_encoder.c"
@@ -44510,7 +44447,7 @@ function _set_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) {
          $197 = $196; //@line 4241 "stream_encoder.c"
          $198 = HEAP32[$197>>2]|0; //@line 4241 "stream_encoder.c"
          $199 = (_bitshift64Shl(($195|0),($198|0),8)|0); //@line 4241 "stream_encoder.c"
-         $200 = tempRet0; //@line 4241 "stream_encoder.c"
+         $200 = (getTempRet0() | 0); //@line 4241 "stream_encoder.c"
          $201 = $34; //@line 4241 "stream_encoder.c"
          $202 = $201; //@line 4241 "stream_encoder.c"
          HEAP32[$202>>2] = $199; //@line 4241 "stream_encoder.c"
@@ -44551,7 +44488,7 @@ function _set_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) {
        $228 = $227; //@line 4244 "stream_encoder.c"
        $229 = HEAP32[$228>>2]|0; //@line 4244 "stream_encoder.c"
        $230 = (_bitshift64Shl(($226|0),($229|0),1)|0); //@line 4244 "stream_encoder.c"
-       $231 = tempRet0; //@line 4244 "stream_encoder.c"
+       $231 = (getTempRet0() | 0); //@line 4244 "stream_encoder.c"
        $232 = $34; //@line 4244 "stream_encoder.c"
        $233 = $232; //@line 4244 "stream_encoder.c"
        HEAP32[$233>>2] = $230; //@line 4244 "stream_encoder.c"
@@ -44596,8 +44533,8 @@ function _set_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10) {
     $259 = ($258|0)!=(0); //@line 4287 "stream_encoder.c"
     do {
      if ($259) {
-      $260 = HEAP32[275]|0; //@line 4288 "stream_encoder.c"
-      $261 = HEAP32[275]|0; //@line 4288 "stream_encoder.c"
+      $260 = HEAP32[285]|0; //@line 4288 "stream_encoder.c"
+      $261 = HEAP32[285]|0; //@line 4288 "stream_encoder.c"
       $262 = (($260) + ($261))|0; //@line 4288 "stream_encoder.c"
       $263 = $13; //@line 4288 "stream_encoder.c"
       $264 = $30; //@line 4288 "stream_encoder.c"
@@ -44679,7 +44616,7 @@ function _count_rice_bits_in_partition_($0,$1,$2,$3) {
  $9 = (($7) + 4)|0;
  $10 = $9;
  HEAP32[$10>>2] = $3;
- $11 = HEAP32[274]|0; //@line 4097 "stream_encoder.c"
+ $11 = HEAP32[284]|0; //@line 4097 "stream_encoder.c"
  $12 = $4; //@line 4098 "stream_encoder.c"
  $13 = (1 + ($12))|0; //@line 4098 "stream_encoder.c"
  $14 = $5; //@line 4098 "stream_encoder.c"
@@ -44697,11 +44634,11 @@ function _count_rice_bits_in_partition_($0,$1,$2,$3) {
   $25 = $4; //@line 4101 "stream_encoder.c"
   $26 = (($25) - 1)|0; //@line 4101 "stream_encoder.c"
   $27 = (_bitshift64Lshr(($21|0),($24|0),($26|0))|0); //@line 4101 "stream_encoder.c"
-  $28 = tempRet0; //@line 4101 "stream_encoder.c"
+  $28 = (getTempRet0() | 0); //@line 4101 "stream_encoder.c"
   $32 = $27;
  } else {
   $29 = (_bitshift64Shl(($21|0),($24|0),1)|0); //@line 4102 "stream_encoder.c"
-  $30 = tempRet0; //@line 4102 "stream_encoder.c"
+  $30 = (getTempRet0() | 0); //@line 4102 "stream_encoder.c"
   $32 = $29;
  }
  $31 = (($16) + ($32))|0; //@line 4098 "stream_encoder.c"
@@ -45243,11 +45180,11 @@ function _init_stream_internal__237($0,$1,$2,$3,$4,$5,$6,$7) {
          $275 = HEAP32[$274>>2]|0; //@line 738 "stream_encoder.c"
          $276 = ((($275)) + 580|0); //@line 738 "stream_encoder.c"
          $277 = HEAP32[$276>>2]|0; //@line 738 "stream_encoder.c"
-         $278 = HEAP32[274]|0; //@line 738 "stream_encoder.c"
+         $278 = HEAP32[284]|0; //@line 738 "stream_encoder.c"
          $279 = 1 << $278; //@line 738 "stream_encoder.c"
          $280 = ($277>>>0)>=($279>>>0); //@line 738 "stream_encoder.c"
          if ($280) {
-          $281 = HEAP32[274]|0; //@line 739 "stream_encoder.c"
+          $281 = HEAP32[284]|0; //@line 739 "stream_encoder.c"
           $282 = 1 << $281; //@line 739 "stream_encoder.c"
           $283 = (($282) - 1)|0; //@line 739 "stream_encoder.c"
           $284 = $9; //@line 739 "stream_encoder.c"
@@ -45497,14 +45434,14 @@ function _init_stream_internal__237($0,$1,$2,$3,$4,$5,$6,$7) {
             $418 = ((($417)) + 16|0); //@line 807 "stream_encoder.c"
             $419 = ((($418)) + 4|0); //@line 807 "stream_encoder.c"
             $420 = HEAP32[$419>>2]|0; //@line 807 "stream_encoder.c"
-            $421 = (_strcmp($420,3448)|0); //@line 807 "stream_encoder.c"
+            $421 = (_strcmp($420,3456)|0); //@line 807 "stream_encoder.c"
             $422 = ($421|0)!=(0); //@line 807 "stream_encoder.c"
             if ($422) {
              $423 = $23; //@line 807 "stream_encoder.c"
              $424 = ((($423)) + 16|0); //@line 807 "stream_encoder.c"
              $425 = ((($424)) + 4|0); //@line 807 "stream_encoder.c"
              $426 = HEAP32[$425>>2]|0; //@line 807 "stream_encoder.c"
-             $427 = (_strcmp($426,3458)|0); //@line 807 "stream_encoder.c"
+             $427 = (_strcmp($426,3466)|0); //@line 807 "stream_encoder.c"
              $428 = ($427|0)!=(0); //@line 807 "stream_encoder.c"
              if ($428) {
               label = 119;
@@ -46201,8 +46138,8 @@ function _init_stream_internal__237($0,$1,$2,$3,$4,$5,$6,$7) {
            $897 = HEAP32[$896>>2]|0; //@line 1154 "stream_encoder.c"
            $898 = ((($897)) + 6856|0); //@line 1154 "stream_encoder.c"
            $899 = HEAP32[$898>>2]|0; //@line 1154 "stream_encoder.c"
-           $900 = HEAP32[258]|0; //@line 1154 "stream_encoder.c"
-           $901 = HEAP32[265]|0; //@line 1154 "stream_encoder.c"
+           $900 = HEAP32[268]|0; //@line 1154 "stream_encoder.c"
+           $901 = HEAP32[275]|0; //@line 1154 "stream_encoder.c"
            $902 = (_FLAC__bitwriter_write_raw_uint32($899,$900,$901)|0); //@line 1154 "stream_encoder.c"
            $903 = ($902|0)!=(0); //@line 1154 "stream_encoder.c"
            $904 = $9;
@@ -46384,7 +46321,7 @@ function _init_stream_internal__237($0,$1,$2,$3,$4,$5,$6,$7) {
             $1165 = $8; //@line 1253 "stream_encoder.c"
             STACKTOP = sp;return ($1165|0); //@line 1253 "stream_encoder.c"
            }
-           $1042 = HEAP32[267]|0; //@line 1195 "stream_encoder.c"
+           $1042 = HEAP32[277]|0; //@line 1195 "stream_encoder.c"
            $1043 = 1 << $1042; //@line 1195 "stream_encoder.c"
            $1044 = (($1043) - 1)|0; //@line 1195 "stream_encoder.c"
            $1045 = $9; //@line 1195 "stream_encoder.c"
@@ -46738,7 +46675,7 @@ function _precompute_partition_info_sums_($0,$1,$2,$3,$4,$5,$6) {
      $94 = $93; //@line 3993 "stream_encoder.c"
      $95 = HEAP32[$94>>2]|0; //@line 3993 "stream_encoder.c"
      $96 = (_i64Add(($92|0),($95|0),($87|0),($89|0))|0); //@line 3993 "stream_encoder.c"
-     $97 = tempRet0; //@line 3993 "stream_encoder.c"
+     $97 = (getTempRet0() | 0); //@line 3993 "stream_encoder.c"
      $98 = $21; //@line 3993 "stream_encoder.c"
      $99 = $98; //@line 3993 "stream_encoder.c"
      HEAP32[$99>>2] = $96; //@line 3993 "stream_encoder.c"
@@ -46814,7 +46751,7 @@ function _precompute_partition_info_sums_($0,$1,$2,$3,$4,$5,$6) {
    $147 = $146; //@line 4009 "stream_encoder.c"
    $148 = HEAP32[$147>>2]|0; //@line 4009 "stream_encoder.c"
    $149 = (_i64Add(($135|0),($138|0),($145|0),($148|0))|0); //@line 4008 "stream_encoder.c"
-   $150 = tempRet0; //@line 4008 "stream_encoder.c"
+   $150 = (getTempRet0() | 0); //@line 4008 "stream_encoder.c"
    $151 = $8; //@line 4007 "stream_encoder.c"
    $152 = $23; //@line 4007 "stream_encoder.c"
    $153 = (($152) + 1)|0; //@line 4007 "stream_encoder.c"
@@ -47626,7 +47563,7 @@ function _verify_read_callback_($0,$1,$2,$3) {
   $27 = $6; //@line 4369 "stream_encoder.c"
   $28 = $7; //@line 4369 "stream_encoder.c"
   $29 = HEAP32[$28>>2]|0; //@line 4369 "stream_encoder.c"
-  _memcpy(($27|0),(2353|0),($29|0))|0; //@line 4369 "stream_encoder.c"
+  _memcpy(($27|0),(2361|0),($29|0))|0; //@line 4369 "stream_encoder.c"
   $30 = $9; //@line 4370 "stream_encoder.c"
   $31 = ((($30)) + 4|0); //@line 4370 "stream_encoder.c"
   $32 = HEAP32[$31>>2]|0; //@line 4370 "stream_encoder.c"
@@ -47875,7 +47812,7 @@ function _verify_write_callback_($0,$1,$2,$3) {
  $93 = HEAP32[$92>>2]|0; //@line 4416 "stream_encoder.c"
  $94 = $15; //@line 4416 "stream_encoder.c"
  $95 = (_i64Add(($90|0),($93|0),($94|0),0)|0); //@line 4416 "stream_encoder.c"
- $96 = tempRet0; //@line 4416 "stream_encoder.c"
+ $96 = (getTempRet0() | 0); //@line 4416 "stream_encoder.c"
  $97 = $9; //@line 4416 "stream_encoder.c"
  $98 = ((($97)) + 4|0); //@line 4416 "stream_encoder.c"
  $99 = HEAP32[$98>>2]|0; //@line 4416 "stream_encoder.c"
@@ -47897,7 +47834,7 @@ function _verify_write_callback_($0,$1,$2,$3) {
  $113 = HEAP32[$112>>2]|0; //@line 4417 "stream_encoder.c"
  $114 = $12; //@line 4417 "stream_encoder.c"
  $115 = (___udivdi3(($110|0),($113|0),($114|0),0)|0); //@line 4417 "stream_encoder.c"
- $116 = tempRet0; //@line 4417 "stream_encoder.c"
+ $116 = (getTempRet0() | 0); //@line 4417 "stream_encoder.c"
  $117 = $9; //@line 4417 "stream_encoder.c"
  $118 = ((($117)) + 4|0); //@line 4417 "stream_encoder.c"
  $119 = HEAP32[$118>>2]|0; //@line 4417 "stream_encoder.c"
@@ -48145,11 +48082,11 @@ function _FLAC__stream_encoder_set_total_samples_estimate($0,$1,$2) {
  $17 = (($14) + 4)|0; //@line 1876 "stream_encoder.c"
  $18 = $17; //@line 1876 "stream_encoder.c"
  $19 = HEAP32[$18>>2]|0; //@line 1876 "stream_encoder.c"
- $20 = HEAP32[260]|0; //@line 1876 "stream_encoder.c"
+ $20 = HEAP32[270]|0; //@line 1876 "stream_encoder.c"
  $21 = (_bitshift64Shl(1,0,($20|0))|0); //@line 1876 "stream_encoder.c"
- $22 = tempRet0; //@line 1876 "stream_encoder.c"
+ $22 = (getTempRet0() | 0); //@line 1876 "stream_encoder.c"
  $23 = (_i64Subtract(($21|0),($22|0),1,0)|0); //@line 1876 "stream_encoder.c"
- $24 = tempRet0; //@line 1876 "stream_encoder.c"
+ $24 = (getTempRet0() | 0); //@line 1876 "stream_encoder.c"
  $25 = ($19>>>0)<($24>>>0); //@line 1876 "stream_encoder.c"
  $26 = ($16>>>0)<($23>>>0); //@line 1876 "stream_encoder.c"
  $27 = ($19|0)==($24|0); //@line 1876 "stream_encoder.c"
@@ -48164,11 +48101,11 @@ function _FLAC__stream_encoder_set_total_samples_estimate($0,$1,$2) {
   $35 = HEAP32[$34>>2]|0; //@line 1876 "stream_encoder.c"
   $43 = $32;$46 = $35;
  } else {
-  $36 = HEAP32[260]|0; //@line 1876 "stream_encoder.c"
+  $36 = HEAP32[270]|0; //@line 1876 "stream_encoder.c"
   $37 = (_bitshift64Shl(1,0,($36|0))|0); //@line 1876 "stream_encoder.c"
-  $38 = tempRet0; //@line 1876 "stream_encoder.c"
+  $38 = (getTempRet0() | 0); //@line 1876 "stream_encoder.c"
   $39 = (_i64Subtract(($37|0),($38|0),1,0)|0); //@line 1876 "stream_encoder.c"
-  $40 = tempRet0; //@line 1876 "stream_encoder.c"
+  $40 = (getTempRet0() | 0); //@line 1876 "stream_encoder.c"
   $43 = $39;$46 = $40;
  }
  $41 = $5; //@line 1876 "stream_encoder.c"
@@ -48748,13 +48685,13 @@ function _FLAC__add_metadata_block($0,$1) {
  STACKTOP = STACKTOP + 48|0; if ((STACKTOP|0) >= (STACK_MAX|0)) abortStackOverflow(48|0);
  $3 = $0;
  $4 = $1;
- $11 = (_strlen(2320)|0); //@line 50 "stream_encoder_framing.c"
+ $11 = (_strlen(2328)|0); //@line 50 "stream_encoder_framing.c"
  $7 = $11; //@line 50 "stream_encoder_framing.c"
  $12 = $4; //@line 52 "stream_encoder_framing.c"
  $13 = $3; //@line 52 "stream_encoder_framing.c"
  $14 = ((($13)) + 4|0); //@line 52 "stream_encoder_framing.c"
  $15 = HEAP32[$14>>2]|0; //@line 52 "stream_encoder_framing.c"
- $16 = HEAP32[277]|0; //@line 52 "stream_encoder_framing.c"
+ $16 = HEAP32[287]|0; //@line 52 "stream_encoder_framing.c"
  $17 = (_FLAC__bitwriter_write_raw_uint32($12,$15,$16)|0); //@line 52 "stream_encoder_framing.c"
  $18 = ($17|0)!=(0); //@line 52 "stream_encoder_framing.c"
  if (!($18)) {
@@ -48765,7 +48702,7 @@ function _FLAC__add_metadata_block($0,$1) {
  $19 = $4; //@line 55 "stream_encoder_framing.c"
  $20 = $3; //@line 55 "stream_encoder_framing.c"
  $21 = HEAP32[$20>>2]|0; //@line 55 "stream_encoder_framing.c"
- $22 = HEAP32[266]|0; //@line 55 "stream_encoder_framing.c"
+ $22 = HEAP32[276]|0; //@line 55 "stream_encoder_framing.c"
  $23 = (_FLAC__bitwriter_write_raw_uint32($19,$21,$22)|0); //@line 55 "stream_encoder_framing.c"
  $24 = ($23|0)!=(0); //@line 55 "stream_encoder_framing.c"
  if (!($24)) {
@@ -48793,7 +48730,7 @@ function _FLAC__add_metadata_block($0,$1) {
   $5 = $38; //@line 65 "stream_encoder_framing.c"
  }
  $39 = $5; //@line 69 "stream_encoder_framing.c"
- $40 = HEAP32[267]|0; //@line 69 "stream_encoder_framing.c"
+ $40 = HEAP32[277]|0; //@line 69 "stream_encoder_framing.c"
  $41 = 1 << $40; //@line 69 "stream_encoder_framing.c"
  $42 = ($39>>>0)>=($41>>>0); //@line 69 "stream_encoder_framing.c"
  if ($42) {
@@ -48803,7 +48740,7 @@ function _FLAC__add_metadata_block($0,$1) {
  }
  $43 = $4; //@line 71 "stream_encoder_framing.c"
  $44 = $5; //@line 71 "stream_encoder_framing.c"
- $45 = HEAP32[267]|0; //@line 71 "stream_encoder_framing.c"
+ $45 = HEAP32[277]|0; //@line 71 "stream_encoder_framing.c"
  $46 = (_FLAC__bitwriter_write_raw_uint32($43,$44,$45)|0); //@line 71 "stream_encoder_framing.c"
  $47 = ($46|0)!=(0); //@line 71 "stream_encoder_framing.c"
  if (!($47)) {
@@ -48820,7 +48757,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $51 = $3; //@line 77 "stream_encoder_framing.c"
    $52 = ((($51)) + 16|0); //@line 77 "stream_encoder_framing.c"
    $53 = HEAP32[$52>>2]|0; //@line 77 "stream_encoder_framing.c"
-   $54 = HEAP32[279]|0; //@line 77 "stream_encoder_framing.c"
+   $54 = HEAP32[289]|0; //@line 77 "stream_encoder_framing.c"
    $55 = (_FLAC__bitwriter_write_raw_uint32($50,$53,$54)|0); //@line 77 "stream_encoder_framing.c"
    $56 = ($55|0)!=(0); //@line 77 "stream_encoder_framing.c"
    if (!($56)) {
@@ -48833,7 +48770,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $59 = ((($58)) + 16|0); //@line 80 "stream_encoder_framing.c"
    $60 = ((($59)) + 4|0); //@line 80 "stream_encoder_framing.c"
    $61 = HEAP32[$60>>2]|0; //@line 80 "stream_encoder_framing.c"
-   $62 = HEAP32[279]|0; //@line 80 "stream_encoder_framing.c"
+   $62 = HEAP32[289]|0; //@line 80 "stream_encoder_framing.c"
    $63 = (_FLAC__bitwriter_write_raw_uint32($57,$61,$62)|0); //@line 80 "stream_encoder_framing.c"
    $64 = ($63|0)!=(0); //@line 80 "stream_encoder_framing.c"
    if (!($64)) {
@@ -48846,7 +48783,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $67 = ((($66)) + 16|0); //@line 83 "stream_encoder_framing.c"
    $68 = ((($67)) + 8|0); //@line 83 "stream_encoder_framing.c"
    $69 = HEAP32[$68>>2]|0; //@line 83 "stream_encoder_framing.c"
-   $70 = HEAP32[267]|0; //@line 83 "stream_encoder_framing.c"
+   $70 = HEAP32[277]|0; //@line 83 "stream_encoder_framing.c"
    $71 = (_FLAC__bitwriter_write_raw_uint32($65,$69,$70)|0); //@line 83 "stream_encoder_framing.c"
    $72 = ($71|0)!=(0); //@line 83 "stream_encoder_framing.c"
    if (!($72)) {
@@ -48859,7 +48796,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $75 = ((($74)) + 16|0); //@line 86 "stream_encoder_framing.c"
    $76 = ((($75)) + 12|0); //@line 86 "stream_encoder_framing.c"
    $77 = HEAP32[$76>>2]|0; //@line 86 "stream_encoder_framing.c"
-   $78 = HEAP32[267]|0; //@line 86 "stream_encoder_framing.c"
+   $78 = HEAP32[277]|0; //@line 86 "stream_encoder_framing.c"
    $79 = (_FLAC__bitwriter_write_raw_uint32($73,$77,$78)|0); //@line 86 "stream_encoder_framing.c"
    $80 = ($79|0)!=(0); //@line 86 "stream_encoder_framing.c"
    if (!($80)) {
@@ -48872,7 +48809,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $83 = ((($82)) + 16|0); //@line 89 "stream_encoder_framing.c"
    $84 = ((($83)) + 16|0); //@line 89 "stream_encoder_framing.c"
    $85 = HEAP32[$84>>2]|0; //@line 89 "stream_encoder_framing.c"
-   $86 = HEAP32[259]|0; //@line 89 "stream_encoder_framing.c"
+   $86 = HEAP32[269]|0; //@line 89 "stream_encoder_framing.c"
    $87 = (_FLAC__bitwriter_write_raw_uint32($81,$85,$86)|0); //@line 89 "stream_encoder_framing.c"
    $88 = ($87|0)!=(0); //@line 89 "stream_encoder_framing.c"
    if (!($88)) {
@@ -48886,7 +48823,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $92 = ((($91)) + 20|0); //@line 93 "stream_encoder_framing.c"
    $93 = HEAP32[$92>>2]|0; //@line 93 "stream_encoder_framing.c"
    $94 = (($93) - 1)|0; //@line 93 "stream_encoder_framing.c"
-   $95 = HEAP32[270]|0; //@line 93 "stream_encoder_framing.c"
+   $95 = HEAP32[280]|0; //@line 93 "stream_encoder_framing.c"
    $96 = (_FLAC__bitwriter_write_raw_uint32($89,$94,$95)|0); //@line 93 "stream_encoder_framing.c"
    $97 = ($96|0)!=(0); //@line 93 "stream_encoder_framing.c"
    if (!($97)) {
@@ -48900,7 +48837,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $101 = ((($100)) + 24|0); //@line 97 "stream_encoder_framing.c"
    $102 = HEAP32[$101>>2]|0; //@line 97 "stream_encoder_framing.c"
    $103 = (($102) - 1)|0; //@line 97 "stream_encoder_framing.c"
-   $104 = HEAP32[275]|0; //@line 97 "stream_encoder_framing.c"
+   $104 = HEAP32[285]|0; //@line 97 "stream_encoder_framing.c"
    $105 = (_FLAC__bitwriter_write_raw_uint32($98,$103,$104)|0); //@line 97 "stream_encoder_framing.c"
    $106 = ($105|0)!=(0); //@line 97 "stream_encoder_framing.c"
    if (!($106)) {
@@ -48918,7 +48855,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $114 = (($111) + 4)|0; //@line 100 "stream_encoder_framing.c"
    $115 = $114; //@line 100 "stream_encoder_framing.c"
    $116 = HEAP32[$115>>2]|0; //@line 100 "stream_encoder_framing.c"
-   $117 = HEAP32[260]|0; //@line 100 "stream_encoder_framing.c"
+   $117 = HEAP32[270]|0; //@line 100 "stream_encoder_framing.c"
    $118 = (_FLAC__bitwriter_write_raw_uint64($107,$113,$116,$117)|0); //@line 100 "stream_encoder_framing.c"
    $119 = ($118|0)!=(0); //@line 100 "stream_encoder_framing.c"
    if (!($119)) {
@@ -48958,7 +48895,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $133 = $4; //@line 110 "stream_encoder_framing.c"
    $134 = $3; //@line 110 "stream_encoder_framing.c"
    $135 = ((($134)) + 16|0); //@line 110 "stream_encoder_framing.c"
-   $136 = HEAP32[265]|0; //@line 110 "stream_encoder_framing.c"
+   $136 = HEAP32[275]|0; //@line 110 "stream_encoder_framing.c"
    $137 = (($136>>>0) / 8)&-1; //@line 110 "stream_encoder_framing.c"
    $138 = (_FLAC__bitwriter_write_byte_block($133,$135,$137)|0); //@line 110 "stream_encoder_framing.c"
    $139 = ($138|0)!=(0); //@line 110 "stream_encoder_framing.c"
@@ -48975,7 +48912,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $145 = $3; //@line 112 "stream_encoder_framing.c"
    $146 = ((($145)) + 8|0); //@line 112 "stream_encoder_framing.c"
    $147 = HEAP32[$146>>2]|0; //@line 112 "stream_encoder_framing.c"
-   $148 = HEAP32[265]|0; //@line 112 "stream_encoder_framing.c"
+   $148 = HEAP32[275]|0; //@line 112 "stream_encoder_framing.c"
    $149 = (($148>>>0) / 8)&-1; //@line 112 "stream_encoder_framing.c"
    $150 = (($147) - ($149))|0; //@line 112 "stream_encoder_framing.c"
    $151 = (_FLAC__bitwriter_write_byte_block($140,$144,$150)|0); //@line 112 "stream_encoder_framing.c"
@@ -49011,7 +48948,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $168 = (($165) + 4)|0; //@line 117 "stream_encoder_framing.c"
     $169 = $168; //@line 117 "stream_encoder_framing.c"
     $170 = HEAP32[$169>>2]|0; //@line 117 "stream_encoder_framing.c"
-    $171 = HEAP32[280]|0; //@line 117 "stream_encoder_framing.c"
+    $171 = HEAP32[290]|0; //@line 117 "stream_encoder_framing.c"
     $172 = (_FLAC__bitwriter_write_raw_uint64($158,$167,$170,$171)|0); //@line 117 "stream_encoder_framing.c"
     $173 = ($172|0)!=(0); //@line 117 "stream_encoder_framing.c"
     if (!($173)) {
@@ -49032,7 +48969,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $185 = (($182) + 4)|0; //@line 119 "stream_encoder_framing.c"
     $186 = $185; //@line 119 "stream_encoder_framing.c"
     $187 = HEAP32[$186>>2]|0; //@line 119 "stream_encoder_framing.c"
-    $188 = HEAP32[280]|0; //@line 119 "stream_encoder_framing.c"
+    $188 = HEAP32[290]|0; //@line 119 "stream_encoder_framing.c"
     $189 = (_FLAC__bitwriter_write_raw_uint64($174,$184,$187,$188)|0); //@line 119 "stream_encoder_framing.c"
     $190 = ($189|0)!=(0); //@line 119 "stream_encoder_framing.c"
     if (!($190)) {
@@ -49048,7 +48985,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $197 = (($195) + (($196*24)|0)|0); //@line 121 "stream_encoder_framing.c"
     $198 = ((($197)) + 16|0); //@line 121 "stream_encoder_framing.c"
     $199 = HEAP32[$198>>2]|0; //@line 121 "stream_encoder_framing.c"
-    $200 = HEAP32[279]|0; //@line 121 "stream_encoder_framing.c"
+    $200 = HEAP32[289]|0; //@line 121 "stream_encoder_framing.c"
     $201 = (_FLAC__bitwriter_write_raw_uint32($191,$199,$200)|0); //@line 121 "stream_encoder_framing.c"
     $202 = ($201|0)!=(0); //@line 121 "stream_encoder_framing.c"
     if (!($202)) {
@@ -49088,7 +49025,7 @@ function _FLAC__add_metadata_block($0,$1) {
    }
    $209 = $4; //@line 128 "stream_encoder_framing.c"
    $210 = $7; //@line 128 "stream_encoder_framing.c"
-   $211 = (_FLAC__bitwriter_write_byte_block($209,2320,$210)|0); //@line 128 "stream_encoder_framing.c"
+   $211 = (_FLAC__bitwriter_write_byte_block($209,2328,$210)|0); //@line 128 "stream_encoder_framing.c"
    $212 = ($211|0)!=(0); //@line 128 "stream_encoder_framing.c"
    if (!($212)) {
     $2 = 0; //@line 129 "stream_encoder_framing.c"
@@ -49174,7 +49111,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $256 = $4; //@line 141 "stream_encoder_framing.c"
    $257 = $3; //@line 141 "stream_encoder_framing.c"
    $258 = ((($257)) + 16|0); //@line 141 "stream_encoder_framing.c"
-   $259 = HEAP32[263]|0; //@line 141 "stream_encoder_framing.c"
+   $259 = HEAP32[273]|0; //@line 141 "stream_encoder_framing.c"
    $260 = (($259>>>0) / 8)&-1; //@line 141 "stream_encoder_framing.c"
    $261 = (_FLAC__bitwriter_write_byte_block($256,$258,$260)|0); //@line 141 "stream_encoder_framing.c"
    $262 = ($261|0)!=(0); //@line 141 "stream_encoder_framing.c"
@@ -49193,7 +49130,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $270 = (($267) + 4)|0; //@line 143 "stream_encoder_framing.c"
    $271 = $270; //@line 143 "stream_encoder_framing.c"
    $272 = HEAP32[$271>>2]|0; //@line 143 "stream_encoder_framing.c"
-   $273 = HEAP32[280]|0; //@line 143 "stream_encoder_framing.c"
+   $273 = HEAP32[290]|0; //@line 143 "stream_encoder_framing.c"
    $274 = (_FLAC__bitwriter_write_raw_uint64($263,$269,$272,$273)|0); //@line 143 "stream_encoder_framing.c"
    $275 = ($274|0)!=(0); //@line 143 "stream_encoder_framing.c"
    if (!($275)) {
@@ -49208,7 +49145,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $280 = HEAP32[$279>>2]|0; //@line 145 "stream_encoder_framing.c"
    $281 = ($280|0)!=(0); //@line 145 "stream_encoder_framing.c"
    $282 = $281 ? 1 : 0; //@line 145 "stream_encoder_framing.c"
-   $283 = HEAP32[277]|0; //@line 145 "stream_encoder_framing.c"
+   $283 = HEAP32[287]|0; //@line 145 "stream_encoder_framing.c"
    $284 = (_FLAC__bitwriter_write_raw_uint32($276,$282,$283)|0); //@line 145 "stream_encoder_framing.c"
    $285 = ($284|0)!=(0); //@line 145 "stream_encoder_framing.c"
    if (!($285)) {
@@ -49217,7 +49154,7 @@ function _FLAC__add_metadata_block($0,$1) {
     STACKTOP = sp;return ($508|0); //@line 218 "stream_encoder_framing.c"
    }
    $286 = $4; //@line 147 "stream_encoder_framing.c"
-   $287 = HEAP32[264]|0; //@line 147 "stream_encoder_framing.c"
+   $287 = HEAP32[274]|0; //@line 147 "stream_encoder_framing.c"
    $288 = (_FLAC__bitwriter_write_zeroes($286,$287)|0); //@line 147 "stream_encoder_framing.c"
    $289 = ($288|0)!=(0); //@line 147 "stream_encoder_framing.c"
    if (!($289)) {
@@ -49230,7 +49167,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $292 = ((($291)) + 16|0); //@line 149 "stream_encoder_framing.c"
    $293 = ((($292)) + 148|0); //@line 149 "stream_encoder_framing.c"
    $294 = HEAP32[$293>>2]|0; //@line 149 "stream_encoder_framing.c"
-   $295 = HEAP32[271]|0; //@line 149 "stream_encoder_framing.c"
+   $295 = HEAP32[281]|0; //@line 149 "stream_encoder_framing.c"
    $296 = (_FLAC__bitwriter_write_raw_uint32($290,$294,$295)|0); //@line 149 "stream_encoder_framing.c"
    $297 = ($296|0)!=(0); //@line 149 "stream_encoder_framing.c"
    if (!($297)) {
@@ -49264,7 +49201,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $315 = (($312) + 4)|0; //@line 154 "stream_encoder_framing.c"
     $316 = $315; //@line 154 "stream_encoder_framing.c"
     $317 = HEAP32[$316>>2]|0; //@line 154 "stream_encoder_framing.c"
-    $318 = HEAP32[280]|0; //@line 154 "stream_encoder_framing.c"
+    $318 = HEAP32[290]|0; //@line 154 "stream_encoder_framing.c"
     $319 = (_FLAC__bitwriter_write_raw_uint64($310,$314,$317,$318)|0); //@line 154 "stream_encoder_framing.c"
     $320 = ($319|0)!=(0); //@line 154 "stream_encoder_framing.c"
     if (!($320)) {
@@ -49276,7 +49213,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $323 = ((($322)) + 8|0); //@line 156 "stream_encoder_framing.c"
     $324 = HEAP8[$323>>0]|0; //@line 156 "stream_encoder_framing.c"
     $325 = $324&255; //@line 156 "stream_encoder_framing.c"
-    $326 = HEAP32[271]|0; //@line 156 "stream_encoder_framing.c"
+    $326 = HEAP32[281]|0; //@line 156 "stream_encoder_framing.c"
     $327 = (_FLAC__bitwriter_write_raw_uint32($321,$325,$326)|0); //@line 156 "stream_encoder_framing.c"
     $328 = ($327|0)!=(0); //@line 156 "stream_encoder_framing.c"
     if (!($328)) {
@@ -49286,7 +49223,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $329 = $4; //@line 159 "stream_encoder_framing.c"
     $330 = $8; //@line 159 "stream_encoder_framing.c"
     $331 = ((($330)) + 9|0); //@line 159 "stream_encoder_framing.c"
-    $332 = HEAP32[261]|0; //@line 159 "stream_encoder_framing.c"
+    $332 = HEAP32[271]|0; //@line 159 "stream_encoder_framing.c"
     $333 = (($332>>>0) / 8)&-1; //@line 159 "stream_encoder_framing.c"
     $334 = (_FLAC__bitwriter_write_byte_block($329,$331,$333)|0); //@line 159 "stream_encoder_framing.c"
     $335 = ($334|0)!=(0); //@line 159 "stream_encoder_framing.c"
@@ -49300,7 +49237,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $339 = HEAP8[$338>>0]|0; //@line 161 "stream_encoder_framing.c"
     $340 = $339 & 1; //@line 161 "stream_encoder_framing.c"
     $341 = $340&255; //@line 161 "stream_encoder_framing.c"
-    $342 = HEAP32[277]|0; //@line 161 "stream_encoder_framing.c"
+    $342 = HEAP32[287]|0; //@line 161 "stream_encoder_framing.c"
     $343 = (_FLAC__bitwriter_write_raw_uint32($336,$341,$342)|0); //@line 161 "stream_encoder_framing.c"
     $344 = ($343|0)!=(0); //@line 161 "stream_encoder_framing.c"
     if (!($344)) {
@@ -49314,7 +49251,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $349 = ($348&255) >>> 1; //@line 163 "stream_encoder_framing.c"
     $350 = $349 & 1; //@line 163 "stream_encoder_framing.c"
     $351 = $350&255; //@line 163 "stream_encoder_framing.c"
-    $352 = HEAP32[277]|0; //@line 163 "stream_encoder_framing.c"
+    $352 = HEAP32[287]|0; //@line 163 "stream_encoder_framing.c"
     $353 = (_FLAC__bitwriter_write_raw_uint32($345,$351,$352)|0); //@line 163 "stream_encoder_framing.c"
     $354 = ($353|0)!=(0); //@line 163 "stream_encoder_framing.c"
     if (!($354)) {
@@ -49322,7 +49259,7 @@ function _FLAC__add_metadata_block($0,$1) {
      break;
     }
     $355 = $4; //@line 165 "stream_encoder_framing.c"
-    $356 = HEAP32[262]|0; //@line 165 "stream_encoder_framing.c"
+    $356 = HEAP32[272]|0; //@line 165 "stream_encoder_framing.c"
     $357 = (_FLAC__bitwriter_write_zeroes($355,$356)|0); //@line 165 "stream_encoder_framing.c"
     $358 = ($357|0)!=(0); //@line 165 "stream_encoder_framing.c"
     if (!($358)) {
@@ -49334,7 +49271,7 @@ function _FLAC__add_metadata_block($0,$1) {
     $361 = ((($360)) + 23|0); //@line 167 "stream_encoder_framing.c"
     $362 = HEAP8[$361>>0]|0; //@line 167 "stream_encoder_framing.c"
     $363 = $362&255; //@line 167 "stream_encoder_framing.c"
-    $364 = HEAP32[271]|0; //@line 167 "stream_encoder_framing.c"
+    $364 = HEAP32[281]|0; //@line 167 "stream_encoder_framing.c"
     $365 = (_FLAC__bitwriter_write_raw_uint32($359,$363,$364)|0); //@line 167 "stream_encoder_framing.c"
     $366 = ($365|0)!=(0); //@line 167 "stream_encoder_framing.c"
     if (!($366)) {
@@ -49366,7 +49303,7 @@ function _FLAC__add_metadata_block($0,$1) {
      $383 = (($380) + 4)|0; //@line 172 "stream_encoder_framing.c"
      $384 = $383; //@line 172 "stream_encoder_framing.c"
      $385 = HEAP32[$384>>2]|0; //@line 172 "stream_encoder_framing.c"
-     $386 = HEAP32[280]|0; //@line 172 "stream_encoder_framing.c"
+     $386 = HEAP32[290]|0; //@line 172 "stream_encoder_framing.c"
      $387 = (_FLAC__bitwriter_write_raw_uint64($378,$382,$385,$386)|0); //@line 172 "stream_encoder_framing.c"
      $388 = ($387|0)!=(0); //@line 172 "stream_encoder_framing.c"
      if (!($388)) {
@@ -49378,7 +49315,7 @@ function _FLAC__add_metadata_block($0,$1) {
      $391 = ((($390)) + 8|0); //@line 174 "stream_encoder_framing.c"
      $392 = HEAP8[$391>>0]|0; //@line 174 "stream_encoder_framing.c"
      $393 = $392&255; //@line 174 "stream_encoder_framing.c"
-     $394 = HEAP32[271]|0; //@line 174 "stream_encoder_framing.c"
+     $394 = HEAP32[281]|0; //@line 174 "stream_encoder_framing.c"
      $395 = (_FLAC__bitwriter_write_raw_uint32($389,$393,$394)|0); //@line 174 "stream_encoder_framing.c"
      $396 = ($395|0)!=(0); //@line 174 "stream_encoder_framing.c"
      if (!($396)) {
@@ -49386,7 +49323,7 @@ function _FLAC__add_metadata_block($0,$1) {
       break L127;
      }
      $397 = $4; //@line 176 "stream_encoder_framing.c"
-     $398 = HEAP32[267]|0; //@line 176 "stream_encoder_framing.c"
+     $398 = HEAP32[277]|0; //@line 176 "stream_encoder_framing.c"
      $399 = (_FLAC__bitwriter_write_zeroes($397,$398)|0); //@line 176 "stream_encoder_framing.c"
      $400 = ($399|0)!=(0); //@line 176 "stream_encoder_framing.c"
      if (!($400)) {
@@ -49470,7 +49407,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $406 = $3; //@line 184 "stream_encoder_framing.c"
    $407 = ((($406)) + 16|0); //@line 184 "stream_encoder_framing.c"
    $408 = HEAP32[$407>>2]|0; //@line 184 "stream_encoder_framing.c"
-   $409 = HEAP32[265]|0; //@line 184 "stream_encoder_framing.c"
+   $409 = HEAP32[275]|0; //@line 184 "stream_encoder_framing.c"
    $410 = (_FLAC__bitwriter_write_raw_uint32($405,$408,$409)|0); //@line 184 "stream_encoder_framing.c"
    $411 = ($410|0)!=(0); //@line 184 "stream_encoder_framing.c"
    if (!($411)) {
@@ -49486,7 +49423,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $10 = $416; //@line 186 "stream_encoder_framing.c"
    $417 = $4; //@line 187 "stream_encoder_framing.c"
    $418 = $10; //@line 187 "stream_encoder_framing.c"
-   $419 = HEAP32[265]|0; //@line 187 "stream_encoder_framing.c"
+   $419 = HEAP32[275]|0; //@line 187 "stream_encoder_framing.c"
    $420 = (_FLAC__bitwriter_write_raw_uint32($417,$418,$419)|0); //@line 187 "stream_encoder_framing.c"
    $421 = ($420|0)!=(0); //@line 187 "stream_encoder_framing.c"
    if (!($421)) {
@@ -49515,7 +49452,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $10 = $434; //@line 191 "stream_encoder_framing.c"
    $435 = $4; //@line 192 "stream_encoder_framing.c"
    $436 = $10; //@line 192 "stream_encoder_framing.c"
-   $437 = HEAP32[265]|0; //@line 192 "stream_encoder_framing.c"
+   $437 = HEAP32[275]|0; //@line 192 "stream_encoder_framing.c"
    $438 = (_FLAC__bitwriter_write_raw_uint32($435,$436,$437)|0); //@line 192 "stream_encoder_framing.c"
    $439 = ($438|0)!=(0); //@line 192 "stream_encoder_framing.c"
    if (!($439)) {
@@ -49541,7 +49478,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $450 = ((($449)) + 16|0); //@line 196 "stream_encoder_framing.c"
    $451 = ((($450)) + 12|0); //@line 196 "stream_encoder_framing.c"
    $452 = HEAP32[$451>>2]|0; //@line 196 "stream_encoder_framing.c"
-   $453 = HEAP32[265]|0; //@line 196 "stream_encoder_framing.c"
+   $453 = HEAP32[275]|0; //@line 196 "stream_encoder_framing.c"
    $454 = (_FLAC__bitwriter_write_raw_uint32($448,$452,$453)|0); //@line 196 "stream_encoder_framing.c"
    $455 = ($454|0)!=(0); //@line 196 "stream_encoder_framing.c"
    if (!($455)) {
@@ -49554,7 +49491,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $458 = ((($457)) + 16|0); //@line 198 "stream_encoder_framing.c"
    $459 = ((($458)) + 16|0); //@line 198 "stream_encoder_framing.c"
    $460 = HEAP32[$459>>2]|0; //@line 198 "stream_encoder_framing.c"
-   $461 = HEAP32[265]|0; //@line 198 "stream_encoder_framing.c"
+   $461 = HEAP32[275]|0; //@line 198 "stream_encoder_framing.c"
    $462 = (_FLAC__bitwriter_write_raw_uint32($456,$460,$461)|0); //@line 198 "stream_encoder_framing.c"
    $463 = ($462|0)!=(0); //@line 198 "stream_encoder_framing.c"
    if (!($463)) {
@@ -49567,7 +49504,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $466 = ((($465)) + 16|0); //@line 200 "stream_encoder_framing.c"
    $467 = ((($466)) + 20|0); //@line 200 "stream_encoder_framing.c"
    $468 = HEAP32[$467>>2]|0; //@line 200 "stream_encoder_framing.c"
-   $469 = HEAP32[265]|0; //@line 200 "stream_encoder_framing.c"
+   $469 = HEAP32[275]|0; //@line 200 "stream_encoder_framing.c"
    $470 = (_FLAC__bitwriter_write_raw_uint32($464,$468,$469)|0); //@line 200 "stream_encoder_framing.c"
    $471 = ($470|0)!=(0); //@line 200 "stream_encoder_framing.c"
    if (!($471)) {
@@ -49580,7 +49517,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $474 = ((($473)) + 16|0); //@line 202 "stream_encoder_framing.c"
    $475 = ((($474)) + 24|0); //@line 202 "stream_encoder_framing.c"
    $476 = HEAP32[$475>>2]|0; //@line 202 "stream_encoder_framing.c"
-   $477 = HEAP32[265]|0; //@line 202 "stream_encoder_framing.c"
+   $477 = HEAP32[275]|0; //@line 202 "stream_encoder_framing.c"
    $478 = (_FLAC__bitwriter_write_raw_uint32($472,$476,$477)|0); //@line 202 "stream_encoder_framing.c"
    $479 = ($478|0)!=(0); //@line 202 "stream_encoder_framing.c"
    if (!($479)) {
@@ -49593,7 +49530,7 @@ function _FLAC__add_metadata_block($0,$1) {
    $482 = ((($481)) + 16|0); //@line 204 "stream_encoder_framing.c"
    $483 = ((($482)) + 28|0); //@line 204 "stream_encoder_framing.c"
    $484 = HEAP32[$483>>2]|0; //@line 204 "stream_encoder_framing.c"
-   $485 = HEAP32[265]|0; //@line 204 "stream_encoder_framing.c"
+   $485 = HEAP32[275]|0; //@line 204 "stream_encoder_framing.c"
    $486 = (_FLAC__bitwriter_write_raw_uint32($480,$484,$485)|0); //@line 204 "stream_encoder_framing.c"
    $487 = ($486|0)!=(0); //@line 204 "stream_encoder_framing.c"
    if (!($487)) {
@@ -49659,8 +49596,8 @@ function _FLAC__frame_add_header($0,$1) {
  $3 = $0;
  $4 = $1;
  $9 = $4; //@line 227 "stream_encoder_framing.c"
- $10 = HEAP32[268]|0; //@line 227 "stream_encoder_framing.c"
- $11 = HEAP32[269]|0; //@line 227 "stream_encoder_framing.c"
+ $10 = HEAP32[278]|0; //@line 227 "stream_encoder_framing.c"
+ $11 = HEAP32[279]|0; //@line 227 "stream_encoder_framing.c"
  $12 = (_FLAC__bitwriter_write_raw_uint32($9,$10,$11)|0); //@line 227 "stream_encoder_framing.c"
  $13 = ($12|0)!=(0); //@line 227 "stream_encoder_framing.c"
  if (!($13)) {
@@ -49669,7 +49606,7 @@ function _FLAC__frame_add_header($0,$1) {
   STACKTOP = sp;return ($150|0); //@line 365 "stream_encoder_framing.c"
  }
  $14 = $4; //@line 230 "stream_encoder_framing.c"
- $15 = HEAP32[277]|0; //@line 230 "stream_encoder_framing.c"
+ $15 = HEAP32[287]|0; //@line 230 "stream_encoder_framing.c"
  $16 = (_FLAC__bitwriter_write_raw_uint32($14,0,$15)|0); //@line 230 "stream_encoder_framing.c"
  $17 = ($16|0)!=(0); //@line 230 "stream_encoder_framing.c"
  if (!($17)) {
@@ -49683,7 +49620,7 @@ function _FLAC__frame_add_header($0,$1) {
  $21 = HEAP32[$20>>2]|0; //@line 233 "stream_encoder_framing.c"
  $22 = ($21|0)==(0); //@line 233 "stream_encoder_framing.c"
  $23 = $22 ? 0 : 1; //@line 233 "stream_encoder_framing.c"
- $24 = HEAP32[277]|0; //@line 233 "stream_encoder_framing.c"
+ $24 = HEAP32[287]|0; //@line 233 "stream_encoder_framing.c"
  $25 = (_FLAC__bitwriter_write_raw_uint32($18,$23,$24)|0); //@line 233 "stream_encoder_framing.c"
  $26 = ($25|0)!=(0); //@line 233 "stream_encoder_framing.c"
  if (!($26)) {
@@ -49834,7 +49771,7 @@ function _FLAC__frame_add_header($0,$1) {
  } while(0);
  $32 = $4; //@line 261 "stream_encoder_framing.c"
  $33 = $5; //@line 261 "stream_encoder_framing.c"
- $34 = HEAP32[274]|0; //@line 261 "stream_encoder_framing.c"
+ $34 = HEAP32[284]|0; //@line 261 "stream_encoder_framing.c"
  $35 = (_FLAC__bitwriter_write_raw_uint32($32,$33,$34)|0); //@line 261 "stream_encoder_framing.c"
  $36 = ($35|0)!=(0); //@line 261 "stream_encoder_framing.c"
  if (!($36)) {
@@ -50049,7 +49986,7 @@ function _FLAC__frame_add_header($0,$1) {
  } while(0);
  $58 = $4; //@line 289 "stream_encoder_framing.c"
  $59 = $5; //@line 289 "stream_encoder_framing.c"
- $60 = HEAP32[274]|0; //@line 289 "stream_encoder_framing.c"
+ $60 = HEAP32[284]|0; //@line 289 "stream_encoder_framing.c"
  $61 = (_FLAC__bitwriter_write_raw_uint32($58,$59,$60)|0); //@line 289 "stream_encoder_framing.c"
  $62 = ($61|0)!=(0); //@line 289 "stream_encoder_framing.c"
  if (!($62)) {
@@ -50086,7 +50023,7 @@ function _FLAC__frame_add_header($0,$1) {
  }
  $70 = $4; //@line 312 "stream_encoder_framing.c"
  $71 = $5; //@line 312 "stream_encoder_framing.c"
- $72 = HEAP32[274]|0; //@line 312 "stream_encoder_framing.c"
+ $72 = HEAP32[284]|0; //@line 312 "stream_encoder_framing.c"
  $73 = (_FLAC__bitwriter_write_raw_uint32($70,$71,$72)|0); //@line 312 "stream_encoder_framing.c"
  $74 = ($73|0)!=(0); //@line 312 "stream_encoder_framing.c"
  if (!($74)) {
@@ -50128,7 +50065,7 @@ function _FLAC__frame_add_header($0,$1) {
  }
  $82 = $4; //@line 324 "stream_encoder_framing.c"
  $83 = $5; //@line 324 "stream_encoder_framing.c"
- $84 = HEAP32[270]|0; //@line 324 "stream_encoder_framing.c"
+ $84 = HEAP32[280]|0; //@line 324 "stream_encoder_framing.c"
  $85 = (_FLAC__bitwriter_write_raw_uint32($82,$83,$84)|0); //@line 324 "stream_encoder_framing.c"
  $86 = ($85|0)!=(0); //@line 324 "stream_encoder_framing.c"
  if (!($86)) {
@@ -50137,7 +50074,7 @@ function _FLAC__frame_add_header($0,$1) {
   STACKTOP = sp;return ($150|0); //@line 365 "stream_encoder_framing.c"
  }
  $87 = $4; //@line 327 "stream_encoder_framing.c"
- $88 = HEAP32[277]|0; //@line 327 "stream_encoder_framing.c"
+ $88 = HEAP32[287]|0; //@line 327 "stream_encoder_framing.c"
  $89 = (_FLAC__bitwriter_write_raw_uint32($87,0,$88)|0); //@line 327 "stream_encoder_framing.c"
  $90 = ($89|0)!=(0); //@line 327 "stream_encoder_framing.c"
  if (!($90)) {
@@ -50254,7 +50191,7 @@ function _FLAC__frame_add_header($0,$1) {
  $144 = $4; //@line 361 "stream_encoder_framing.c"
  $145 = HEAP8[$8>>0]|0; //@line 361 "stream_encoder_framing.c"
  $146 = $145&255; //@line 361 "stream_encoder_framing.c"
- $147 = HEAP32[271]|0; //@line 361 "stream_encoder_framing.c"
+ $147 = HEAP32[281]|0; //@line 361 "stream_encoder_framing.c"
  $148 = (_FLAC__bitwriter_write_raw_uint32($144,$146,$147)|0); //@line 361 "stream_encoder_framing.c"
  $149 = ($148|0)!=(0); //@line 361 "stream_encoder_framing.c"
  if ($149) {
@@ -50282,15 +50219,15 @@ function _FLAC__subframe_add_constant($0,$1,$2,$3) {
  $6 = $2;
  $7 = $3;
  $9 = $7; //@line 372 "stream_encoder_framing.c"
- $10 = HEAP32[869]|0; //@line 372 "stream_encoder_framing.c"
+ $10 = HEAP32[1392]|0; //@line 372 "stream_encoder_framing.c"
  $11 = $6; //@line 372 "stream_encoder_framing.c"
  $12 = ($11|0)!=(0); //@line 372 "stream_encoder_framing.c"
  $13 = $12 ? 1 : 0; //@line 372 "stream_encoder_framing.c"
  $14 = $10 | $13; //@line 372 "stream_encoder_framing.c"
- $15 = HEAP32[277]|0; //@line 372 "stream_encoder_framing.c"
- $16 = HEAP32[276]|0; //@line 372 "stream_encoder_framing.c"
+ $15 = HEAP32[287]|0; //@line 372 "stream_encoder_framing.c"
+ $16 = HEAP32[286]|0; //@line 372 "stream_encoder_framing.c"
  $17 = (($15) + ($16))|0; //@line 372 "stream_encoder_framing.c"
- $18 = HEAP32[277]|0; //@line 372 "stream_encoder_framing.c"
+ $18 = HEAP32[287]|0; //@line 372 "stream_encoder_framing.c"
  $19 = (($17) + ($18))|0; //@line 372 "stream_encoder_framing.c"
  $20 = (_FLAC__bitwriter_write_raw_uint32($9,$14,$19)|0); //@line 372 "stream_encoder_framing.c"
  $21 = ($20|0)!=(0); //@line 372 "stream_encoder_framing.c"
@@ -50344,7 +50281,7 @@ function _FLAC__subframe_add_fixed($0,$1,$2,$3,$4) {
  $9 = $3;
  $10 = $4;
  $12 = $10; //@line 384 "stream_encoder_framing.c"
- $13 = HEAP32[279]|0; //@line 384 "stream_encoder_framing.c"
+ $13 = HEAP32[289]|0; //@line 384 "stream_encoder_framing.c"
  $14 = $6; //@line 384 "stream_encoder_framing.c"
  $15 = ((($14)) + 12|0); //@line 384 "stream_encoder_framing.c"
  $16 = HEAP32[$15>>2]|0; //@line 384 "stream_encoder_framing.c"
@@ -50354,10 +50291,10 @@ function _FLAC__subframe_add_fixed($0,$1,$2,$3,$4) {
  $20 = ($19|0)!=(0); //@line 384 "stream_encoder_framing.c"
  $21 = $20 ? 1 : 0; //@line 384 "stream_encoder_framing.c"
  $22 = $18 | $21; //@line 384 "stream_encoder_framing.c"
- $23 = HEAP32[277]|0; //@line 384 "stream_encoder_framing.c"
- $24 = HEAP32[276]|0; //@line 384 "stream_encoder_framing.c"
+ $23 = HEAP32[287]|0; //@line 384 "stream_encoder_framing.c"
+ $24 = HEAP32[286]|0; //@line 384 "stream_encoder_framing.c"
  $25 = (($23) + ($24))|0; //@line 384 "stream_encoder_framing.c"
- $26 = HEAP32[277]|0; //@line 384 "stream_encoder_framing.c"
+ $26 = HEAP32[287]|0; //@line 384 "stream_encoder_framing.c"
  $27 = (($25) + ($26))|0; //@line 384 "stream_encoder_framing.c"
  $28 = (_FLAC__bitwriter_write_raw_uint32($12,$22,$27)|0); //@line 384 "stream_encoder_framing.c"
  $29 = ($28|0)!=(0); //@line 384 "stream_encoder_framing.c"
@@ -50473,7 +50410,7 @@ function _add_entropy_coding_method_($0,$1) {
  $5 = $3; //@line 484 "stream_encoder_framing.c"
  $6 = $4; //@line 484 "stream_encoder_framing.c"
  $7 = HEAP32[$6>>2]|0; //@line 484 "stream_encoder_framing.c"
- $8 = HEAP32[278]|0; //@line 484 "stream_encoder_framing.c"
+ $8 = HEAP32[288]|0; //@line 484 "stream_encoder_framing.c"
  $9 = (_FLAC__bitwriter_write_raw_uint32($5,$7,$8)|0); //@line 484 "stream_encoder_framing.c"
  $10 = ($9|0)!=(0); //@line 484 "stream_encoder_framing.c"
  if (!($10)) {
@@ -50489,7 +50426,7 @@ function _add_entropy_coding_method_($0,$1) {
   $14 = $4; //@line 489 "stream_encoder_framing.c"
   $15 = ((($14)) + 4|0); //@line 489 "stream_encoder_framing.c"
   $16 = HEAP32[$15>>2]|0; //@line 489 "stream_encoder_framing.c"
-  $17 = HEAP32[274]|0; //@line 489 "stream_encoder_framing.c"
+  $17 = HEAP32[284]|0; //@line 489 "stream_encoder_framing.c"
   $18 = (_FLAC__bitwriter_write_raw_uint32($13,$16,$17)|0); //@line 489 "stream_encoder_framing.c"
   $19 = ($18|0)!=(0); //@line 489 "stream_encoder_framing.c"
   if (!($19)) {
@@ -50531,14 +50468,14 @@ function _add_residual_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7) {
  $16 = $7;
  $26 = $16; //@line 500 "stream_encoder_framing.c"
  $27 = ($26|0)!=(0); //@line 500 "stream_encoder_framing.c"
- $28 = HEAP32[275]|0; //@line 500 "stream_encoder_framing.c"
- $29 = HEAP32[274]|0; //@line 500 "stream_encoder_framing.c"
+ $28 = HEAP32[285]|0; //@line 500 "stream_encoder_framing.c"
+ $29 = HEAP32[284]|0; //@line 500 "stream_encoder_framing.c"
  $30 = $27 ? $28 : $29; //@line 500 "stream_encoder_framing.c"
  $17 = $30; //@line 500 "stream_encoder_framing.c"
  $31 = $16; //@line 501 "stream_encoder_framing.c"
  $32 = ($31|0)!=(0); //@line 501 "stream_encoder_framing.c"
- $33 = HEAP32[273]|0; //@line 501 "stream_encoder_framing.c"
- $34 = HEAP32[272]|0; //@line 501 "stream_encoder_framing.c"
+ $33 = HEAP32[283]|0; //@line 501 "stream_encoder_framing.c"
+ $34 = HEAP32[282]|0; //@line 501 "stream_encoder_framing.c"
  $35 = $32 ? $33 : $34; //@line 501 "stream_encoder_framing.c"
  $18 = $35; //@line 501 "stream_encoder_framing.c"
  $36 = $15; //@line 503 "stream_encoder_framing.c"
@@ -50585,7 +50522,7 @@ function _add_residual_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7) {
     $58 = $9; //@line 516 "stream_encoder_framing.c"
     $59 = $14; //@line 516 "stream_encoder_framing.c"
     $60 = HEAP32[$59>>2]|0; //@line 516 "stream_encoder_framing.c"
-    $61 = HEAP32[275]|0; //@line 516 "stream_encoder_framing.c"
+    $61 = HEAP32[285]|0; //@line 516 "stream_encoder_framing.c"
     $62 = (_FLAC__bitwriter_write_raw_uint32($58,$60,$61)|0); //@line 516 "stream_encoder_framing.c"
     $63 = ($62|0)!=(0); //@line 516 "stream_encoder_framing.c"
     if (!($63)) {
@@ -50708,7 +50645,7 @@ function _add_residual_partitioned_rice_($0,$1,$2,$3,$4,$5,$6,$7) {
     $128 = $20; //@line 543 "stream_encoder_framing.c"
     $129 = (($127) + ($128<<2)|0); //@line 543 "stream_encoder_framing.c"
     $130 = HEAP32[$129>>2]|0; //@line 543 "stream_encoder_framing.c"
-    $131 = HEAP32[275]|0; //@line 543 "stream_encoder_framing.c"
+    $131 = HEAP32[285]|0; //@line 543 "stream_encoder_framing.c"
     $132 = (_FLAC__bitwriter_write_raw_uint32($126,$130,$131)|0); //@line 543 "stream_encoder_framing.c"
     $133 = ($132|0)!=(0); //@line 543 "stream_encoder_framing.c"
     if (!($133)) {
@@ -50803,7 +50740,7 @@ function _FLAC__subframe_add_lpc($0,$1,$2,$3,$4) {
  $9 = $3;
  $10 = $4;
  $12 = $10; //@line 422 "stream_encoder_framing.c"
- $13 = HEAP32[280]|0; //@line 422 "stream_encoder_framing.c"
+ $13 = HEAP32[290]|0; //@line 422 "stream_encoder_framing.c"
  $14 = $6; //@line 422 "stream_encoder_framing.c"
  $15 = ((($14)) + 12|0); //@line 422 "stream_encoder_framing.c"
  $16 = HEAP32[$15>>2]|0; //@line 422 "stream_encoder_framing.c"
@@ -50814,10 +50751,10 @@ function _FLAC__subframe_add_lpc($0,$1,$2,$3,$4) {
  $21 = ($20|0)!=(0); //@line 422 "stream_encoder_framing.c"
  $22 = $21 ? 1 : 0; //@line 422 "stream_encoder_framing.c"
  $23 = $19 | $22; //@line 422 "stream_encoder_framing.c"
- $24 = HEAP32[277]|0; //@line 422 "stream_encoder_framing.c"
- $25 = HEAP32[276]|0; //@line 422 "stream_encoder_framing.c"
+ $24 = HEAP32[287]|0; //@line 422 "stream_encoder_framing.c"
+ $25 = HEAP32[286]|0; //@line 422 "stream_encoder_framing.c"
  $26 = (($24) + ($25))|0; //@line 422 "stream_encoder_framing.c"
- $27 = HEAP32[277]|0; //@line 422 "stream_encoder_framing.c"
+ $27 = HEAP32[287]|0; //@line 422 "stream_encoder_framing.c"
  $28 = (($26) + ($27))|0; //@line 422 "stream_encoder_framing.c"
  $29 = (_FLAC__bitwriter_write_raw_uint32($12,$23,$28)|0); //@line 422 "stream_encoder_framing.c"
  $30 = ($29|0)!=(0); //@line 422 "stream_encoder_framing.c"
@@ -50875,7 +50812,7 @@ function _FLAC__subframe_add_lpc($0,$1,$2,$3,$4) {
  $54 = ((($44)) + 16|0); //@line 432 "stream_encoder_framing.c"
  $55 = HEAP32[$54>>2]|0; //@line 432 "stream_encoder_framing.c"
  $56 = (($55) - 1)|0; //@line 432 "stream_encoder_framing.c"
- $57 = HEAP32[274]|0; //@line 432 "stream_encoder_framing.c"
+ $57 = HEAP32[284]|0; //@line 432 "stream_encoder_framing.c"
  $58 = (_FLAC__bitwriter_write_raw_uint32($43,$56,$57)|0); //@line 432 "stream_encoder_framing.c"
  $59 = ($58|0)!=(0); //@line 432 "stream_encoder_framing.c"
  if (!($59)) {
@@ -50887,7 +50824,7 @@ function _FLAC__subframe_add_lpc($0,$1,$2,$3,$4) {
  $61 = $6; //@line 434 "stream_encoder_framing.c"
  $62 = ((($61)) + 20|0); //@line 434 "stream_encoder_framing.c"
  $63 = HEAP32[$62>>2]|0; //@line 434 "stream_encoder_framing.c"
- $64 = HEAP32[275]|0; //@line 434 "stream_encoder_framing.c"
+ $64 = HEAP32[285]|0; //@line 434 "stream_encoder_framing.c"
  $65 = (_FLAC__bitwriter_write_raw_int32($60,$63,$64)|0); //@line 434 "stream_encoder_framing.c"
  $66 = ($65|0)!=(0); //@line 434 "stream_encoder_framing.c"
  if (!($66)) {
@@ -50998,15 +50935,15 @@ function _FLAC__subframe_add_verbatim($0,$1,$2,$3,$4) {
  $14 = HEAP32[$13>>2]|0; //@line 467 "stream_encoder_framing.c"
  $12 = $14; //@line 467 "stream_encoder_framing.c"
  $15 = $10; //@line 469 "stream_encoder_framing.c"
- $16 = HEAP32[278]|0; //@line 469 "stream_encoder_framing.c"
+ $16 = HEAP32[288]|0; //@line 469 "stream_encoder_framing.c"
  $17 = $9; //@line 469 "stream_encoder_framing.c"
  $18 = ($17|0)!=(0); //@line 469 "stream_encoder_framing.c"
  $19 = $18 ? 1 : 0; //@line 469 "stream_encoder_framing.c"
  $20 = $16 | $19; //@line 469 "stream_encoder_framing.c"
- $21 = HEAP32[277]|0; //@line 469 "stream_encoder_framing.c"
- $22 = HEAP32[276]|0; //@line 469 "stream_encoder_framing.c"
+ $21 = HEAP32[287]|0; //@line 469 "stream_encoder_framing.c"
+ $22 = HEAP32[286]|0; //@line 469 "stream_encoder_framing.c"
  $23 = (($21) + ($22))|0; //@line 469 "stream_encoder_framing.c"
- $24 = HEAP32[277]|0; //@line 469 "stream_encoder_framing.c"
+ $24 = HEAP32[287]|0; //@line 469 "stream_encoder_framing.c"
  $25 = (($23) + ($24))|0; //@line 469 "stream_encoder_framing.c"
  $26 = (_FLAC__bitwriter_write_raw_uint32($15,$20,$25)|0); //@line 469 "stream_encoder_framing.c"
  $27 = ($26|0)!=(0); //@line 469 "stream_encoder_framing.c"
@@ -52546,7 +52483,7 @@ function _malloc($0) {
    $5 = $4 & -8;
    $6 = $3 ? 16 : $5;
    $7 = $6 >>> 3;
-   $8 = HEAP32[870]|0;
+   $8 = HEAP32[1393]|0;
    $9 = $8 >>> $7;
    $10 = $9 & 3;
    $11 = ($10|0)==(0);
@@ -52555,7 +52492,7 @@ function _malloc($0) {
     $13 = $12 ^ 1;
     $14 = (($13) + ($7))|0;
     $15 = $14 << 1;
-    $16 = (3520 + ($15<<2)|0);
+    $16 = (5612 + ($15<<2)|0);
     $17 = ((($16)) + 8|0);
     $18 = HEAP32[$17>>2]|0;
     $19 = ((($18)) + 8|0);
@@ -52566,9 +52503,9 @@ function _malloc($0) {
       $22 = 1 << $14;
       $23 = $22 ^ -1;
       $24 = $8 & $23;
-      HEAP32[870] = $24;
+      HEAP32[1393] = $24;
      } else {
-      $25 = HEAP32[(3496)>>2]|0;
+      $25 = HEAP32[(5588)>>2]|0;
       $26 = ($25>>>0)>($20>>>0);
       if ($26) {
        _abort();
@@ -52599,7 +52536,7 @@ function _malloc($0) {
     $$0 = $19;
     STACKTOP = sp;return ($$0|0);
    }
-   $37 = HEAP32[(3488)>>2]|0;
+   $37 = HEAP32[(5580)>>2]|0;
    $38 = ($6>>>0)>($37>>>0);
    if ($38) {
     $39 = ($9|0)==(0);
@@ -52633,7 +52570,7 @@ function _malloc($0) {
      $66 = $62 >>> $64;
      $67 = (($65) + ($66))|0;
      $68 = $67 << 1;
-     $69 = (3520 + ($68<<2)|0);
+     $69 = (5612 + ($68<<2)|0);
      $70 = ((($69)) + 8|0);
      $71 = HEAP32[$70>>2]|0;
      $72 = ((($71)) + 8|0);
@@ -52644,10 +52581,10 @@ function _malloc($0) {
        $75 = 1 << $67;
        $76 = $75 ^ -1;
        $77 = $8 & $76;
-       HEAP32[870] = $77;
+       HEAP32[1393] = $77;
        $98 = $77;
       } else {
-       $78 = HEAP32[(3496)>>2]|0;
+       $78 = HEAP32[(5588)>>2]|0;
        $79 = ($78>>>0)>($73>>>0);
        if ($79) {
         _abort();
@@ -52680,22 +52617,22 @@ function _malloc($0) {
      HEAP32[$90>>2] = $84;
      $91 = ($37|0)==(0);
      if (!($91)) {
-      $92 = HEAP32[(3500)>>2]|0;
+      $92 = HEAP32[(5592)>>2]|0;
       $93 = $37 >>> 3;
       $94 = $93 << 1;
-      $95 = (3520 + ($94<<2)|0);
+      $95 = (5612 + ($94<<2)|0);
       $96 = 1 << $93;
       $97 = $98 & $96;
       $99 = ($97|0)==(0);
       if ($99) {
        $100 = $98 | $96;
-       HEAP32[870] = $100;
+       HEAP32[1393] = $100;
        $$pre = ((($95)) + 8|0);
        $$0199 = $95;$$pre$phiZ2D = $$pre;
       } else {
        $101 = ((($95)) + 8|0);
        $102 = HEAP32[$101>>2]|0;
-       $103 = HEAP32[(3496)>>2]|0;
+       $103 = HEAP32[(5588)>>2]|0;
        $104 = ($103>>>0)>($102>>>0);
        if ($104) {
         _abort();
@@ -52712,12 +52649,12 @@ function _malloc($0) {
       $107 = ((($92)) + 12|0);
       HEAP32[$107>>2] = $95;
      }
-     HEAP32[(3488)>>2] = $84;
-     HEAP32[(3500)>>2] = $87;
+     HEAP32[(5580)>>2] = $84;
+     HEAP32[(5592)>>2] = $87;
      $$0 = $72;
      STACKTOP = sp;return ($$0|0);
     }
-    $108 = HEAP32[(3484)>>2]|0;
+    $108 = HEAP32[(5576)>>2]|0;
     $109 = ($108|0)==(0);
     if ($109) {
      $$0197 = $6;
@@ -52745,7 +52682,7 @@ function _malloc($0) {
      $130 = $126 | $129;
      $131 = $127 >>> $129;
      $132 = (($130) + ($131))|0;
-     $133 = (3784 + ($132<<2)|0);
+     $133 = (5876 + ($132<<2)|0);
      $134 = HEAP32[$133>>2]|0;
      $135 = ((($134)) + 4|0);
      $136 = HEAP32[$135>>2]|0;
@@ -52777,7 +52714,7 @@ function _malloc($0) {
       $spec$select1$i = $150 ? $146 : $$0190$i;
       $$0189$i = $146;$$0190$i = $spec$select1$i;$$0191$i = $spec$select$i;
      }
-     $151 = HEAP32[(3496)>>2]|0;
+     $151 = HEAP32[(5588)>>2]|0;
      $152 = ($151>>>0)>($$0190$i>>>0);
      if ($152) {
       _abort();
@@ -52874,7 +52811,7 @@ function _malloc($0) {
       if (!($182)) {
        $183 = ((($$0190$i)) + 28|0);
        $184 = HEAP32[$183>>2]|0;
-       $185 = (3784 + ($184<<2)|0);
+       $185 = (5876 + ($184<<2)|0);
        $186 = HEAP32[$185>>2]|0;
        $187 = ($$0190$i|0)==($186|0);
        do {
@@ -52885,11 +52822,11 @@ function _malloc($0) {
           $188 = 1 << $184;
           $189 = $188 ^ -1;
           $190 = $108 & $189;
-          HEAP32[(3484)>>2] = $190;
+          HEAP32[(5576)>>2] = $190;
           break L78;
          }
         } else {
-         $191 = HEAP32[(3496)>>2]|0;
+         $191 = HEAP32[(5588)>>2]|0;
          $192 = ($191>>>0)>($156>>>0);
          if ($192) {
           _abort();
@@ -52910,7 +52847,7 @@ function _malloc($0) {
          }
         }
        } while(0);
-       $198 = HEAP32[(3496)>>2]|0;
+       $198 = HEAP32[(5588)>>2]|0;
        $199 = ($198>>>0)>($$3$i>>>0);
        if ($199) {
         _abort();
@@ -52940,7 +52877,7 @@ function _malloc($0) {
        $208 = HEAP32[$207>>2]|0;
        $209 = ($208|0)==(0|0);
        if (!($209)) {
-        $210 = HEAP32[(3496)>>2]|0;
+        $210 = HEAP32[(5588)>>2]|0;
         $211 = ($210>>>0)>($208>>>0);
         if ($211) {
          _abort();
@@ -52977,22 +52914,22 @@ function _malloc($0) {
       HEAP32[$226>>2] = $$0191$i;
       $227 = ($37|0)==(0);
       if (!($227)) {
-       $228 = HEAP32[(3500)>>2]|0;
+       $228 = HEAP32[(5592)>>2]|0;
        $229 = $37 >>> 3;
        $230 = $229 << 1;
-       $231 = (3520 + ($230<<2)|0);
+       $231 = (5612 + ($230<<2)|0);
        $232 = 1 << $229;
        $233 = $232 & $8;
        $234 = ($233|0)==(0);
        if ($234) {
         $235 = $232 | $8;
-        HEAP32[870] = $235;
+        HEAP32[1393] = $235;
         $$pre$i = ((($231)) + 8|0);
         $$0187$i = $231;$$pre$phi$iZ2D = $$pre$i;
        } else {
         $236 = ((($231)) + 8|0);
         $237 = HEAP32[$236>>2]|0;
-        $238 = HEAP32[(3496)>>2]|0;
+        $238 = HEAP32[(5588)>>2]|0;
         $239 = ($238>>>0)>($237>>>0);
         if ($239) {
          _abort();
@@ -53009,8 +52946,8 @@ function _malloc($0) {
        $242 = ((($228)) + 12|0);
        HEAP32[$242>>2] = $231;
       }
-      HEAP32[(3488)>>2] = $$0191$i;
-      HEAP32[(3500)>>2] = $153;
+      HEAP32[(5580)>>2] = $$0191$i;
+      HEAP32[(5592)>>2] = $153;
      }
      $243 = ((($$0190$i)) + 8|0);
      $$0 = $243;
@@ -53026,7 +52963,7 @@ function _malloc($0) {
    } else {
     $245 = (($0) + 11)|0;
     $246 = $245 & -8;
-    $247 = HEAP32[(3484)>>2]|0;
+    $247 = HEAP32[(5576)>>2]|0;
     $248 = ($247|0)==(0);
     if ($248) {
      $$0197 = $246;
@@ -53066,7 +53003,7 @@ function _malloc($0) {
        $$0357$i = $274;
       }
      }
-     $275 = (3784 + ($$0357$i<<2)|0);
+     $275 = (5876 + ($$0357$i<<2)|0);
      $276 = HEAP32[$275>>2]|0;
      $277 = ($276|0)==(0|0);
      L122: do {
@@ -53156,7 +53093,7 @@ function _malloc($0) {
        $324 = $320 | $323;
        $325 = $321 >>> $323;
        $326 = (($324) + ($325))|0;
-       $327 = (3784 + ($326<<2)|0);
+       $327 = (5876 + ($326<<2)|0);
        $328 = HEAP32[$327>>2]|0;
        $$3$i203218 = 0;$$4355$i = $328;
       } else {
@@ -53186,16 +53123,16 @@ function _malloc($0) {
        if ($337) {
         $338 = ((($$535618$i)) + 20|0);
         $339 = HEAP32[$338>>2]|0;
-        $341 = $339;
+        $340 = $339;
        } else {
-        $341 = $336;
+        $340 = $336;
        }
-       $340 = ($341|0)==(0|0);
-       if ($340) {
+       $341 = ($340|0)==(0|0);
+       if ($341) {
         $$4$lcssa$i = $spec$select3$i;$$4349$lcssa$i = $spec$select$i205;
         break;
        } else {
-        $$420$i = $spec$select3$i;$$434919$i = $spec$select$i205;$$535618$i = $341;
+        $$420$i = $spec$select3$i;$$434919$i = $spec$select$i205;$$535618$i = $340;
        }
       }
      }
@@ -53203,11 +53140,11 @@ function _malloc($0) {
      if ($342) {
       $$0197 = $246;
      } else {
-      $343 = HEAP32[(3488)>>2]|0;
+      $343 = HEAP32[(5580)>>2]|0;
       $344 = (($343) - ($246))|0;
       $345 = ($$4349$lcssa$i>>>0)<($344>>>0);
       if ($345) {
-       $346 = HEAP32[(3496)>>2]|0;
+       $346 = HEAP32[(5588)>>2]|0;
        $347 = ($346>>>0)>($$4$lcssa$i>>>0);
        if ($347) {
         _abort();
@@ -53306,7 +53243,7 @@ function _malloc($0) {
         } else {
          $378 = ((($$4$lcssa$i)) + 28|0);
          $379 = HEAP32[$378>>2]|0;
-         $380 = (3784 + ($379<<2)|0);
+         $380 = (5876 + ($379<<2)|0);
          $381 = HEAP32[$380>>2]|0;
          $382 = ($$4$lcssa$i|0)==($381|0);
          do {
@@ -53317,12 +53254,12 @@ function _malloc($0) {
             $383 = 1 << $379;
             $384 = $383 ^ -1;
             $385 = $247 & $384;
-            HEAP32[(3484)>>2] = $385;
+            HEAP32[(5576)>>2] = $385;
             $469 = $385;
             break L176;
            }
           } else {
-           $386 = HEAP32[(3496)>>2]|0;
+           $386 = HEAP32[(5588)>>2]|0;
            $387 = ($386>>>0)>($351>>>0);
            if ($387) {
             _abort();
@@ -53344,7 +53281,7 @@ function _malloc($0) {
            }
           }
          } while(0);
-         $393 = HEAP32[(3496)>>2]|0;
+         $393 = HEAP32[(5588)>>2]|0;
          $394 = ($393>>>0)>($$3371$i>>>0);
          if ($394) {
           _abort();
@@ -53376,7 +53313,7 @@ function _malloc($0) {
          if ($404) {
           $469 = $247;
          } else {
-          $405 = HEAP32[(3496)>>2]|0;
+          $405 = HEAP32[(5588)>>2]|0;
           $406 = ($405>>>0)>($403>>>0);
           if ($406) {
            _abort();
@@ -53417,20 +53354,20 @@ function _malloc($0) {
          $423 = ($$4349$lcssa$i>>>0)<(256);
          if ($423) {
           $424 = $422 << 1;
-          $425 = (3520 + ($424<<2)|0);
-          $426 = HEAP32[870]|0;
+          $425 = (5612 + ($424<<2)|0);
+          $426 = HEAP32[1393]|0;
           $427 = 1 << $422;
           $428 = $426 & $427;
           $429 = ($428|0)==(0);
           if ($429) {
            $430 = $426 | $427;
-           HEAP32[870] = $430;
+           HEAP32[1393] = $430;
            $$pre$i208 = ((($425)) + 8|0);
            $$0367$i = $425;$$pre$phi$i209Z2D = $$pre$i208;
           } else {
            $431 = ((($425)) + 8|0);
            $432 = HEAP32[$431>>2]|0;
-           $433 = HEAP32[(3496)>>2]|0;
+           $433 = HEAP32[(5588)>>2]|0;
            $434 = ($433>>>0)>($432>>>0);
            if ($434) {
             _abort();
@@ -53482,7 +53419,7 @@ function _malloc($0) {
            $$0360$i = $462;
           }
          }
-         $463 = (3784 + ($$0360$i<<2)|0);
+         $463 = (5876 + ($$0360$i<<2)|0);
          $464 = ((($348)) + 28|0);
          HEAP32[$464>>2] = $$0360$i;
          $465 = ((($348)) + 16|0);
@@ -53494,7 +53431,7 @@ function _malloc($0) {
          $470 = ($468|0)==(0);
          if ($470) {
           $471 = $469 | $467;
-          HEAP32[(3484)>>2] = $471;
+          HEAP32[(5576)>>2] = $471;
           HEAP32[$463>>2] = $348;
           $472 = ((($348)) + 24|0);
           HEAP32[$472>>2] = $463;
@@ -53539,7 +53476,7 @@ function _malloc($0) {
              $$034217$i = $485;$$034316$i = $487;
             }
            }
-           $494 = HEAP32[(3496)>>2]|0;
+           $494 = HEAP32[(5588)>>2]|0;
            $495 = ($494>>>0)>($492>>>0);
            if ($495) {
             _abort();
@@ -53558,7 +53495,7 @@ function _malloc($0) {
          } while(0);
          $499 = ((($$0343$lcssa$i)) + 8|0);
          $500 = HEAP32[$499>>2]|0;
-         $501 = HEAP32[(3496)>>2]|0;
+         $501 = HEAP32[(5588)>>2]|0;
          $502 = ($501>>>0)<=($$0343$lcssa$i>>>0);
          $503 = ($501>>>0)<=($500>>>0);
          $504 = $503 & $502;
@@ -53590,16 +53527,16 @@ function _malloc($0) {
    }
   }
  } while(0);
- $510 = HEAP32[(3488)>>2]|0;
+ $510 = HEAP32[(5580)>>2]|0;
  $511 = ($510>>>0)<($$0197>>>0);
  if (!($511)) {
   $512 = (($510) - ($$0197))|0;
-  $513 = HEAP32[(3500)>>2]|0;
+  $513 = HEAP32[(5592)>>2]|0;
   $514 = ($512>>>0)>(15);
   if ($514) {
    $515 = (($513) + ($$0197)|0);
-   HEAP32[(3500)>>2] = $515;
-   HEAP32[(3488)>>2] = $512;
+   HEAP32[(5592)>>2] = $515;
+   HEAP32[(5580)>>2] = $512;
    $516 = $512 | 1;
    $517 = ((($515)) + 4|0);
    HEAP32[$517>>2] = $516;
@@ -53609,8 +53546,8 @@ function _malloc($0) {
    $520 = ((($513)) + 4|0);
    HEAP32[$520>>2] = $519;
   } else {
-   HEAP32[(3488)>>2] = 0;
-   HEAP32[(3500)>>2] = 0;
+   HEAP32[(5580)>>2] = 0;
+   HEAP32[(5592)>>2] = 0;
    $521 = $510 | 3;
    $522 = ((($513)) + 4|0);
    HEAP32[$522>>2] = $521;
@@ -53624,14 +53561,14 @@ function _malloc($0) {
   $$0 = $527;
   STACKTOP = sp;return ($$0|0);
  }
- $528 = HEAP32[(3492)>>2]|0;
+ $528 = HEAP32[(5584)>>2]|0;
  $529 = ($528>>>0)>($$0197>>>0);
  if ($529) {
   $530 = (($528) - ($$0197))|0;
-  HEAP32[(3492)>>2] = $530;
-  $531 = HEAP32[(3504)>>2]|0;
+  HEAP32[(5584)>>2] = $530;
+  $531 = HEAP32[(5596)>>2]|0;
   $532 = (($531) + ($$0197)|0);
-  HEAP32[(3504)>>2] = $532;
+  HEAP32[(5596)>>2] = $532;
   $533 = $530 | 1;
   $534 = ((($532)) + 4|0);
   HEAP32[$534>>2] = $533;
@@ -53642,22 +53579,22 @@ function _malloc($0) {
   $$0 = $537;
   STACKTOP = sp;return ($$0|0);
  }
- $538 = HEAP32[988]|0;
+ $538 = HEAP32[1511]|0;
  $539 = ($538|0)==(0);
  if ($539) {
-  HEAP32[(3960)>>2] = 4096;
-  HEAP32[(3956)>>2] = 4096;
-  HEAP32[(3964)>>2] = -1;
-  HEAP32[(3968)>>2] = -1;
-  HEAP32[(3972)>>2] = 0;
-  HEAP32[(3924)>>2] = 0;
+  HEAP32[(6052)>>2] = 4096;
+  HEAP32[(6048)>>2] = 4096;
+  HEAP32[(6056)>>2] = -1;
+  HEAP32[(6060)>>2] = -1;
+  HEAP32[(6064)>>2] = 0;
+  HEAP32[(6016)>>2] = 0;
   $540 = $1;
   $541 = $540 & -16;
   $542 = $541 ^ 1431655768;
-  HEAP32[988] = $542;
+  HEAP32[1511] = $542;
   $546 = 4096;
  } else {
-  $$pre$i210 = HEAP32[(3960)>>2]|0;
+  $$pre$i210 = HEAP32[(6052)>>2]|0;
   $546 = $$pre$i210;
  }
  $543 = (($$0197) + 48)|0;
@@ -53670,10 +53607,10 @@ function _malloc($0) {
   $$0 = 0;
   STACKTOP = sp;return ($$0|0);
  }
- $550 = HEAP32[(3920)>>2]|0;
+ $550 = HEAP32[(6012)>>2]|0;
  $551 = ($550|0)==(0);
  if (!($551)) {
-  $552 = HEAP32[(3912)>>2]|0;
+  $552 = HEAP32[(6004)>>2]|0;
   $553 = (($552) + ($548))|0;
   $554 = ($553>>>0)<=($552>>>0);
   $555 = ($553>>>0)>($550>>>0);
@@ -53683,18 +53620,18 @@ function _malloc($0) {
    STACKTOP = sp;return ($$0|0);
   }
  }
- $556 = HEAP32[(3924)>>2]|0;
+ $556 = HEAP32[(6016)>>2]|0;
  $557 = $556 & 4;
  $558 = ($557|0)==(0);
  L257: do {
   if ($558) {
-   $559 = HEAP32[(3504)>>2]|0;
+   $559 = HEAP32[(5596)>>2]|0;
    $560 = ($559|0)==(0|0);
    L259: do {
     if ($560) {
      label = 173;
     } else {
-     $$0$i$i = (3928);
+     $$0$i$i = (6020);
      while(1) {
       $561 = HEAP32[$$0$i$i>>2]|0;
       $562 = ($561>>>0)>($559>>>0);
@@ -53753,7 +53690,7 @@ function _malloc($0) {
       $$2234243136$i = 0;
      } else {
       $572 = $570;
-      $573 = HEAP32[(3956)>>2]|0;
+      $573 = HEAP32[(6048)>>2]|0;
       $574 = (($573) + -1)|0;
       $575 = $574 & $572;
       $576 = ($575|0)==(0);
@@ -53763,13 +53700,13 @@ function _malloc($0) {
       $580 = (($579) - ($572))|0;
       $581 = $576 ? 0 : $580;
       $spec$select49$i = (($581) + ($548))|0;
-      $582 = HEAP32[(3912)>>2]|0;
+      $582 = HEAP32[(6004)>>2]|0;
       $583 = (($spec$select49$i) + ($582))|0;
       $584 = ($spec$select49$i>>>0)>($$0197>>>0);
       $585 = ($spec$select49$i>>>0)<(2147483647);
       $or$cond$i213 = $584 & $585;
       if ($or$cond$i213) {
-       $586 = HEAP32[(3920)>>2]|0;
+       $586 = HEAP32[(6012)>>2]|0;
        $587 = ($586|0)==(0);
        if (!($587)) {
         $588 = ($583>>>0)<=($582>>>0);
@@ -53815,7 +53752,7 @@ function _malloc($0) {
        break L257;
       }
      }
-     $606 = HEAP32[(3960)>>2]|0;
+     $606 = HEAP32[(6052)>>2]|0;
      $607 = (($544) - ($$2253$ph$i))|0;
      $608 = (($607) + ($606))|0;
      $609 = (0 - ($606))|0;
@@ -53840,9 +53777,9 @@ function _malloc($0) {
      }
     }
    } while(0);
-   $616 = HEAP32[(3924)>>2]|0;
+   $616 = HEAP32[(6016)>>2]|0;
    $617 = $616 | 4;
-   HEAP32[(3924)>>2] = $617;
+   HEAP32[(6016)>>2] = $617;
    $$4236$i = $$2234243136$i;
    label = 188;
   } else {
@@ -53878,95 +53815,95 @@ function _malloc($0) {
   }
  }
  if ((label|0) == 190) {
-  $631 = HEAP32[(3912)>>2]|0;
+  $631 = HEAP32[(6004)>>2]|0;
   $632 = (($631) + ($$723947$i))|0;
-  HEAP32[(3912)>>2] = $632;
-  $633 = HEAP32[(3916)>>2]|0;
+  HEAP32[(6004)>>2] = $632;
+  $633 = HEAP32[(6008)>>2]|0;
   $634 = ($632>>>0)>($633>>>0);
   if ($634) {
-   HEAP32[(3916)>>2] = $632;
+   HEAP32[(6008)>>2] = $632;
   }
-  $635 = HEAP32[(3504)>>2]|0;
+  $635 = HEAP32[(5596)>>2]|0;
   $636 = ($635|0)==(0|0);
   L294: do {
    if ($636) {
-    $637 = HEAP32[(3496)>>2]|0;
+    $637 = HEAP32[(5588)>>2]|0;
     $638 = ($637|0)==(0|0);
     $639 = ($$748$i>>>0)<($637>>>0);
     $or$cond11$i = $638 | $639;
     if ($or$cond11$i) {
-     HEAP32[(3496)>>2] = $$748$i;
+     HEAP32[(5588)>>2] = $$748$i;
     }
-    HEAP32[(3928)>>2] = $$748$i;
-    HEAP32[(3932)>>2] = $$723947$i;
-    HEAP32[(3940)>>2] = 0;
-    $640 = HEAP32[988]|0;
-    HEAP32[(3516)>>2] = $640;
-    HEAP32[(3512)>>2] = -1;
-    HEAP32[(3532)>>2] = (3520);
-    HEAP32[(3528)>>2] = (3520);
-    HEAP32[(3540)>>2] = (3528);
-    HEAP32[(3536)>>2] = (3528);
-    HEAP32[(3548)>>2] = (3536);
-    HEAP32[(3544)>>2] = (3536);
-    HEAP32[(3556)>>2] = (3544);
-    HEAP32[(3552)>>2] = (3544);
-    HEAP32[(3564)>>2] = (3552);
-    HEAP32[(3560)>>2] = (3552);
-    HEAP32[(3572)>>2] = (3560);
-    HEAP32[(3568)>>2] = (3560);
-    HEAP32[(3580)>>2] = (3568);
-    HEAP32[(3576)>>2] = (3568);
-    HEAP32[(3588)>>2] = (3576);
-    HEAP32[(3584)>>2] = (3576);
-    HEAP32[(3596)>>2] = (3584);
-    HEAP32[(3592)>>2] = (3584);
-    HEAP32[(3604)>>2] = (3592);
-    HEAP32[(3600)>>2] = (3592);
-    HEAP32[(3612)>>2] = (3600);
-    HEAP32[(3608)>>2] = (3600);
-    HEAP32[(3620)>>2] = (3608);
-    HEAP32[(3616)>>2] = (3608);
-    HEAP32[(3628)>>2] = (3616);
-    HEAP32[(3624)>>2] = (3616);
-    HEAP32[(3636)>>2] = (3624);
-    HEAP32[(3632)>>2] = (3624);
-    HEAP32[(3644)>>2] = (3632);
-    HEAP32[(3640)>>2] = (3632);
-    HEAP32[(3652)>>2] = (3640);
-    HEAP32[(3648)>>2] = (3640);
-    HEAP32[(3660)>>2] = (3648);
-    HEAP32[(3656)>>2] = (3648);
-    HEAP32[(3668)>>2] = (3656);
-    HEAP32[(3664)>>2] = (3656);
-    HEAP32[(3676)>>2] = (3664);
-    HEAP32[(3672)>>2] = (3664);
-    HEAP32[(3684)>>2] = (3672);
-    HEAP32[(3680)>>2] = (3672);
-    HEAP32[(3692)>>2] = (3680);
-    HEAP32[(3688)>>2] = (3680);
-    HEAP32[(3700)>>2] = (3688);
-    HEAP32[(3696)>>2] = (3688);
-    HEAP32[(3708)>>2] = (3696);
-    HEAP32[(3704)>>2] = (3696);
-    HEAP32[(3716)>>2] = (3704);
-    HEAP32[(3712)>>2] = (3704);
-    HEAP32[(3724)>>2] = (3712);
-    HEAP32[(3720)>>2] = (3712);
-    HEAP32[(3732)>>2] = (3720);
-    HEAP32[(3728)>>2] = (3720);
-    HEAP32[(3740)>>2] = (3728);
-    HEAP32[(3736)>>2] = (3728);
-    HEAP32[(3748)>>2] = (3736);
-    HEAP32[(3744)>>2] = (3736);
-    HEAP32[(3756)>>2] = (3744);
-    HEAP32[(3752)>>2] = (3744);
-    HEAP32[(3764)>>2] = (3752);
-    HEAP32[(3760)>>2] = (3752);
-    HEAP32[(3772)>>2] = (3760);
-    HEAP32[(3768)>>2] = (3760);
-    HEAP32[(3780)>>2] = (3768);
-    HEAP32[(3776)>>2] = (3768);
+    HEAP32[(6020)>>2] = $$748$i;
+    HEAP32[(6024)>>2] = $$723947$i;
+    HEAP32[(6032)>>2] = 0;
+    $640 = HEAP32[1511]|0;
+    HEAP32[(5608)>>2] = $640;
+    HEAP32[(5604)>>2] = -1;
+    HEAP32[(5624)>>2] = (5612);
+    HEAP32[(5620)>>2] = (5612);
+    HEAP32[(5632)>>2] = (5620);
+    HEAP32[(5628)>>2] = (5620);
+    HEAP32[(5640)>>2] = (5628);
+    HEAP32[(5636)>>2] = (5628);
+    HEAP32[(5648)>>2] = (5636);
+    HEAP32[(5644)>>2] = (5636);
+    HEAP32[(5656)>>2] = (5644);
+    HEAP32[(5652)>>2] = (5644);
+    HEAP32[(5664)>>2] = (5652);
+    HEAP32[(5660)>>2] = (5652);
+    HEAP32[(5672)>>2] = (5660);
+    HEAP32[(5668)>>2] = (5660);
+    HEAP32[(5680)>>2] = (5668);
+    HEAP32[(5676)>>2] = (5668);
+    HEAP32[(5688)>>2] = (5676);
+    HEAP32[(5684)>>2] = (5676);
+    HEAP32[(5696)>>2] = (5684);
+    HEAP32[(5692)>>2] = (5684);
+    HEAP32[(5704)>>2] = (5692);
+    HEAP32[(5700)>>2] = (5692);
+    HEAP32[(5712)>>2] = (5700);
+    HEAP32[(5708)>>2] = (5700);
+    HEAP32[(5720)>>2] = (5708);
+    HEAP32[(5716)>>2] = (5708);
+    HEAP32[(5728)>>2] = (5716);
+    HEAP32[(5724)>>2] = (5716);
+    HEAP32[(5736)>>2] = (5724);
+    HEAP32[(5732)>>2] = (5724);
+    HEAP32[(5744)>>2] = (5732);
+    HEAP32[(5740)>>2] = (5732);
+    HEAP32[(5752)>>2] = (5740);
+    HEAP32[(5748)>>2] = (5740);
+    HEAP32[(5760)>>2] = (5748);
+    HEAP32[(5756)>>2] = (5748);
+    HEAP32[(5768)>>2] = (5756);
+    HEAP32[(5764)>>2] = (5756);
+    HEAP32[(5776)>>2] = (5764);
+    HEAP32[(5772)>>2] = (5764);
+    HEAP32[(5784)>>2] = (5772);
+    HEAP32[(5780)>>2] = (5772);
+    HEAP32[(5792)>>2] = (5780);
+    HEAP32[(5788)>>2] = (5780);
+    HEAP32[(5800)>>2] = (5788);
+    HEAP32[(5796)>>2] = (5788);
+    HEAP32[(5808)>>2] = (5796);
+    HEAP32[(5804)>>2] = (5796);
+    HEAP32[(5816)>>2] = (5804);
+    HEAP32[(5812)>>2] = (5804);
+    HEAP32[(5824)>>2] = (5812);
+    HEAP32[(5820)>>2] = (5812);
+    HEAP32[(5832)>>2] = (5820);
+    HEAP32[(5828)>>2] = (5820);
+    HEAP32[(5840)>>2] = (5828);
+    HEAP32[(5836)>>2] = (5828);
+    HEAP32[(5848)>>2] = (5836);
+    HEAP32[(5844)>>2] = (5836);
+    HEAP32[(5856)>>2] = (5844);
+    HEAP32[(5852)>>2] = (5844);
+    HEAP32[(5864)>>2] = (5852);
+    HEAP32[(5860)>>2] = (5852);
+    HEAP32[(5872)>>2] = (5860);
+    HEAP32[(5868)>>2] = (5860);
     $641 = (($$723947$i) + -40)|0;
     $642 = ((($$748$i)) + 8|0);
     $643 = $642;
@@ -53977,18 +53914,18 @@ function _malloc($0) {
     $648 = $645 ? 0 : $647;
     $649 = (($$748$i) + ($648)|0);
     $650 = (($641) - ($648))|0;
-    HEAP32[(3504)>>2] = $649;
-    HEAP32[(3492)>>2] = $650;
+    HEAP32[(5596)>>2] = $649;
+    HEAP32[(5584)>>2] = $650;
     $651 = $650 | 1;
     $652 = ((($649)) + 4|0);
     HEAP32[$652>>2] = $651;
     $653 = (($$748$i) + ($641)|0);
     $654 = ((($653)) + 4|0);
     HEAP32[$654>>2] = 40;
-    $655 = HEAP32[(3968)>>2]|0;
-    HEAP32[(3508)>>2] = $655;
+    $655 = HEAP32[(6060)>>2]|0;
+    HEAP32[(5600)>>2] = $655;
    } else {
-    $$024372$i = (3928);
+    $$024372$i = (6020);
     while(1) {
      $656 = HEAP32[$$024372$i>>2]|0;
      $657 = ((($$024372$i)) + 4|0);
@@ -54021,7 +53958,7 @@ function _malloc($0) {
       if ($or$cond51$i) {
        $671 = (($658) + ($$723947$i))|0;
        HEAP32[$664>>2] = $671;
-       $672 = HEAP32[(3492)>>2]|0;
+       $672 = HEAP32[(5584)>>2]|0;
        $673 = (($672) + ($$723947$i))|0;
        $674 = ((($635)) + 8|0);
        $675 = $674;
@@ -54032,30 +53969,30 @@ function _malloc($0) {
        $680 = $677 ? 0 : $679;
        $681 = (($635) + ($680)|0);
        $682 = (($673) - ($680))|0;
-       HEAP32[(3504)>>2] = $681;
-       HEAP32[(3492)>>2] = $682;
+       HEAP32[(5596)>>2] = $681;
+       HEAP32[(5584)>>2] = $682;
        $683 = $682 | 1;
        $684 = ((($681)) + 4|0);
        HEAP32[$684>>2] = $683;
        $685 = (($635) + ($673)|0);
        $686 = ((($685)) + 4|0);
        HEAP32[$686>>2] = 40;
-       $687 = HEAP32[(3968)>>2]|0;
-       HEAP32[(3508)>>2] = $687;
+       $687 = HEAP32[(6060)>>2]|0;
+       HEAP32[(5600)>>2] = $687;
        break;
       }
      }
     }
-    $688 = HEAP32[(3496)>>2]|0;
+    $688 = HEAP32[(5588)>>2]|0;
     $689 = ($$748$i>>>0)<($688>>>0);
     if ($689) {
-     HEAP32[(3496)>>2] = $$748$i;
-     $753 = $$748$i;
+     HEAP32[(5588)>>2] = $$748$i;
+     $752 = $$748$i;
     } else {
-     $753 = $688;
+     $752 = $688;
     }
     $690 = (($$748$i) + ($$723947$i)|0);
-    $$124471$i = (3928);
+    $$124471$i = (6020);
     while(1) {
      $691 = HEAP32[$$124471$i>>2]|0;
      $692 = ($691|0)==($690|0);
@@ -54110,21 +54047,21 @@ function _malloc($0) {
       $726 = ($635|0)==($718|0);
       L317: do {
        if ($726) {
-        $727 = HEAP32[(3492)>>2]|0;
+        $727 = HEAP32[(5584)>>2]|0;
         $728 = (($727) + ($723))|0;
-        HEAP32[(3492)>>2] = $728;
-        HEAP32[(3504)>>2] = $722;
+        HEAP32[(5584)>>2] = $728;
+        HEAP32[(5596)>>2] = $722;
         $729 = $728 | 1;
         $730 = ((($722)) + 4|0);
         HEAP32[$730>>2] = $729;
        } else {
-        $731 = HEAP32[(3500)>>2]|0;
+        $731 = HEAP32[(5592)>>2]|0;
         $732 = ($731|0)==($718|0);
         if ($732) {
-         $733 = HEAP32[(3488)>>2]|0;
+         $733 = HEAP32[(5580)>>2]|0;
          $734 = (($733) + ($723))|0;
-         HEAP32[(3488)>>2] = $734;
-         HEAP32[(3500)>>2] = $722;
+         HEAP32[(5580)>>2] = $734;
+         HEAP32[(5592)>>2] = $722;
          $735 = $734 | 1;
          $736 = ((($722)) + 4|0);
          HEAP32[$736>>2] = $735;
@@ -54147,12 +54084,12 @@ function _malloc($0) {
            $747 = ((($718)) + 12|0);
            $748 = HEAP32[$747>>2]|0;
            $749 = $743 << 1;
-           $750 = (3520 + ($749<<2)|0);
+           $750 = (5612 + ($749<<2)|0);
            $751 = ($746|0)==($750|0);
            do {
             if (!($751)) {
-             $752 = ($753>>>0)>($746>>>0);
-             if ($752) {
+             $753 = ($752>>>0)>($746>>>0);
+             if ($753) {
               _abort();
               // unreachable;
              }
@@ -54170,9 +54107,9 @@ function _malloc($0) {
            if ($757) {
             $758 = 1 << $743;
             $759 = $758 ^ -1;
-            $760 = HEAP32[870]|0;
+            $760 = HEAP32[1393]|0;
             $761 = $760 & $759;
-            HEAP32[870] = $761;
+            HEAP32[1393] = $761;
             break;
            }
            $762 = ($748|0)==($750|0);
@@ -54181,7 +54118,7 @@ function _malloc($0) {
              $$pre16$i$i = ((($748)) + 8|0);
              $$pre$phi17$i$iZ2D = $$pre16$i$i;
             } else {
-             $763 = ($753>>>0)>($748>>>0);
+             $763 = ($752>>>0)>($748>>>0);
              if ($763) {
               _abort();
               // unreachable;
@@ -54243,7 +54180,7 @@ function _malloc($0) {
               }
               $$1290$i$i = $$1290$i$i$be;$$1292$i$i = $$1292$i$i$be;
              }
-             $794 = ($753>>>0)>($$1292$i$i>>>0);
+             $794 = ($752>>>0)>($$1292$i$i>>>0);
              if ($794) {
               _abort();
               // unreachable;
@@ -54255,7 +54192,7 @@ function _malloc($0) {
             } else {
              $773 = ((($718)) + 8|0);
              $774 = HEAP32[$773>>2]|0;
-             $775 = ($753>>>0)>($774>>>0);
+             $775 = ($752>>>0)>($774>>>0);
              if ($775) {
               _abort();
               // unreachable;
@@ -54287,7 +54224,7 @@ function _malloc($0) {
            }
            $796 = ((($718)) + 28|0);
            $797 = HEAP32[$796>>2]|0;
-           $798 = (3784 + ($797<<2)|0);
+           $798 = (5876 + ($797<<2)|0);
            $799 = HEAP32[$798>>2]|0;
            $800 = ($799|0)==($718|0);
            do {
@@ -54299,12 +54236,12 @@ function _malloc($0) {
              }
              $801 = 1 << $797;
              $802 = $801 ^ -1;
-             $803 = HEAP32[(3484)>>2]|0;
+             $803 = HEAP32[(5576)>>2]|0;
              $804 = $803 & $802;
-             HEAP32[(3484)>>2] = $804;
+             HEAP32[(5576)>>2] = $804;
              break L325;
             } else {
-             $805 = HEAP32[(3496)>>2]|0;
+             $805 = HEAP32[(5588)>>2]|0;
              $806 = ($805>>>0)>($769>>>0);
              if ($806) {
               _abort();
@@ -54325,7 +54262,7 @@ function _malloc($0) {
              }
             }
            } while(0);
-           $812 = HEAP32[(3496)>>2]|0;
+           $812 = HEAP32[(5588)>>2]|0;
            $813 = ($812>>>0)>($$3$i$i>>>0);
            if ($813) {
             _abort();
@@ -54357,7 +54294,7 @@ function _malloc($0) {
            if ($823) {
             break;
            }
-           $824 = HEAP32[(3496)>>2]|0;
+           $824 = HEAP32[(5588)>>2]|0;
            $825 = ($824>>>0)>($822>>>0);
            if ($825) {
             _abort();
@@ -54390,21 +54327,21 @@ function _malloc($0) {
         $837 = ($$0286$i$i>>>0)<(256);
         if ($837) {
          $838 = $836 << 1;
-         $839 = (3520 + ($838<<2)|0);
-         $840 = HEAP32[870]|0;
+         $839 = (5612 + ($838<<2)|0);
+         $840 = HEAP32[1393]|0;
          $841 = 1 << $836;
          $842 = $840 & $841;
          $843 = ($842|0)==(0);
          do {
           if ($843) {
            $844 = $840 | $841;
-           HEAP32[870] = $844;
+           HEAP32[1393] = $844;
            $$pre$i17$i = ((($839)) + 8|0);
            $$0294$i$i = $839;$$pre$phi$i18$iZ2D = $$pre$i17$i;
           } else {
            $845 = ((($839)) + 8|0);
            $846 = HEAP32[$845>>2]|0;
-           $847 = HEAP32[(3496)>>2]|0;
+           $847 = HEAP32[(5588)>>2]|0;
            $848 = ($847>>>0)>($846>>>0);
            if (!($848)) {
             $$0294$i$i = $846;$$pre$phi$i18$iZ2D = $845;
@@ -54459,20 +54396,20 @@ function _malloc($0) {
           $$0295$i$i = $876;
          }
         } while(0);
-        $877 = (3784 + ($$0295$i$i<<2)|0);
+        $877 = (5876 + ($$0295$i$i<<2)|0);
         $878 = ((($722)) + 28|0);
         HEAP32[$878>>2] = $$0295$i$i;
         $879 = ((($722)) + 16|0);
         $880 = ((($879)) + 4|0);
         HEAP32[$880>>2] = 0;
         HEAP32[$879>>2] = 0;
-        $881 = HEAP32[(3484)>>2]|0;
+        $881 = HEAP32[(5576)>>2]|0;
         $882 = 1 << $$0295$i$i;
         $883 = $881 & $882;
         $884 = ($883|0)==(0);
         if ($884) {
          $885 = $881 | $882;
-         HEAP32[(3484)>>2] = $885;
+         HEAP32[(5576)>>2] = $885;
          HEAP32[$877>>2] = $722;
          $886 = ((($722)) + 24|0);
          HEAP32[$886>>2] = $877;
@@ -54517,7 +54454,7 @@ function _malloc($0) {
             $$028711$i$i = $899;$$028810$i$i = $901;
            }
           }
-          $908 = HEAP32[(3496)>>2]|0;
+          $908 = HEAP32[(5588)>>2]|0;
           $909 = ($908>>>0)>($906>>>0);
           if ($909) {
            _abort();
@@ -54536,7 +54473,7 @@ function _malloc($0) {
         } while(0);
         $913 = ((($$0288$lcssa$i$i)) + 8|0);
         $914 = HEAP32[$913>>2]|0;
-        $915 = HEAP32[(3496)>>2]|0;
+        $915 = HEAP32[(5588)>>2]|0;
         $916 = ($915>>>0)<=($$0288$lcssa$i$i>>>0);
         $917 = ($915>>>0)<=($914>>>0);
         $918 = $917 & $916;
@@ -54562,7 +54499,7 @@ function _malloc($0) {
       STACKTOP = sp;return ($$0|0);
      }
     }
-    $$0$i$i$i = (3928);
+    $$0$i$i$i = (6020);
     while(1) {
      $923 = HEAP32[$$0$i$i$i>>2]|0;
      $924 = ($923>>>0)>($635>>>0);
@@ -54603,23 +54540,23 @@ function _malloc($0) {
     $952 = $949 ? 0 : $951;
     $953 = (($$748$i) + ($952)|0);
     $954 = (($945) - ($952))|0;
-    HEAP32[(3504)>>2] = $953;
-    HEAP32[(3492)>>2] = $954;
+    HEAP32[(5596)>>2] = $953;
+    HEAP32[(5584)>>2] = $954;
     $955 = $954 | 1;
     $956 = ((($953)) + 4|0);
     HEAP32[$956>>2] = $955;
     $957 = (($$748$i) + ($945)|0);
     $958 = ((($957)) + 4|0);
     HEAP32[$958>>2] = 40;
-    $959 = HEAP32[(3968)>>2]|0;
-    HEAP32[(3508)>>2] = $959;
+    $959 = HEAP32[(6060)>>2]|0;
+    HEAP32[(5600)>>2] = $959;
     $960 = ((($942)) + 4|0);
     HEAP32[$960>>2] = 27;
-    ;HEAP32[$943>>2]=HEAP32[(3928)>>2]|0;HEAP32[$943+4>>2]=HEAP32[(3928)+4>>2]|0;HEAP32[$943+8>>2]=HEAP32[(3928)+8>>2]|0;HEAP32[$943+12>>2]=HEAP32[(3928)+12>>2]|0;
-    HEAP32[(3928)>>2] = $$748$i;
-    HEAP32[(3932)>>2] = $$723947$i;
-    HEAP32[(3940)>>2] = 0;
-    HEAP32[(3936)>>2] = $943;
+    ;HEAP32[$943>>2]=HEAP32[(6020)>>2]|0;HEAP32[$943+4>>2]=HEAP32[(6020)+4>>2]|0;HEAP32[$943+8>>2]=HEAP32[(6020)+8>>2]|0;HEAP32[$943+12>>2]=HEAP32[(6020)+12>>2]|0;
+    HEAP32[(6020)>>2] = $$748$i;
+    HEAP32[(6024)>>2] = $$723947$i;
+    HEAP32[(6032)>>2] = 0;
+    HEAP32[(6028)>>2] = $943;
     $962 = $944;
     while(1) {
      $961 = ((($962)) + 4|0);
@@ -54648,20 +54585,20 @@ function _malloc($0) {
      $974 = ($968>>>0)<(256);
      if ($974) {
       $975 = $973 << 1;
-      $976 = (3520 + ($975<<2)|0);
-      $977 = HEAP32[870]|0;
+      $976 = (5612 + ($975<<2)|0);
+      $977 = HEAP32[1393]|0;
       $978 = 1 << $973;
       $979 = $977 & $978;
       $980 = ($979|0)==(0);
       if ($980) {
        $981 = $977 | $978;
-       HEAP32[870] = $981;
+       HEAP32[1393] = $981;
        $$pre$i$i = ((($976)) + 8|0);
        $$0211$i$i = $976;$$pre$phi$i$iZ2D = $$pre$i$i;
       } else {
        $982 = ((($976)) + 8|0);
        $983 = HEAP32[$982>>2]|0;
-       $984 = HEAP32[(3496)>>2]|0;
+       $984 = HEAP32[(5588)>>2]|0;
        $985 = ($984>>>0)>($983>>>0);
        if ($985) {
         _abort();
@@ -54713,19 +54650,19 @@ function _malloc($0) {
        $$0212$i$i = $1013;
       }
      }
-     $1014 = (3784 + ($$0212$i$i<<2)|0);
+     $1014 = (5876 + ($$0212$i$i<<2)|0);
      $1015 = ((($635)) + 28|0);
      HEAP32[$1015>>2] = $$0212$i$i;
      $1016 = ((($635)) + 20|0);
      HEAP32[$1016>>2] = 0;
      HEAP32[$940>>2] = 0;
-     $1017 = HEAP32[(3484)>>2]|0;
+     $1017 = HEAP32[(5576)>>2]|0;
      $1018 = 1 << $$0212$i$i;
      $1019 = $1017 & $1018;
      $1020 = ($1019|0)==(0);
      if ($1020) {
       $1021 = $1017 | $1018;
-      HEAP32[(3484)>>2] = $1021;
+      HEAP32[(5576)>>2] = $1021;
       HEAP32[$1014>>2] = $635;
       $1022 = ((($635)) + 24|0);
       HEAP32[$1022>>2] = $1014;
@@ -54770,7 +54707,7 @@ function _malloc($0) {
          $$02065$i$i = $1035;$$02074$i$i = $1037;
         }
        }
-       $1044 = HEAP32[(3496)>>2]|0;
+       $1044 = HEAP32[(5588)>>2]|0;
        $1045 = ($1044>>>0)>($1042>>>0);
        if ($1045) {
         _abort();
@@ -54789,7 +54726,7 @@ function _malloc($0) {
      } while(0);
      $1049 = ((($$0207$lcssa$i$i)) + 8|0);
      $1050 = HEAP32[$1049>>2]|0;
-     $1051 = HEAP32[(3496)>>2]|0;
+     $1051 = HEAP32[(5588)>>2]|0;
      $1052 = ($1051>>>0)<=($$0207$lcssa$i$i>>>0);
      $1053 = ($1051>>>0)<=($1050>>>0);
      $1054 = $1053 & $1052;
@@ -54811,14 +54748,14 @@ function _malloc($0) {
     }
    }
   } while(0);
-  $1060 = HEAP32[(3492)>>2]|0;
+  $1060 = HEAP32[(5584)>>2]|0;
   $1061 = ($1060>>>0)>($$0197>>>0);
   if ($1061) {
    $1062 = (($1060) - ($$0197))|0;
-   HEAP32[(3492)>>2] = $1062;
-   $1063 = HEAP32[(3504)>>2]|0;
+   HEAP32[(5584)>>2] = $1062;
+   $1063 = HEAP32[(5596)>>2]|0;
    $1064 = (($1063) + ($$0197)|0);
-   HEAP32[(3504)>>2] = $1064;
+   HEAP32[(5596)>>2] = $1064;
    $1065 = $1062 | 1;
    $1066 = ((($1064)) + 4|0);
    HEAP32[$1066>>2] = $1065;
@@ -54862,7 +54799,7 @@ function _free($0) {
   return;
  }
  $2 = ((($0)) + -8|0);
- $3 = HEAP32[(3496)>>2]|0;
+ $3 = HEAP32[(5588)>>2]|0;
  $4 = ($2>>>0)<($3>>>0);
  if ($4) {
   _abort();
@@ -54895,7 +54832,7 @@ function _free($0) {
     _abort();
     // unreachable;
    }
-   $19 = HEAP32[(3500)>>2]|0;
+   $19 = HEAP32[(5592)>>2]|0;
    $20 = ($19|0)==($16|0);
    if ($20) {
     $105 = ((($10)) + 4|0);
@@ -54903,14 +54840,14 @@ function _free($0) {
     $107 = $106 & 3;
     $108 = ($107|0)==(3);
     if (!($108)) {
-     $$1 = $16;$$1380 = $17;$114 = $16;
+     $$1 = $16;$$1380 = $17;$113 = $16;
      break;
     }
     $109 = (($16) + ($17)|0);
     $110 = ((($16)) + 4|0);
     $111 = $17 | 1;
     $112 = $106 & -2;
-    HEAP32[(3488)>>2] = $17;
+    HEAP32[(5580)>>2] = $17;
     HEAP32[$105>>2] = $112;
     HEAP32[$110>>2] = $111;
     HEAP32[$109>>2] = $17;
@@ -54924,7 +54861,7 @@ function _free($0) {
     $25 = ((($16)) + 12|0);
     $26 = HEAP32[$25>>2]|0;
     $27 = $21 << 1;
-    $28 = (3520 + ($27<<2)|0);
+    $28 = (5612 + ($27<<2)|0);
     $29 = ($24|0)==($28|0);
     if (!($29)) {
      $30 = ($3>>>0)>($24>>>0);
@@ -54944,10 +54881,10 @@ function _free($0) {
     if ($34) {
      $35 = 1 << $21;
      $36 = $35 ^ -1;
-     $37 = HEAP32[870]|0;
+     $37 = HEAP32[1393]|0;
      $38 = $37 & $36;
-     HEAP32[870] = $38;
-     $$1 = $16;$$1380 = $17;$114 = $16;
+     HEAP32[1393] = $38;
+     $$1 = $16;$$1380 = $17;$113 = $16;
      break;
     }
     $39 = ($26|0)==($28|0);
@@ -54973,7 +54910,7 @@ function _free($0) {
     $44 = ((($24)) + 12|0);
     HEAP32[$44>>2] = $26;
     HEAP32[$$pre$phi446Z2D>>2] = $24;
-    $$1 = $16;$$1380 = $17;$114 = $16;
+    $$1 = $16;$$1380 = $17;$113 = $16;
     break;
    }
    $45 = ((($16)) + 24|0);
@@ -55058,11 +54995,11 @@ function _free($0) {
    } while(0);
    $72 = ($46|0)==(0|0);
    if ($72) {
-    $$1 = $16;$$1380 = $17;$114 = $16;
+    $$1 = $16;$$1380 = $17;$113 = $16;
    } else {
     $73 = ((($16)) + 28|0);
     $74 = HEAP32[$73>>2]|0;
-    $75 = (3784 + ($74<<2)|0);
+    $75 = (5876 + ($74<<2)|0);
     $76 = HEAP32[$75>>2]|0;
     $77 = ($76|0)==($16|0);
     do {
@@ -55072,14 +55009,14 @@ function _free($0) {
       if ($cond419) {
        $78 = 1 << $74;
        $79 = $78 ^ -1;
-       $80 = HEAP32[(3484)>>2]|0;
+       $80 = HEAP32[(5576)>>2]|0;
        $81 = $80 & $79;
-       HEAP32[(3484)>>2] = $81;
-       $$1 = $16;$$1380 = $17;$114 = $16;
+       HEAP32[(5576)>>2] = $81;
+       $$1 = $16;$$1380 = $17;$113 = $16;
        break L10;
       }
      } else {
-      $82 = HEAP32[(3496)>>2]|0;
+      $82 = HEAP32[(5588)>>2]|0;
       $83 = ($82>>>0)>($46>>>0);
       if ($83) {
        _abort();
@@ -55093,7 +55030,7 @@ function _free($0) {
        HEAP32[$$sink>>2] = $$3;
        $88 = ($$3|0)==(0|0);
        if ($88) {
-        $$1 = $16;$$1380 = $17;$114 = $16;
+        $$1 = $16;$$1380 = $17;$113 = $16;
         break L10;
        } else {
         break;
@@ -55101,7 +55038,7 @@ function _free($0) {
       }
      }
     } while(0);
-    $89 = HEAP32[(3496)>>2]|0;
+    $89 = HEAP32[(5588)>>2]|0;
     $90 = ($89>>>0)>($$3>>>0);
     if ($90) {
      _abort();
@@ -55131,9 +55068,9 @@ function _free($0) {
     $99 = HEAP32[$98>>2]|0;
     $100 = ($99|0)==(0|0);
     if ($100) {
-     $$1 = $16;$$1380 = $17;$114 = $16;
+     $$1 = $16;$$1380 = $17;$113 = $16;
     } else {
-     $101 = HEAP32[(3496)>>2]|0;
+     $101 = HEAP32[(5588)>>2]|0;
      $102 = ($101>>>0)>($99>>>0);
      if ($102) {
       _abort();
@@ -55143,17 +55080,17 @@ function _free($0) {
       HEAP32[$103>>2] = $99;
       $104 = ((($99)) + 24|0);
       HEAP32[$104>>2] = $$3;
-      $$1 = $16;$$1380 = $17;$114 = $16;
+      $$1 = $16;$$1380 = $17;$113 = $16;
       break;
      }
     }
    }
   } else {
-   $$1 = $2;$$1380 = $9;$114 = $2;
+   $$1 = $2;$$1380 = $9;$113 = $2;
   }
  } while(0);
- $113 = ($114>>>0)<($10>>>0);
- if (!($113)) {
+ $114 = ($113>>>0)<($10>>>0);
+ if (!($114)) {
   _abort();
   // unreachable;
  }
@@ -55168,36 +55105,36 @@ function _free($0) {
  $119 = $116 & 2;
  $120 = ($119|0)==(0);
  if ($120) {
-  $121 = HEAP32[(3504)>>2]|0;
+  $121 = HEAP32[(5596)>>2]|0;
   $122 = ($121|0)==($10|0);
   if ($122) {
-   $123 = HEAP32[(3492)>>2]|0;
+   $123 = HEAP32[(5584)>>2]|0;
    $124 = (($123) + ($$1380))|0;
-   HEAP32[(3492)>>2] = $124;
-   HEAP32[(3504)>>2] = $$1;
+   HEAP32[(5584)>>2] = $124;
+   HEAP32[(5596)>>2] = $$1;
    $125 = $124 | 1;
    $126 = ((($$1)) + 4|0);
    HEAP32[$126>>2] = $125;
-   $127 = HEAP32[(3500)>>2]|0;
+   $127 = HEAP32[(5592)>>2]|0;
    $128 = ($$1|0)==($127|0);
    if (!($128)) {
     return;
    }
-   HEAP32[(3500)>>2] = 0;
-   HEAP32[(3488)>>2] = 0;
+   HEAP32[(5592)>>2] = 0;
+   HEAP32[(5580)>>2] = 0;
    return;
   }
-  $129 = HEAP32[(3500)>>2]|0;
+  $129 = HEAP32[(5592)>>2]|0;
   $130 = ($129|0)==($10|0);
   if ($130) {
-   $131 = HEAP32[(3488)>>2]|0;
+   $131 = HEAP32[(5580)>>2]|0;
    $132 = (($131) + ($$1380))|0;
-   HEAP32[(3488)>>2] = $132;
-   HEAP32[(3500)>>2] = $114;
+   HEAP32[(5580)>>2] = $132;
+   HEAP32[(5592)>>2] = $113;
    $133 = $132 | 1;
    $134 = ((($$1)) + 4|0);
    HEAP32[$134>>2] = $133;
-   $135 = (($114) + ($132)|0);
+   $135 = (($113) + ($132)|0);
    HEAP32[$135>>2] = $132;
    return;
   }
@@ -55212,10 +55149,10 @@ function _free($0) {
     $142 = ((($10)) + 12|0);
     $143 = HEAP32[$142>>2]|0;
     $144 = $138 << 1;
-    $145 = (3520 + ($144<<2)|0);
+    $145 = (5612 + ($144<<2)|0);
     $146 = ($141|0)==($145|0);
     if (!($146)) {
-     $147 = HEAP32[(3496)>>2]|0;
+     $147 = HEAP32[(5588)>>2]|0;
      $148 = ($147>>>0)>($141>>>0);
      if ($148) {
       _abort();
@@ -55233,9 +55170,9 @@ function _free($0) {
     if ($152) {
      $153 = 1 << $138;
      $154 = $153 ^ -1;
-     $155 = HEAP32[870]|0;
+     $155 = HEAP32[1393]|0;
      $156 = $155 & $154;
-     HEAP32[870] = $156;
+     HEAP32[1393] = $156;
      break;
     }
     $157 = ($143|0)==($145|0);
@@ -55243,7 +55180,7 @@ function _free($0) {
      $$pre443 = ((($143)) + 8|0);
      $$pre$phi444Z2D = $$pre443;
     } else {
-     $158 = HEAP32[(3496)>>2]|0;
+     $158 = HEAP32[(5588)>>2]|0;
      $159 = ($158>>>0)>($143>>>0);
      if ($159) {
       _abort();
@@ -55305,7 +55242,7 @@ function _free($0) {
        }
        $$1396 = $$1396$be;$$1400 = $$1400$be;
       }
-      $191 = HEAP32[(3496)>>2]|0;
+      $191 = HEAP32[(5588)>>2]|0;
       $192 = ($191>>>0)>($$1400>>>0);
       if ($192) {
        _abort();
@@ -55318,7 +55255,7 @@ function _free($0) {
      } else {
       $169 = ((($10)) + 8|0);
       $170 = HEAP32[$169>>2]|0;
-      $171 = HEAP32[(3496)>>2]|0;
+      $171 = HEAP32[(5588)>>2]|0;
       $172 = ($171>>>0)>($170>>>0);
       if ($172) {
        _abort();
@@ -55349,7 +55286,7 @@ function _free($0) {
     if (!($193)) {
      $194 = ((($10)) + 28|0);
      $195 = HEAP32[$194>>2]|0;
-     $196 = (3784 + ($195<<2)|0);
+     $196 = (5876 + ($195<<2)|0);
      $197 = HEAP32[$196>>2]|0;
      $198 = ($197|0)==($10|0);
      do {
@@ -55359,13 +55296,13 @@ function _free($0) {
        if ($cond420) {
         $199 = 1 << $195;
         $200 = $199 ^ -1;
-        $201 = HEAP32[(3484)>>2]|0;
+        $201 = HEAP32[(5576)>>2]|0;
         $202 = $201 & $200;
-        HEAP32[(3484)>>2] = $202;
+        HEAP32[(5576)>>2] = $202;
         break L111;
        }
       } else {
-       $203 = HEAP32[(3496)>>2]|0;
+       $203 = HEAP32[(5588)>>2]|0;
        $204 = ($203>>>0)>($165>>>0);
        if ($204) {
         _abort();
@@ -55386,7 +55323,7 @@ function _free($0) {
        }
       }
      } while(0);
-     $210 = HEAP32[(3496)>>2]|0;
+     $210 = HEAP32[(5588)>>2]|0;
      $211 = ($210>>>0)>($$3398>>>0);
      if ($211) {
       _abort();
@@ -55416,7 +55353,7 @@ function _free($0) {
      $220 = HEAP32[$219>>2]|0;
      $221 = ($220|0)==(0|0);
      if (!($221)) {
-      $222 = HEAP32[(3496)>>2]|0;
+      $222 = HEAP32[(5588)>>2]|0;
       $223 = ($222>>>0)>($220>>>0);
       if ($223) {
        _abort();
@@ -55435,12 +55372,12 @@ function _free($0) {
   $226 = $137 | 1;
   $227 = ((($$1)) + 4|0);
   HEAP32[$227>>2] = $226;
-  $228 = (($114) + ($137)|0);
+  $228 = (($113) + ($137)|0);
   HEAP32[$228>>2] = $137;
-  $229 = HEAP32[(3500)>>2]|0;
+  $229 = HEAP32[(5592)>>2]|0;
   $230 = ($$1|0)==($229|0);
   if ($230) {
-   HEAP32[(3488)>>2] = $137;
+   HEAP32[(5580)>>2] = $137;
    return;
   } else {
    $$2 = $137;
@@ -55451,7 +55388,7 @@ function _free($0) {
   $232 = $$1380 | 1;
   $233 = ((($$1)) + 4|0);
   HEAP32[$233>>2] = $232;
-  $234 = (($114) + ($$1380)|0);
+  $234 = (($113) + ($$1380)|0);
   HEAP32[$234>>2] = $$1380;
   $$2 = $$1380;
  }
@@ -55459,20 +55396,20 @@ function _free($0) {
  $236 = ($$2>>>0)<(256);
  if ($236) {
   $237 = $235 << 1;
-  $238 = (3520 + ($237<<2)|0);
-  $239 = HEAP32[870]|0;
+  $238 = (5612 + ($237<<2)|0);
+  $239 = HEAP32[1393]|0;
   $240 = 1 << $235;
   $241 = $239 & $240;
   $242 = ($241|0)==(0);
   if ($242) {
    $243 = $239 | $240;
-   HEAP32[870] = $243;
+   HEAP32[1393] = $243;
    $$pre = ((($238)) + 8|0);
    $$0401 = $238;$$pre$phiZ2D = $$pre;
   } else {
    $244 = ((($238)) + 8|0);
    $245 = HEAP32[$244>>2]|0;
-   $246 = HEAP32[(3496)>>2]|0;
+   $246 = HEAP32[(5588)>>2]|0;
    $247 = ($246>>>0)>($245>>>0);
    if ($247) {
     _abort();
@@ -55524,21 +55461,21 @@ function _free($0) {
    $$0394 = $275;
   }
  }
- $276 = (3784 + ($$0394<<2)|0);
+ $276 = (5876 + ($$0394<<2)|0);
  $277 = ((($$1)) + 28|0);
  HEAP32[$277>>2] = $$0394;
  $278 = ((($$1)) + 16|0);
  $279 = ((($$1)) + 20|0);
  HEAP32[$279>>2] = 0;
  HEAP32[$278>>2] = 0;
- $280 = HEAP32[(3484)>>2]|0;
+ $280 = HEAP32[(5576)>>2]|0;
  $281 = 1 << $$0394;
  $282 = $280 & $281;
  $283 = ($282|0)==(0);
  L197: do {
   if ($283) {
    $284 = $280 | $281;
-   HEAP32[(3484)>>2] = $284;
+   HEAP32[(5576)>>2] = $284;
    HEAP32[$276>>2] = $$1;
    $285 = ((($$1)) + 24|0);
    HEAP32[$285>>2] = $276;
@@ -55582,7 +55519,7 @@ function _free($0) {
        $$0381438 = $298;$$0382437 = $300;
       }
      }
-     $307 = HEAP32[(3496)>>2]|0;
+     $307 = HEAP32[(5588)>>2]|0;
      $308 = ($307>>>0)>($305>>>0);
      if ($308) {
       _abort();
@@ -55601,7 +55538,7 @@ function _free($0) {
    } while(0);
    $312 = ((($$0382$lcssa)) + 8|0);
    $313 = HEAP32[$312>>2]|0;
-   $314 = HEAP32[(3496)>>2]|0;
+   $314 = HEAP32[(5588)>>2]|0;
    $315 = ($314>>>0)<=($$0382$lcssa>>>0);
    $316 = ($314>>>0)<=($313>>>0);
    $317 = $316 & $315;
@@ -55622,14 +55559,14 @@ function _free($0) {
    }
   }
  } while(0);
- $322 = HEAP32[(3512)>>2]|0;
+ $322 = HEAP32[(5604)>>2]|0;
  $323 = (($322) + -1)|0;
- HEAP32[(3512)>>2] = $323;
+ HEAP32[(5604)>>2] = $323;
  $324 = ($323|0)==(0);
  if (!($324)) {
   return;
  }
- $$0211$in$i = (3936);
+ $$0211$in$i = (6028);
  while(1) {
   $$0211$i = HEAP32[$$0211$in$i>>2]|0;
   $325 = ($$0211$i|0)==(0|0);
@@ -55640,7 +55577,7 @@ function _free($0) {
    $$0211$in$i = $326;
   }
  }
- HEAP32[(3512)>>2] = -1;
+ HEAP32[(5604)>>2] = -1;
  return;
 }
 function _calloc($0,$1) {
@@ -55748,7 +55685,7 @@ function _try_realloc_chunk($0,$1) {
  $3 = HEAP32[$2>>2]|0;
  $4 = $3 & -8;
  $5 = (($0) + ($4)|0);
- $6 = HEAP32[(3496)>>2]|0;
+ $6 = HEAP32[(5588)>>2]|0;
  $7 = ($6>>>0)<=($0>>>0);
  $8 = $3 & 3;
  $9 = ($8|0)!=(1);
@@ -55778,7 +55715,7 @@ function _try_realloc_chunk($0,$1) {
   $18 = ($4>>>0)<($17>>>0);
   if (!($18)) {
    $19 = (($4) - ($1))|0;
-   $20 = HEAP32[(3960)>>2]|0;
+   $20 = HEAP32[(6052)>>2]|0;
    $21 = $20 << 1;
    $22 = ($19>>>0)>($21>>>0);
    if (!($22)) {
@@ -55812,10 +55749,10 @@ function _try_realloc_chunk($0,$1) {
   $$2 = $0;
   return ($$2|0);
  }
- $34 = HEAP32[(3504)>>2]|0;
+ $34 = HEAP32[(5596)>>2]|0;
  $35 = ($34|0)==($5|0);
  if ($35) {
-  $36 = HEAP32[(3492)>>2]|0;
+  $36 = HEAP32[(5584)>>2]|0;
   $37 = (($36) + ($4))|0;
   $38 = ($37>>>0)>($1>>>0);
   $39 = (($37) - ($1))|0;
@@ -55831,15 +55768,15 @@ function _try_realloc_chunk($0,$1) {
   $45 = $44 | 2;
   HEAP32[$2>>2] = $45;
   HEAP32[$42>>2] = $41;
-  HEAP32[(3504)>>2] = $40;
-  HEAP32[(3492)>>2] = $39;
+  HEAP32[(5596)>>2] = $40;
+  HEAP32[(5584)>>2] = $39;
   $$2 = $0;
   return ($$2|0);
  }
- $46 = HEAP32[(3500)>>2]|0;
+ $46 = HEAP32[(5592)>>2]|0;
  $47 = ($46|0)==($5|0);
  if ($47) {
-  $48 = HEAP32[(3488)>>2]|0;
+  $48 = HEAP32[(5580)>>2]|0;
   $49 = (($48) + ($4))|0;
   $50 = ($49>>>0)<($1>>>0);
   if ($50) {
@@ -55876,8 +55813,8 @@ function _try_realloc_chunk($0,$1) {
    HEAP32[$67>>2] = $69;
    $storemerge = 0;$storemerge3 = 0;
   }
-  HEAP32[(3488)>>2] = $storemerge3;
-  HEAP32[(3500)>>2] = $storemerge;
+  HEAP32[(5580)>>2] = $storemerge3;
+  HEAP32[(5592)>>2] = $storemerge;
   $$2 = $0;
   return ($$2|0);
  }
@@ -55904,7 +55841,7 @@ function _try_realloc_chunk($0,$1) {
    $80 = ((($5)) + 12|0);
    $81 = HEAP32[$80>>2]|0;
    $82 = $76 << 1;
-   $83 = (3520 + ($82<<2)|0);
+   $83 = (5612 + ($82<<2)|0);
    $84 = ($79|0)==($83|0);
    if (!($84)) {
     $85 = ($6>>>0)>($79>>>0);
@@ -55924,9 +55861,9 @@ function _try_realloc_chunk($0,$1) {
    if ($89) {
     $90 = 1 << $76;
     $91 = $90 ^ -1;
-    $92 = HEAP32[870]|0;
+    $92 = HEAP32[1393]|0;
     $93 = $92 & $91;
-    HEAP32[870] = $93;
+    HEAP32[1393] = $93;
     break;
    }
    $94 = ($81|0)==($83|0);
@@ -56037,7 +55974,7 @@ function _try_realloc_chunk($0,$1) {
    if (!($127)) {
     $128 = ((($5)) + 28|0);
     $129 = HEAP32[$128>>2]|0;
-    $130 = (3784 + ($129<<2)|0);
+    $130 = (5876 + ($129<<2)|0);
     $131 = HEAP32[$130>>2]|0;
     $132 = ($131|0)==($5|0);
     do {
@@ -56047,13 +55984,13 @@ function _try_realloc_chunk($0,$1) {
       if ($cond) {
        $133 = 1 << $129;
        $134 = $133 ^ -1;
-       $135 = HEAP32[(3484)>>2]|0;
+       $135 = HEAP32[(5576)>>2]|0;
        $136 = $135 & $134;
-       HEAP32[(3484)>>2] = $136;
+       HEAP32[(5576)>>2] = $136;
        break L49;
       }
      } else {
-      $137 = HEAP32[(3496)>>2]|0;
+      $137 = HEAP32[(5588)>>2]|0;
       $138 = ($137>>>0)>($101>>>0);
       if ($138) {
        _abort();
@@ -56074,7 +56011,7 @@ function _try_realloc_chunk($0,$1) {
       }
      }
     } while(0);
-    $144 = HEAP32[(3496)>>2]|0;
+    $144 = HEAP32[(5588)>>2]|0;
     $145 = ($144>>>0)>($$3>>>0);
     if ($145) {
      _abort();
@@ -56104,7 +56041,7 @@ function _try_realloc_chunk($0,$1) {
     $154 = HEAP32[$153>>2]|0;
     $155 = ($154|0)==(0|0);
     if (!($155)) {
-     $156 = HEAP32[(3496)>>2]|0;
+     $156 = HEAP32[(5588)>>2]|0;
      $157 = ($156>>>0)>($154>>>0);
      if ($157) {
       _abort();
@@ -56191,13 +56128,13 @@ function _dispose_chunk($0,$1) {
    $10 = (0 - ($7))|0;
    $11 = (($0) + ($10)|0);
    $12 = (($7) + ($1))|0;
-   $13 = HEAP32[(3496)>>2]|0;
+   $13 = HEAP32[(5588)>>2]|0;
    $14 = ($11>>>0)<($13>>>0);
    if ($14) {
     _abort();
     // unreachable;
    }
-   $15 = HEAP32[(3500)>>2]|0;
+   $15 = HEAP32[(5592)>>2]|0;
    $16 = ($15|0)==($11|0);
    if ($16) {
     $101 = ((($2)) + 4|0);
@@ -56211,7 +56148,7 @@ function _dispose_chunk($0,$1) {
     $105 = ((($11)) + 4|0);
     $106 = $12 | 1;
     $107 = $102 & -2;
-    HEAP32[(3488)>>2] = $12;
+    HEAP32[(5580)>>2] = $12;
     HEAP32[$101>>2] = $107;
     HEAP32[$105>>2] = $106;
     HEAP32[$2>>2] = $12;
@@ -56225,7 +56162,7 @@ function _dispose_chunk($0,$1) {
     $21 = ((($11)) + 12|0);
     $22 = HEAP32[$21>>2]|0;
     $23 = $17 << 1;
-    $24 = (3520 + ($23<<2)|0);
+    $24 = (5612 + ($23<<2)|0);
     $25 = ($20|0)==($24|0);
     if (!($25)) {
      $26 = ($13>>>0)>($20>>>0);
@@ -56245,9 +56182,9 @@ function _dispose_chunk($0,$1) {
     if ($30) {
      $31 = 1 << $17;
      $32 = $31 ^ -1;
-     $33 = HEAP32[870]|0;
+     $33 = HEAP32[1393]|0;
      $34 = $33 & $32;
-     HEAP32[870] = $34;
+     HEAP32[1393] = $34;
      $$1 = $11;$$1416 = $12;
      break;
     }
@@ -56363,7 +56300,7 @@ function _dispose_chunk($0,$1) {
    } else {
     $69 = ((($11)) + 28|0);
     $70 = HEAP32[$69>>2]|0;
-    $71 = (3784 + ($70<<2)|0);
+    $71 = (5876 + ($70<<2)|0);
     $72 = HEAP32[$71>>2]|0;
     $73 = ($72|0)==($11|0);
     do {
@@ -56373,14 +56310,14 @@ function _dispose_chunk($0,$1) {
       if ($cond) {
        $74 = 1 << $70;
        $75 = $74 ^ -1;
-       $76 = HEAP32[(3484)>>2]|0;
+       $76 = HEAP32[(5576)>>2]|0;
        $77 = $76 & $75;
-       HEAP32[(3484)>>2] = $77;
+       HEAP32[(5576)>>2] = $77;
        $$1 = $11;$$1416 = $12;
        break L1;
       }
      } else {
-      $78 = HEAP32[(3496)>>2]|0;
+      $78 = HEAP32[(5588)>>2]|0;
       $79 = ($78>>>0)>($42>>>0);
       if ($79) {
        _abort();
@@ -56402,7 +56339,7 @@ function _dispose_chunk($0,$1) {
       }
      }
     } while(0);
-    $85 = HEAP32[(3496)>>2]|0;
+    $85 = HEAP32[(5588)>>2]|0;
     $86 = ($85>>>0)>($$3>>>0);
     if ($86) {
      _abort();
@@ -56434,7 +56371,7 @@ function _dispose_chunk($0,$1) {
     if ($96) {
      $$1 = $11;$$1416 = $12;
     } else {
-     $97 = HEAP32[(3496)>>2]|0;
+     $97 = HEAP32[(5588)>>2]|0;
      $98 = ($97>>>0)>($95>>>0);
      if ($98) {
       _abort();
@@ -56453,7 +56390,7 @@ function _dispose_chunk($0,$1) {
    $$1 = $0;$$1416 = $1;
   }
  } while(0);
- $108 = HEAP32[(3496)>>2]|0;
+ $108 = HEAP32[(5588)>>2]|0;
  $109 = ($2>>>0)<($108>>>0);
  if ($109) {
   _abort();
@@ -56464,32 +56401,32 @@ function _dispose_chunk($0,$1) {
  $112 = $111 & 2;
  $113 = ($112|0)==(0);
  if ($113) {
-  $114 = HEAP32[(3504)>>2]|0;
+  $114 = HEAP32[(5596)>>2]|0;
   $115 = ($114|0)==($2|0);
   if ($115) {
-   $116 = HEAP32[(3492)>>2]|0;
+   $116 = HEAP32[(5584)>>2]|0;
    $117 = (($116) + ($$1416))|0;
-   HEAP32[(3492)>>2] = $117;
-   HEAP32[(3504)>>2] = $$1;
+   HEAP32[(5584)>>2] = $117;
+   HEAP32[(5596)>>2] = $$1;
    $118 = $117 | 1;
    $119 = ((($$1)) + 4|0);
    HEAP32[$119>>2] = $118;
-   $120 = HEAP32[(3500)>>2]|0;
+   $120 = HEAP32[(5592)>>2]|0;
    $121 = ($$1|0)==($120|0);
    if (!($121)) {
     return;
    }
-   HEAP32[(3500)>>2] = 0;
-   HEAP32[(3488)>>2] = 0;
+   HEAP32[(5592)>>2] = 0;
+   HEAP32[(5580)>>2] = 0;
    return;
   }
-  $122 = HEAP32[(3500)>>2]|0;
+  $122 = HEAP32[(5592)>>2]|0;
   $123 = ($122|0)==($2|0);
   if ($123) {
-   $124 = HEAP32[(3488)>>2]|0;
+   $124 = HEAP32[(5580)>>2]|0;
    $125 = (($124) + ($$1416))|0;
-   HEAP32[(3488)>>2] = $125;
-   HEAP32[(3500)>>2] = $$1;
+   HEAP32[(5580)>>2] = $125;
+   HEAP32[(5592)>>2] = $$1;
    $126 = $125 | 1;
    $127 = ((($$1)) + 4|0);
    HEAP32[$127>>2] = $126;
@@ -56508,7 +56445,7 @@ function _dispose_chunk($0,$1) {
     $135 = ((($2)) + 12|0);
     $136 = HEAP32[$135>>2]|0;
     $137 = $131 << 1;
-    $138 = (3520 + ($137<<2)|0);
+    $138 = (5612 + ($137<<2)|0);
     $139 = ($134|0)==($138|0);
     if (!($139)) {
      $140 = ($108>>>0)>($134>>>0);
@@ -56528,9 +56465,9 @@ function _dispose_chunk($0,$1) {
     if ($144) {
      $145 = 1 << $131;
      $146 = $145 ^ -1;
-     $147 = HEAP32[870]|0;
+     $147 = HEAP32[1393]|0;
      $148 = $147 & $146;
-     HEAP32[870] = $148;
+     HEAP32[1393] = $148;
      break;
     }
     $149 = ($136|0)==($138|0);
@@ -56641,7 +56578,7 @@ function _dispose_chunk($0,$1) {
     if (!($182)) {
      $183 = ((($2)) + 28|0);
      $184 = HEAP32[$183>>2]|0;
-     $185 = (3784 + ($184<<2)|0);
+     $185 = (5876 + ($184<<2)|0);
      $186 = HEAP32[$185>>2]|0;
      $187 = ($186|0)==($2|0);
      do {
@@ -56651,13 +56588,13 @@ function _dispose_chunk($0,$1) {
        if ($cond17) {
         $188 = 1 << $184;
         $189 = $188 ^ -1;
-        $190 = HEAP32[(3484)>>2]|0;
+        $190 = HEAP32[(5576)>>2]|0;
         $191 = $190 & $189;
-        HEAP32[(3484)>>2] = $191;
+        HEAP32[(5576)>>2] = $191;
         break L99;
        }
       } else {
-       $192 = HEAP32[(3496)>>2]|0;
+       $192 = HEAP32[(5588)>>2]|0;
        $193 = ($192>>>0)>($156>>>0);
        if ($193) {
         _abort();
@@ -56678,7 +56615,7 @@ function _dispose_chunk($0,$1) {
        }
       }
      } while(0);
-     $199 = HEAP32[(3496)>>2]|0;
+     $199 = HEAP32[(5588)>>2]|0;
      $200 = ($199>>>0)>($$3433>>>0);
      if ($200) {
       _abort();
@@ -56708,7 +56645,7 @@ function _dispose_chunk($0,$1) {
      $209 = HEAP32[$208>>2]|0;
      $210 = ($209|0)==(0|0);
      if (!($210)) {
-      $211 = HEAP32[(3496)>>2]|0;
+      $211 = HEAP32[(5588)>>2]|0;
       $212 = ($211>>>0)>($209>>>0);
       if ($212) {
        _abort();
@@ -56729,10 +56666,10 @@ function _dispose_chunk($0,$1) {
   HEAP32[$216>>2] = $215;
   $217 = (($$1) + ($130)|0);
   HEAP32[$217>>2] = $130;
-  $218 = HEAP32[(3500)>>2]|0;
+  $218 = HEAP32[(5592)>>2]|0;
   $219 = ($$1|0)==($218|0);
   if ($219) {
-   HEAP32[(3488)>>2] = $130;
+   HEAP32[(5580)>>2] = $130;
    return;
   } else {
    $$2 = $130;
@@ -56751,20 +56688,20 @@ function _dispose_chunk($0,$1) {
  $225 = ($$2>>>0)<(256);
  if ($225) {
   $226 = $224 << 1;
-  $227 = (3520 + ($226<<2)|0);
-  $228 = HEAP32[870]|0;
+  $227 = (5612 + ($226<<2)|0);
+  $228 = HEAP32[1393]|0;
   $229 = 1 << $224;
   $230 = $228 & $229;
   $231 = ($230|0)==(0);
   if ($231) {
    $232 = $228 | $229;
-   HEAP32[870] = $232;
+   HEAP32[1393] = $232;
    $$pre = ((($227)) + 8|0);
    $$0436 = $227;$$pre$phiZ2D = $$pre;
   } else {
    $233 = ((($227)) + 8|0);
    $234 = HEAP32[$233>>2]|0;
-   $235 = HEAP32[(3496)>>2]|0;
+   $235 = HEAP32[(5588)>>2]|0;
    $236 = ($235>>>0)>($234>>>0);
    if ($236) {
     _abort();
@@ -56816,20 +56753,20 @@ function _dispose_chunk($0,$1) {
    $$0429 = $264;
   }
  }
- $265 = (3784 + ($$0429<<2)|0);
+ $265 = (5876 + ($$0429<<2)|0);
  $266 = ((($$1)) + 28|0);
  HEAP32[$266>>2] = $$0429;
  $267 = ((($$1)) + 16|0);
  $268 = ((($$1)) + 20|0);
  HEAP32[$268>>2] = 0;
  HEAP32[$267>>2] = 0;
- $269 = HEAP32[(3484)>>2]|0;
+ $269 = HEAP32[(5576)>>2]|0;
  $270 = 1 << $$0429;
  $271 = $269 & $270;
  $272 = ($271|0)==(0);
  if ($272) {
   $273 = $269 | $270;
-  HEAP32[(3484)>>2] = $273;
+  HEAP32[(5576)>>2] = $273;
   HEAP32[$265>>2] = $$1;
   $274 = ((($$1)) + 24|0);
   HEAP32[$274>>2] = $265;
@@ -56874,7 +56811,7 @@ function _dispose_chunk($0,$1) {
      $$041722 = $287;$$041821 = $289;
     }
    }
-   $296 = HEAP32[(3496)>>2]|0;
+   $296 = HEAP32[(5588)>>2]|0;
    $297 = ($296>>>0)>($294>>>0);
    if ($297) {
     _abort();
@@ -56892,7 +56829,7 @@ function _dispose_chunk($0,$1) {
  } while(0);
  $301 = ((($$0418$lcssa)) + 8|0);
  $302 = HEAP32[$301>>2]|0;
- $303 = HEAP32[(3496)>>2]|0;
+ $303 = HEAP32[(5588)>>2]|0;
  $304 = ($303>>>0)<=($$0418$lcssa>>>0);
  $305 = ($303>>>0)<=($302>>>0);
  $306 = $305 & $304;
@@ -56919,7 +56856,7 @@ function ___stdio_close($0) {
  $vararg_buffer = sp;
  $1 = ((($0)) + 60|0);
  $2 = HEAP32[$1>>2]|0;
- $3 = (_dummy_734($2)|0);
+ $3 = (_dummy_723($2)|0);
  HEAP32[$vararg_buffer>>2] = $3;
  $4 = (___syscall6(6,($vararg_buffer|0))|0);
  $5 = (___syscall_ret($4)|0);
@@ -56935,9 +56872,9 @@ function ___stdio_write($0,$1,$2) {
  var $vararg_ptr6 = 0, $vararg_ptr7 = 0, label = 0, sp = 0;
  sp = STACKTOP;
  STACKTOP = STACKTOP + 48|0; if ((STACKTOP|0) >= (STACK_MAX|0)) abortStackOverflow(48|0);
- $vararg_buffer3 = sp + 16|0;
- $vararg_buffer = sp;
- $3 = sp + 32|0;
+ $vararg_buffer3 = sp + 32|0;
+ $vararg_buffer = sp + 16|0;
+ $3 = sp;
  $4 = ((($0)) + 28|0);
  $5 = HEAP32[$4>>2]|0;
  HEAP32[$3>>2] = $5;
@@ -56966,22 +56903,22 @@ function ___stdio_write($0,$1,$2) {
   if ($18) {
    label = 3;
   } else {
-   $$04756 = 2;$$04855 = $12;$$04954 = $3;$27 = $17;
+   $$04756 = 2;$$04855 = $12;$$04954 = $3;$26 = $17;
    while(1) {
-    $26 = ($27|0)<(0);
-    if ($26) {
+    $27 = ($26|0)<(0);
+    if ($27) {
      break;
     }
-    $35 = (($$04855) - ($27))|0;
+    $35 = (($$04855) - ($26))|0;
     $36 = ((($$04954)) + 4|0);
     $37 = HEAP32[$36>>2]|0;
-    $38 = ($27>>>0)>($37>>>0);
+    $38 = ($26>>>0)>($37>>>0);
     $39 = ((($$04954)) + 8|0);
     $$150 = $38 ? $39 : $$04954;
     $40 = $38 << 31 >> 31;
     $$1 = (($$04756) + ($40))|0;
     $41 = $38 ? $37 : 0;
-    $$0 = (($27) - ($41))|0;
+    $$0 = (($26) - ($41))|0;
     $42 = HEAP32[$$150>>2]|0;
     $43 = (($42) + ($$0)|0);
     HEAP32[$$150>>2] = $43;
@@ -57003,7 +56940,7 @@ function ___stdio_write($0,$1,$2) {
      label = 3;
      break L1;
     } else {
-     $$04756 = $$1;$$04855 = $35;$$04954 = $$150;$27 = $50;
+     $$04756 = $$1;$$04855 = $35;$$04954 = $$150;$26 = $50;
     }
    }
    $28 = ((($0)) + 16|0);
@@ -57090,9 +57027,9 @@ function ___syscall_ret($0) {
 function ___errno_location() {
  var label = 0, sp = 0;
  sp = STACKTOP;
- return (4040|0);
+ return (6132|0);
 }
-function _dummy_734($0) {
+function _dummy_723($0) {
  $0 = $0|0;
  var label = 0, sp = 0;
  sp = STACKTOP;
@@ -57107,8 +57044,8 @@ function ___stdio_read($0,$1,$2) {
  var sp = 0;
  sp = STACKTOP;
  STACKTOP = STACKTOP + 32|0; if ((STACKTOP|0) >= (STACK_MAX|0)) abortStackOverflow(32|0);
- $vararg_buffer = sp;
- $3 = sp + 16|0;
+ $vararg_buffer = sp + 16|0;
+ $3 = sp;
  HEAP32[$3>>2] = $1;
  $4 = ((($3)) + 4|0);
  $5 = ((($0)) + 48|0);
@@ -57286,22 +57223,22 @@ function ___shgetc($0) {
      $23 = (($14) + ($22)|0);
      $24 = ((($0)) + 100|0);
      HEAP32[$24>>2] = $23;
-     $27 = $21;
+     $26 = $21;
     }
    }
    if ((label|0) == 9) {
     $25 = ((($0)) + 100|0);
     HEAP32[$25>>2] = $$pre;
-    $27 = $42;
+    $26 = $42;
    }
-   $26 = ($27|0)==(0|0);
+   $27 = ($26|0)==(0|0);
    $$phi$trans$insert28 = ((($0)) + 4|0);
-   if ($26) {
+   if ($27) {
     $$pre29 = HEAP32[$$phi$trans$insert28>>2]|0;
     $37 = $$pre29;
    } else {
     $28 = HEAP32[$$phi$trans$insert28>>2]|0;
-    $29 = $27;
+    $29 = $26;
     $30 = ((($0)) + 108|0);
     $31 = HEAP32[$30>>2]|0;
     $32 = (($29) + 1)|0;
@@ -57522,17 +57459,17 @@ function _strncmp($0,$1,$2) {
    if ($5) {
     $$0$lcssa = $1;$$lcssa = 0;
    } else {
-    $$01823 = $0;$$01925$in = $2;$$024 = $1;$10 = $4;
+    $$01823 = $0;$$01925$in = $2;$$024 = $1;$9 = $4;
     while(1) {
      $$01925 = (($$01925$in) + -1)|0;
      $6 = HEAP8[$$024>>0]|0;
      $7 = ($6<<24>>24)!=(0);
      $8 = ($$01925|0)!=(0);
      $or$cond = $8 & $7;
-     $9 = ($10<<24>>24)==($6<<24>>24);
-     $or$cond21 = $9 & $or$cond;
+     $10 = ($9<<24>>24)==($6<<24>>24);
+     $or$cond21 = $10 & $or$cond;
      if (!($or$cond21)) {
-      $$0$lcssa = $$024;$$lcssa = $10;
+      $$0$lcssa = $$024;$$lcssa = $9;
       break L3;
      }
      $11 = ((($$01823)) + 1|0);
@@ -57543,7 +57480,7 @@ function _strncmp($0,$1,$2) {
       $$0$lcssa = $12;$$lcssa = 0;
       break;
      } else {
-      $$01823 = $11;$$01925$in = $$01925;$$024 = $12;$10 = $13;
+      $$01823 = $11;$$01925$in = $$01925;$$024 = $12;$9 = $13;
      }
     }
    }
@@ -57560,7 +57497,7 @@ function ___lockfile($0) {
  $0 = $0|0;
  var label = 0, sp = 0;
  sp = STACKTOP;
- return 0;
+ return 1;
 }
 function ___unlockfile($0) {
  $0 = $0|0;
@@ -57577,7 +57514,7 @@ function _frexp($0,$1) {
  HEAPF64[tempDoublePtr>>3] = $0;$2 = HEAP32[tempDoublePtr>>2]|0;
  $3 = HEAP32[tempDoublePtr+4>>2]|0;
  $4 = (_bitshift64Lshr(($2|0),($3|0),52)|0);
- $5 = tempRet0;
+ $5 = (getTempRet0() | 0);
  $6 = $4&65535;
  $trunc$clear = $6 & 2047;
  switch ($trunc$clear<<16>>16) {
@@ -57615,7 +57552,7 @@ function _frexp($0,$1) {
 function _pthread_self() {
  var label = 0, sp = 0;
  sp = STACKTOP;
- return (1780|0);
+ return (1820|0);
 }
 function _qsort($0,$1,$2,$3) {
  $0 = $0|0;
@@ -57628,8 +57565,8 @@ function _qsort($0,$1,$2,$3) {
  var $54 = 0, $55 = 0, $56 = 0, $57 = 0, $58 = 0, $59 = 0, $6 = 0, $60 = 0, $61 = 0, $7 = 0, $8 = 0, $9 = 0, $or$cond = 0, label = 0, sp = 0;
  sp = STACKTOP;
  STACKTOP = STACKTOP + 208|0; if ((STACKTOP|0) >= (STACK_MAX|0)) abortStackOverflow(208|0);
- $4 = sp + 8|0;
- $5 = sp;
+ $4 = sp;
+ $5 = sp + 192|0;
  $6 = Math_imul($2, $1)|0;
  $7 = $5;
  $8 = $7;
@@ -57714,11 +57651,11 @@ function _qsort($0,$1,$2,$3) {
    }
    _trinkle($$068$lcssa,$2,$3,$5,$$067$lcssa,0,$4);
    $40 = ((($5)) + 4|0);
-   $$169 = $$068$lcssa;$$2 = $$067$lcssa;$43 = $61;
+   $$169 = $$068$lcssa;$$2 = $$067$lcssa;$42 = $61;
    while(1) {
     $41 = ($$2|0)==(1);
-    $42 = ($43|0)==(1);
-    $or$cond = $41 & $42;
+    $43 = ($42|0)==(1);
+    $or$cond = $41 & $43;
     if ($or$cond) {
      $44 = HEAP32[$40>>2]|0;
      $45 = ($44|0)==(0);
@@ -57763,7 +57700,7 @@ function _qsort($0,$1,$2,$3) {
      $$pre76 = (($$169) + ($12)|0);
      $$169$be = $$pre76;$$2$be = $48;$$be = $$pre$pre;
     }
-    $$169 = $$169$be;$$2 = $$2$be;$43 = $$be;
+    $$169 = $$169$be;$$2 = $$2$be;$42 = $$be;
    }
   }
  } while(0);
@@ -58006,12 +57943,12 @@ function _pntz($0) {
  sp = STACKTOP;
  $1 = HEAP32[$0>>2]|0;
  $2 = (($1) + -1)|0;
- $3 = (_a_ctz_l_759($2)|0);
+ $3 = (_a_ctz_l_748($2)|0);
  $4 = ($3|0)==(0);
  if ($4) {
   $5 = ((($0)) + 4|0);
   $6 = HEAP32[$5>>2]|0;
-  $7 = (_a_ctz_l_759($6)|0);
+  $7 = (_a_ctz_l_748($6)|0);
   $8 = (($7) + 32)|0;
   $9 = ($7|0)==(0);
   $spec$select = $9 ? 0 : $8;
@@ -58021,7 +57958,7 @@ function _pntz($0) {
  }
  return (0)|0;
 }
-function _a_ctz_l_759($0) {
+function _a_ctz_l_748($0) {
  $0 = $0|0;
  var $$068 = 0, $$07 = 0, $$09 = 0, $1 = 0, $2 = 0, $3 = 0, $4 = 0, $5 = 0, $6 = 0, $7 = 0, label = 0, sp = 0;
  sp = STACKTOP;
@@ -58193,7 +58130,7 @@ function ___floatscan($0,$1,$2) {
    $$0104122 = 0;$$1123 = $$0;
    while(1) {
     $26 = $$1123 | 32;
-    $27 = (3462 + ($$0104122)|0);
+    $27 = (3470 + ($$0104122)|0);
     $28 = HEAP8[$27>>0]|0;
     $29 = $28 << 24 >> 24;
     $30 = ($26|0)==($29|0);
@@ -58261,7 +58198,7 @@ function ___floatscan($0,$1,$2) {
        $$2106120 = 0;$$3121 = $$1$lcssa;
        while(1) {
         $58 = $$3121 | 32;
-        $59 = (3471 + ($$2106120)|0);
+        $59 = (3479 + ($$2106120)|0);
         $60 = HEAP8[$59>>0]|0;
         $61 = $60 << 24 >> 24;
         $62 = ($58|0)==($61|0);
@@ -58314,13 +58251,13 @@ function ___floatscan($0,$1,$2) {
        HEAP32[$3>>2] = $76;
        $77 = HEAP8[$73>>0]|0;
        $78 = $77&255;
-       $81 = $78;
+       $80 = $78;
       } else {
        $79 = (___shgetc($0)|0);
-       $81 = $79;
+       $80 = $79;
       }
-      $80 = ($81|0)==(40);
-      if (!($80)) {
+      $81 = ($80|0)==(40);
+      if (!($81)) {
        $82 = HEAP32[$4>>2]|0;
        $83 = ($82|0)==(0|0);
        if ($83) {
@@ -58579,13 +58516,13 @@ function _hexfloat($0,$1,$2,$3,$4) {
    HEAP32[$5>>2] = $24;
    $25 = HEAP8[$21>>0]|0;
    $26 = $25&255;
-   $29 = $26;
+   $28 = $26;
   } else {
    $27 = (___shgetc($0)|0);
-   $29 = $27;
+   $28 = $27;
   }
-  $28 = ($29|0)==(48);
-  if ($28) {
+  $29 = ($28|0)==(48);
+  if ($29) {
    $37 = 0;$38 = 0;
    while(1) {
     $30 = HEAP32[$5>>2]|0;
@@ -58596,26 +58533,26 @@ function _hexfloat($0,$1,$2,$3,$4) {
      HEAP32[$5>>2] = $33;
      $34 = HEAP8[$30>>0]|0;
      $35 = $34&255;
-     $42 = $35;
+     $41 = $35;
     } else {
      $36 = (___shgetc($0)|0);
-     $42 = $36;
+     $41 = $36;
     }
     $39 = (_i64Add(($37|0),($38|0),-1,-1)|0);
-    $40 = tempRet0;
-    $41 = ($42|0)==(48);
-    if ($41) {
+    $40 = (getTempRet0() | 0);
+    $42 = ($41|0)==(48);
+    if ($42) {
      $37 = $39;$38 = $40;
     } else {
-     $$1149$ph = 1;$$3$ph = $42;$$3146$ph = 1;$212 = $39;$213 = $40;
+     $$1149$ph = 1;$$3$ph = $41;$$3146$ph = 1;$212 = $39;$213 = $40;
      break;
     }
    }
   } else {
-   $$1149$ph = 1;$$3$ph = $29;$$3146$ph = $$0143;$212 = 0;$213 = 0;
+   $$1149$ph = 1;$$3$ph = $28;$$3146$ph = $$0143;$212 = 0;$213 = 0;
   }
  }
- $$0151 = 0;$$0155 = 1.0;$$0158 = 0.0;$$0163 = 0;$$1149 = $$1149$ph;$$3 = $$3$ph;$$3146 = $$3146$ph;$52 = 0;$54 = 0;$96 = $212;$98 = $213;
+ $$0151 = 0;$$0155 = 1.0;$$0158 = 0.0;$$0163 = 0;$$1149 = $$1149$ph;$$3 = $$3$ph;$$3146 = $$3146$ph;$51 = 0;$53 = 0;$96 = $212;$98 = $213;
  while(1) {
   $43 = (($$3) + -48)|0;
   $44 = ($43>>>0)<(10);
@@ -58634,7 +58571,7 @@ function _hexfloat($0,$1,$2,$3,$4) {
    if ($47) {
     $48 = ($$1149|0)==(0);
     if ($48) {
-     $$2150 = 1;$$2153 = $$0151;$$2157 = $$0155;$$2160 = $$0158;$$2165 = $$0163;$$4147 = $$3146;$214 = $54;$215 = $52;$216 = $54;$217 = $52;
+     $$2150 = 1;$$2153 = $$0151;$$2157 = $$0155;$$2160 = $$0158;$$2165 = $$0163;$$4147 = $$3146;$214 = $53;$215 = $51;$216 = $53;$217 = $51;
     } else {
      $$3$lcssa = 46;
      break;
@@ -58648,20 +58585,20 @@ function _hexfloat($0,$1,$2,$3,$4) {
    $49 = ($$3|0)>(57);
    $50 = (($$pre) + -87)|0;
    $$0133 = $49 ? $50 : $43;
-   $51 = ($52|0)<(0);
-   $53 = ($54>>>0)<(8);
-   $55 = ($52|0)==(0);
-   $56 = $55 & $53;
-   $57 = $51 | $56;
+   $52 = ($51|0)<(0);
+   $54 = ($53>>>0)<(8);
+   $55 = ($51|0)==(0);
+   $56 = $55 & $54;
+   $57 = $52 | $56;
    do {
     if ($57) {
      $58 = $$0163 << 4;
      $59 = (($$0133) + ($58))|0;
      $$1152 = $$0151;$$1156 = $$0155;$$1159 = $$0158;$$1164 = $59;
     } else {
-     $60 = ($52|0)<(0);
-     $61 = ($54>>>0)<(14);
-     $62 = ($52|0)==(0);
+     $60 = ($51|0)<(0);
+     $61 = ($53>>>0)<(14);
+     $62 = ($51|0)==(0);
      $63 = $62 & $61;
      $64 = $60 | $63;
      if ($64) {
@@ -58684,8 +58621,8 @@ function _hexfloat($0,$1,$2,$3,$4) {
      }
     }
    } while(0);
-   $73 = (_i64Add(($54|0),($52|0),1,0)|0);
-   $74 = tempRet0;
+   $73 = (_i64Add(($53|0),($51|0),1,0)|0);
+   $74 = (getTempRet0() | 0);
    $$2150 = $$1149;$$2153 = $$1152;$$2157 = $$1156;$$2160 = $$1159;$$2165 = $$1164;$$4147 = 1;$214 = $96;$215 = $98;$216 = $73;$217 = $74;
   }
   $75 = HEAP32[$5>>2]|0;
@@ -58701,7 +58638,7 @@ function _hexfloat($0,$1,$2,$3,$4) {
    $81 = (___shgetc($0)|0);
    $$3$be = $81;
   }
-  $$0151 = $$2153;$$0155 = $$2157;$$0158 = $$2160;$$0163 = $$2165;$$1149 = $$2150;$$3 = $$3$be;$$3146 = $$4147;$52 = $217;$54 = $216;$96 = $214;$98 = $215;
+  $$0151 = $$2153;$$0155 = $$2157;$$0158 = $$2160;$$0163 = $$2165;$$1149 = $$2150;$$3 = $$3$be;$$3146 = $$4147;$51 = $217;$53 = $216;$96 = $214;$98 = $215;
  }
  $82 = ($$3146|0)==(0);
  do {
@@ -58735,19 +58672,19 @@ function _hexfloat($0,$1,$2,$3,$4) {
    $$0169 = $94;
   } else {
    $95 = ($$1149|0)==(0);
-   $97 = $95 ? $54 : $96;
-   $99 = $95 ? $52 : $98;
-   $100 = ($52|0)<(0);
-   $101 = ($54>>>0)<(8);
-   $102 = ($52|0)==(0);
+   $97 = $95 ? $53 : $96;
+   $99 = $95 ? $51 : $98;
+   $100 = ($51|0)<(0);
+   $101 = ($53>>>0)<(8);
+   $102 = ($51|0)==(0);
    $103 = $102 & $101;
    $104 = $100 | $103;
    if ($104) {
-    $$3166185 = $$0163;$106 = $54;$107 = $52;
+    $$3166185 = $$0163;$106 = $53;$107 = $51;
     while(1) {
      $105 = $$3166185 << 4;
      $108 = (_i64Add(($106|0),($107|0),1,0)|0);
-     $109 = tempRet0;
+     $109 = (getTempRet0() | 0);
      $110 = ($107|0)<(0);
      $111 = ($106>>>0)<(7);
      $112 = ($107|0)==(0);
@@ -58767,7 +58704,7 @@ function _hexfloat($0,$1,$2,$3,$4) {
    $116 = ($115|0)==(112);
    if ($116) {
     $117 = (_scanexp($0,$4)|0);
-    $118 = tempRet0;
+    $118 = (getTempRet0() | 0);
     $119 = ($117|0)==(0);
     $120 = ($118|0)==(-2147483648);
     $121 = $119 & $120;
@@ -58804,11 +58741,11 @@ function _hexfloat($0,$1,$2,$3,$4) {
     }
    }
    $131 = (_bitshift64Shl(($97|0),($99|0),2)|0);
-   $132 = tempRet0;
+   $132 = (getTempRet0() | 0);
    $133 = (_i64Add(($131|0),($132|0),-32,-1)|0);
-   $134 = tempRet0;
+   $134 = (getTempRet0() | 0);
    $137 = (_i64Add(($133|0),($134|0),($135|0),($136|0))|0);
-   $138 = tempRet0;
+   $138 = (getTempRet0() | 0);
    $139 = ($$3166$lcssa|0)==(0);
    if ($139) {
     $140 = (+($3|0));
@@ -58863,7 +58800,7 @@ function _hexfloat($0,$1,$2,$3,$4) {
      $$pn = $167 ? $$3161181 : $169;
      $$4162 = $$3161181 + $$pn;
      $173 = (_i64Add(($171|0),($172|0),-1,-1)|0);
-     $174 = tempRet0;
+     $174 = (getTempRet0() | 0);
      $175 = ($$5168|0)>(-1);
      if ($175) {
       $$3161181 = $$4162;$$4167180 = $$5168;$171 = $173;$172 = $174;
@@ -58880,9 +58817,9 @@ function _hexfloat($0,$1,$2,$3,$4) {
    $178 = ($2|0)<(0);
    $179 = $178 << 31 >> 31;
    $180 = (_i64Subtract(32,0,($2|0),($179|0))|0);
-   $181 = tempRet0;
+   $181 = (getTempRet0() | 0);
    $184 = (_i64Add(($180|0),($181|0),($182|0),($183|0))|0);
-   $185 = tempRet0;
+   $185 = (getTempRet0() | 0);
    $186 = ($185|0)<($177|0);
    $187 = ($184>>>0)<($1>>>0);
    $188 = ($185|0)==($177|0);
@@ -59024,17 +58961,17 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
    HEAP32[$9>>2] = $21;
    $22 = HEAP8[$18>>0]|0;
    $23 = $22&255;
-   $26 = $23;
+   $25 = $23;
   } else {
    $24 = (___shgetc($0)|0);
-   $26 = $24;
+   $25 = $24;
   }
-  $25 = ($26|0)==(48);
-  if ($25) {
+  $26 = ($25|0)==(48);
+  if ($26) {
    $27 = 0;$28 = 0;
    while(1) {
     $29 = (_i64Add(($27|0),($28|0),-1,-1)|0);
-    $30 = tempRet0;
+    $30 = (getTempRet0() | 0);
     $31 = HEAP32[$9>>2]|0;
     $32 = HEAP32[$10>>2]|0;
     $33 = ($31>>>0)<($32>>>0);
@@ -59043,21 +58980,21 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
      HEAP32[$9>>2] = $34;
      $35 = HEAP8[$31>>0]|0;
      $36 = $35&255;
-     $39 = $36;
+     $38 = $36;
     } else {
      $37 = (___shgetc($0)|0);
-     $39 = $37;
+     $38 = $37;
     }
-    $38 = ($39|0)==(48);
-    if ($38) {
+    $39 = ($38|0)==(48);
+    if ($39) {
      $27 = $29;$28 = $30;
     } else {
-     $$0390 = 1;$$2 = $39;$$2395 = 1;$375 = $29;$376 = $30;
+     $$0390 = 1;$$2 = $38;$$2395 = 1;$375 = $29;$376 = $30;
      break;
     }
    }
   } else {
-   $$0390 = 1;$$2 = $26;$$2395 = $$0393;$375 = 0;$376 = 0;
+   $$0390 = 1;$$2 = $25;$$2395 = $$0393;$375 = 0;$376 = 0;
   }
  }
  HEAP32[$6>>2] = 0;
@@ -59081,7 +59018,7 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
      } else {
       $46 = ($$0340502|0)<(125);
       $49 = (_i64Add(($47|0),($48|0),1,0)|0);
-      $50 = tempRet0;
+      $50 = (getTempRet0() | 0);
       $51 = ($$3504|0)!=(48);
       if (!($46)) {
        if (!($51)) {
@@ -59170,7 +59107,7 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
     }
    }
    $85 = (_scanexp($0,$5)|0);
-   $86 = tempRet0;
+   $86 = (getTempRet0() | 0);
    $87 = ($85|0)==(0);
    $88 = ($86|0)==(-2147483648);
    $89 = $87 & $88;
@@ -59195,8 +59132,8 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
     $95 = $85;$96 = $86;
    }
    $97 = (_i64Add(($95|0),($96|0),($78|0),($81|0))|0);
-   $98 = tempRet0;
-   $$0336453 = $$0336$lcssa;$$0340457 = $$0340$lcssa;$$0398463 = $$0398$lcssa;$110 = $97;$111 = $77;$113 = $98;$114 = $80;
+   $98 = (getTempRet0() | 0);
+   $$0336453 = $$0336$lcssa;$$0340457 = $$0340$lcssa;$$0398463 = $$0398$lcssa;$109 = $97;$111 = $77;$112 = $98;$114 = $80;
    label = 43;
   }
  } while(0);
@@ -59211,7 +59148,7 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
    $103 = ((($102)) + -1|0);
    HEAP32[$9>>2] = $103;
    if ($389) {
-    $$0336453 = $$0336455;$$0340457 = $$0340459;$$0398463 = $$0398465;$110 = $387;$111 = $385;$113 = $388;$114 = $386;
+    $$0336453 = $$0336455;$$0340457 = $$0340459;$$0398463 = $$0398465;$109 = $387;$111 = $385;$112 = $388;$114 = $386;
     label = 43;
    } else {
     label = 42;
@@ -59220,7 +59157,7 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
  }
  if ((label|0) == 41) {
   if ($392) {
-   $$0336453 = $$0336454;$$0340457 = $$0340458;$$0398463 = $$0398464;$110 = $393;$111 = $390;$113 = $394;$114 = $391;
+   $$0336453 = $$0336454;$$0340457 = $$0340458;$$0398463 = $$0398464;$109 = $393;$111 = $390;$112 = $394;$114 = $391;
    label = 43;
   } else {
    label = 42;
@@ -59242,9 +59179,9 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
     $$1 = $108;
     break;
    }
-   $109 = ($110|0)==($111|0);
-   $112 = ($113|0)==($114|0);
-   $115 = $109 & $112;
+   $110 = ($109|0)==($111|0);
+   $113 = ($112|0)==($114|0);
+   $115 = $110 & $113;
    $116 = ($114|0)<(0);
    $117 = ($111>>>0)<(10);
    $118 = ($114|0)==(0);
@@ -59267,9 +59204,9 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
    $127 = (($3|0) / -2)&-1;
    $128 = ($127|0)<(0);
    $129 = $128 << 31 >> 31;
-   $130 = ($113|0)>($129|0);
-   $131 = ($110>>>0)>($127>>>0);
-   $132 = ($113|0)==($129|0);
+   $130 = ($112|0)>($129|0);
+   $131 = ($109>>>0)>($127>>>0);
+   $132 = ($112|0)==($129|0);
    $133 = $132 & $131;
    $134 = $130 | $133;
    if ($134) {
@@ -59284,9 +59221,9 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
    $139 = (($3) + -106)|0;
    $140 = ($139|0)<(0);
    $141 = $140 << 31 >> 31;
-   $142 = ($113|0)<($141|0);
-   $143 = ($110>>>0)<($139>>>0);
-   $144 = ($113|0)==($141|0);
+   $142 = ($112|0)<($141|0);
+   $143 = ($109>>>0)<($139>>>0);
+   $144 = ($112|0)==($141|0);
    $145 = $144 & $143;
    $146 = $142 | $145;
    if ($146) {
@@ -59324,11 +59261,11 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
    }
    $159 = ($$0398463|0)<(9);
    if ($159) {
-    $160 = ($$0398463|0)<=($110|0);
-    $161 = ($110|0)<(18);
+    $160 = ($$0398463|0)<=($109|0);
+    $161 = ($109|0)<(18);
     $or$cond3 = $160 & $161;
     if ($or$cond3) {
-     $162 = ($110|0)==(9);
+     $162 = ($109|0)==(9);
      if ($162) {
       $163 = (+($4|0));
       $164 = HEAP32[$6>>2]|0;
@@ -59337,21 +59274,21 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
       $$1 = $166;
       break;
      }
-     $167 = ($110|0)<(9);
+     $167 = ($109|0)<(9);
      if ($167) {
       $168 = (+($4|0));
       $169 = HEAP32[$6>>2]|0;
       $170 = (+($169>>>0));
       $171 = $168 * $170;
-      $172 = (8 - ($110))|0;
-      $173 = (2024 + ($172<<2)|0);
+      $172 = (8 - ($109))|0;
+      $173 = (16 + ($172<<2)|0);
       $174 = HEAP32[$173>>2]|0;
       $175 = (+($174|0));
       $176 = $171 / $175;
       $$1 = $176;
       break;
      }
-     $$neg447 = Math_imul($110, -3)|0;
+     $$neg447 = Math_imul($109, -3)|0;
      $$neg448 = (($2) + 27)|0;
      $177 = (($$neg448) + ($$neg447))|0;
      $178 = ($177|0)>(30);
@@ -59363,8 +59300,8 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
       $181 = (+($4|0));
       $182 = (+($$pre>>>0));
       $183 = $181 * $182;
-      $184 = (($110) + -10)|0;
-      $185 = (2024 + ($184<<2)|0);
+      $184 = (($109) + -10)|0;
+      $185 = (16 + ($184<<2)|0);
       $186 = HEAP32[$185>>2]|0;
       $187 = (+($186|0));
       $188 = $183 * $187;
@@ -59373,23 +59310,23 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
      }
     }
    }
-   $189 = (($110|0) % 9)&-1;
+   $189 = (($109|0) % 9)&-1;
    $190 = ($189|0)==(0);
    if ($190) {
-    $$2369$ph = $$3343;$$3348$ph = 0;$$3384$ph = $110;
+    $$2369$ph = $$3343;$$3348$ph = 0;$$3384$ph = $109;
    } else {
-    $191 = ($110|0)>(-1);
+    $191 = ($109|0)>(-1);
     $192 = (($189) + 9)|0;
     $193 = $191 ? $189 : $192;
     $194 = (8 - ($193))|0;
-    $195 = (2024 + ($194<<2)|0);
+    $195 = (16 + ($194<<2)|0);
     $196 = HEAP32[$195>>2]|0;
     $197 = ($$3343|0)==(0);
     if ($197) {
-     $$0345$lcssa540 = 0;$$0367 = 0;$$0381$lcssa539 = $110;
+     $$0345$lcssa540 = 0;$$0367 = 0;$$0381$lcssa539 = $109;
     } else {
      $198 = (1000000000 / ($196|0))&-1;
-     $$0335486 = 0;$$0345484 = 0;$$0381483 = $110;$$4344485 = 0;
+     $$0335486 = 0;$$0345484 = 0;$$0381483 = $109;$$4344485 = 0;
      while(1) {
       $199 = (($6) + ($$4344485<<2)|0);
       $200 = HEAP32[$199>>2]|0;
@@ -59455,9 +59392,9 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
       $224 = (($6) + ($$5<<2)|0);
       $225 = HEAP32[$224>>2]|0;
       $226 = (_bitshift64Shl(($225|0),0,29)|0);
-      $227 = tempRet0;
+      $227 = (getTempRet0() | 0);
       $228 = (_i64Add(($226|0),($227|0),($$0329|0),0)|0);
-      $229 = tempRet0;
+      $229 = (getTempRet0() | 0);
       $230 = ($229>>>0)>(0);
       $231 = ($228>>>0)>(1000000000);
       $232 = ($229|0)==(0);
@@ -59465,11 +59402,11 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
       $234 = $230 | $233;
       if ($234) {
        $235 = (___udivdi3(($228|0),($229|0),1000000000,0)|0);
-       $236 = tempRet0;
+       $236 = (getTempRet0() | 0);
        $237 = (___muldi3(($235|0),($236|0),1000000000,0)|0);
-       $238 = tempRet0;
+       $238 = (getTempRet0() | 0);
        $239 = (_i64Subtract(($228|0),($229|0),($237|0),($238|0))|0);
-       $240 = tempRet0;
+       $240 = (getTempRet0() | 0);
        $$1330 = $235;$$sink$off0 = $239;
       } else {
        $$1330 = 0;$$sink$off0 = $228;
@@ -59524,7 +59461,7 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
    $$1377$ph$ph = $$0376;$$5350$ph$ph = $$3348$ph580;$$5386$ph576$ph = $$5386$ph;$$7374$ph$ph = $$2369;
    L123: while(1) {
     $299 = (($$7374$ph$ph) + 1)|0;
-    $297 = $299 & 127;
+    $296 = $299 & 127;
     $300 = (($$7374$ph$ph) + 127)|0;
     $301 = $300 & 127;
     $302 = (($6) + ($301<<2)|0);
@@ -59546,7 +59483,7 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
        }
        $266 = (($6) + ($264<<2)|0);
        $267 = HEAP32[$266>>2]|0;
-       $268 = (2056 + ($$0331476<<2)|0);
+       $268 = (2064 + ($$0331476<<2)|0);
        $269 = HEAP32[$268>>2]|0;
        $270 = ($267>>>0)<($269>>>0);
        if ($270) {
@@ -59611,8 +59548,8 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
      }
      $293 = ($284|0)==(0);
      if (!($293)) {
-      $296 = ($297|0)==($spec$select443|0);
-      if (!($296)) {
+      $297 = ($296|0)==($spec$select443|0);
+      if (!($297)) {
        break;
       }
       $303 = HEAP32[$302>>2]|0;
@@ -59623,7 +59560,7 @@ function _decfloat($0,$1,$2,$3,$4,$5) {
     }
     $298 = (($6) + ($$7374$ph$ph<<2)|0);
     HEAP32[$298>>2] = $284;
-    $$1377$ph$ph = $274;$$5350$ph$ph = $spec$select443;$$5386$ph576$ph = $spec$select442;$$7374$ph$ph = $297;
+    $$1377$ph$ph = $274;$$5350$ph$ph = $spec$select443;$$5386$ph576$ph = $spec$select442;$$7374$ph$ph = $296;
    }
    $$0360474 = 0.0;$$10473 = $$7374$ph$ph;$$4475 = 0;
    while(1) {
@@ -59887,13 +59824,13 @@ function _scanexp($0,$1) {
     $$251 = $44;$51 = $35;$52 = $49;
     while(1) {
      $53 = (___muldi3(($51|0),($52|0),10,0)|0);
-     $54 = tempRet0;
+     $54 = (getTempRet0() | 0);
      $55 = ($$251|0)<(0);
      $56 = $55 << 31 >> 31;
      $57 = (_i64Add(($$251|0),($56|0),-48,-1)|0);
-     $58 = tempRet0;
+     $58 = (getTempRet0() | 0);
      $59 = (_i64Add(($57|0),($58|0),($53|0),($54|0))|0);
-     $60 = tempRet0;
+     $60 = (getTempRet0() | 0);
      $61 = HEAP32[$2>>2]|0;
      $62 = HEAP32[$4>>2]|0;
      $63 = ($61>>>0)<($62>>>0);
@@ -59959,7 +59896,7 @@ function _scanexp($0,$1) {
    }
    $92 = ($$0|0)==(0);
    $95 = (_i64Subtract(0,0,($93|0),($94|0))|0);
-   $96 = tempRet0;
+   $96 = (getTempRet0() | 0);
    $97 = $92 ? $93 : $95;
    $98 = $92 ? $94 : $96;
    $100 = $97;$99 = $98;
@@ -59977,7 +59914,7 @@ function _scanexp($0,$1) {
    $100 = 0;$99 = -2147483648;
   }
  }
- tempRet0 = ($99);
+ setTempRet0(($99) | 0);
  return ($100|0);
 }
 function _scalbn($0,$1) {
@@ -60017,7 +59954,7 @@ function _scalbn($0,$1) {
  }
  $16 = (($$020) + 1023)|0;
  $17 = (_bitshift64Shl(($16|0),0,52)|0);
- $18 = tempRet0;
+ $18 = (getTempRet0() | 0);
  HEAP32[tempDoublePtr>>2] = $17;HEAP32[tempDoublePtr+4>>2] = $18;$19 = +HEAPF64[tempDoublePtr>>3];
  $20 = $$0 * $19;
  return (+$20);
@@ -60064,14 +60001,14 @@ function _fmod($0,$1) {
  HEAPF64[tempDoublePtr>>3] = $1;$4 = HEAP32[tempDoublePtr>>2]|0;
  $5 = HEAP32[tempDoublePtr+4>>2]|0;
  $6 = (_bitshift64Lshr(($2|0),($3|0),52)|0);
- $7 = tempRet0;
+ $7 = (getTempRet0() | 0);
  $8 = $6 & 2047;
  $9 = (_bitshift64Lshr(($4|0),($5|0),52)|0);
- $10 = tempRet0;
+ $10 = (getTempRet0() | 0);
  $11 = $9 & 2047;
  $12 = $3 & -2147483648;
  $13 = (_bitshift64Shl(($4|0),($5|0),1)|0);
- $14 = tempRet0;
+ $14 = (getTempRet0() | 0);
  $15 = ($13|0)==(0);
  $16 = ($14|0)==(0);
  $17 = $15 & $16;
@@ -60080,7 +60017,7 @@ function _fmod($0,$1) {
    label = 3;
   } else {
    $18 = (___DOUBLE_BITS_273($1)|0);
-   $19 = tempRet0;
+   $19 = (getTempRet0() | 0);
    $20 = $19 & 2147483647;
    $21 = ($20>>>0)>(2146435072);
    $22 = ($18>>>0)>(0);
@@ -60093,7 +60030,7 @@ function _fmod($0,$1) {
     label = 3;
    } else {
     $29 = (_bitshift64Shl(($2|0),($3|0),1)|0);
-    $30 = tempRet0;
+    $30 = (getTempRet0() | 0);
     $31 = ($30>>>0)>($14>>>0);
     $32 = ($29>>>0)>($13>>>0);
     $33 = ($30|0)==($14|0);
@@ -60110,7 +60047,7 @@ function _fmod($0,$1) {
     $40 = ($8|0)==(0);
     if ($40) {
      $41 = (_bitshift64Shl(($2|0),($3|0),12)|0);
-     $42 = tempRet0;
+     $42 = (getTempRet0() | 0);
      $43 = ($42|0)>(-1);
      $44 = ($41>>>0)>(4294967295);
      $45 = ($42|0)==(-1);
@@ -60121,7 +60058,7 @@ function _fmod($0,$1) {
       while(1) {
        $48 = (($$073100) + -1)|0;
        $51 = (_bitshift64Shl(($49|0),($50|0),1)|0);
-       $52 = tempRet0;
+       $52 = (getTempRet0() | 0);
        $53 = ($52|0)>(-1);
        $54 = ($51>>>0)>(4294967295);
        $55 = ($52|0)==(-1);
@@ -60139,7 +60076,7 @@ function _fmod($0,$1) {
      }
      $58 = (1 - ($$073$lcssa))|0;
      $59 = (_bitshift64Shl(($2|0),($3|0),($58|0))|0);
-     $60 = tempRet0;
+     $60 = (getTempRet0() | 0);
      $$174 = $$073$lcssa;$87 = $59;$88 = $60;
     } else {
      $61 = $3 & 1048575;
@@ -60149,7 +60086,7 @@ function _fmod($0,$1) {
     $63 = ($11|0)==(0);
     if ($63) {
      $64 = (_bitshift64Shl(($4|0),($5|0),12)|0);
-     $65 = tempRet0;
+     $65 = (getTempRet0() | 0);
      $66 = ($65|0)>(-1);
      $67 = ($64>>>0)>(4294967295);
      $68 = ($65|0)==(-1);
@@ -60160,7 +60097,7 @@ function _fmod($0,$1) {
       while(1) {
        $71 = (($$07194) + -1)|0;
        $74 = (_bitshift64Shl(($72|0),($73|0),1)|0);
-       $75 = tempRet0;
+       $75 = (getTempRet0() | 0);
        $76 = ($75|0)>(-1);
        $77 = ($74>>>0)>(4294967295);
        $78 = ($75|0)==(-1);
@@ -60178,7 +60115,7 @@ function _fmod($0,$1) {
      }
      $81 = (1 - ($$071$lcssa))|0;
      $82 = (_bitshift64Shl(($4|0),($5|0),($81|0))|0);
-     $83 = tempRet0;
+     $83 = (getTempRet0() | 0);
      $$172 = $$071$lcssa;$89 = $82;$90 = $83;
     } else {
      $84 = $5 & 1048575;
@@ -60187,7 +60124,7 @@ function _fmod($0,$1) {
     }
     $86 = ($$174|0)>($$172|0);
     $91 = (_i64Subtract(($87|0),($88|0),($89|0),($90|0))|0);
-    $92 = tempRet0;
+    $92 = (getTempRet0() | 0);
     $93 = ($92|0)>(-1);
     $94 = ($91>>>0)>(4294967295);
     $95 = ($92|0)==(-1);
@@ -60195,35 +60132,35 @@ function _fmod($0,$1) {
     $97 = $93 | $96;
     L25: do {
      if ($86) {
-      $$27585 = $$174;$101 = $92;$158 = $97;$159 = $87;$160 = $88;$99 = $91;
+      $$27585 = $$174;$100 = $92;$158 = $97;$159 = $87;$160 = $88;$98 = $91;
       while(1) {
        if ($158) {
-        $98 = ($99|0)==(0);
-        $100 = ($101|0)==(0);
-        $102 = $98 & $100;
+        $99 = ($98|0)==(0);
+        $101 = ($100|0)==(0);
+        $102 = $99 & $101;
         if ($102) {
          break;
         } else {
-         $104 = $99;$105 = $101;
+         $104 = $98;$105 = $100;
         }
        } else {
         $104 = $159;$105 = $160;
        }
        $106 = (_bitshift64Shl(($104|0),($105|0),1)|0);
-       $107 = tempRet0;
+       $107 = (getTempRet0() | 0);
        $108 = (($$27585) + -1)|0;
        $109 = ($108|0)>($$172|0);
        $110 = (_i64Subtract(($106|0),($107|0),($89|0),($90|0))|0);
-       $111 = tempRet0;
+       $111 = (getTempRet0() | 0);
        $112 = ($111|0)>(-1);
        $113 = ($110>>>0)>(4294967295);
        $114 = ($111|0)==(-1);
        $115 = $114 & $113;
        $116 = $112 | $115;
        if ($109) {
-        $$27585 = $108;$101 = $111;$158 = $116;$159 = $106;$160 = $107;$99 = $110;
+        $$27585 = $108;$100 = $111;$158 = $116;$159 = $106;$160 = $107;$98 = $110;
        } else {
-        $$275$lcssa = $108;$$lcssa = $116;$118 = $110;$120 = $111;$156 = $106;$157 = $107;
+        $$275$lcssa = $108;$$lcssa = $116;$117 = $110;$119 = $111;$156 = $106;$157 = $107;
         break L25;
        }
       }
@@ -60231,33 +60168,33 @@ function _fmod($0,$1) {
       $$070 = $103;
       break L1;
      } else {
-      $$275$lcssa = $$174;$$lcssa = $97;$118 = $91;$120 = $92;$156 = $87;$157 = $88;
+      $$275$lcssa = $$174;$$lcssa = $97;$117 = $91;$119 = $92;$156 = $87;$157 = $88;
      }
     } while(0);
     if ($$lcssa) {
-     $117 = ($118|0)==(0);
-     $119 = ($120|0)==(0);
-     $121 = $117 & $119;
+     $118 = ($117|0)==(0);
+     $120 = ($119|0)==(0);
+     $121 = $118 & $120;
      if ($121) {
       $122 = $0 * 0.0;
       $$070 = $122;
       break;
      } else {
-      $124 = $120;$126 = $118;
+      $123 = $119;$125 = $117;
      }
     } else {
-     $124 = $157;$126 = $156;
+     $123 = $157;$125 = $156;
     }
-    $123 = ($124>>>0)<(1048576);
-    $125 = ($126>>>0)<(0);
-    $127 = ($124|0)==(1048576);
-    $128 = $127 & $125;
-    $129 = $123 | $128;
+    $124 = ($123>>>0)<(1048576);
+    $126 = ($125>>>0)<(0);
+    $127 = ($123|0)==(1048576);
+    $128 = $127 & $126;
+    $129 = $124 | $128;
     if ($129) {
-     $$37682 = $$275$lcssa;$130 = $126;$131 = $124;
+     $$37682 = $$275$lcssa;$130 = $125;$131 = $123;
      while(1) {
       $132 = (_bitshift64Shl(($130|0),($131|0),1)|0);
-      $133 = tempRet0;
+      $133 = (getTempRet0() | 0);
       $134 = (($$37682) + -1)|0;
       $135 = ($133>>>0)<(1048576);
       $136 = ($132>>>0)<(0);
@@ -60272,21 +60209,21 @@ function _fmod($0,$1) {
       }
      }
     } else {
-     $$376$lcssa = $$275$lcssa;$141 = $126;$142 = $124;
+     $$376$lcssa = $$275$lcssa;$141 = $125;$142 = $123;
     }
     $140 = ($$376$lcssa|0)>(0);
     if ($140) {
      $143 = (_i64Add(($141|0),($142|0),0,-1048576)|0);
-     $144 = tempRet0;
+     $144 = (getTempRet0() | 0);
      $145 = (_bitshift64Shl(($$376$lcssa|0),0,52)|0);
-     $146 = tempRet0;
+     $146 = (getTempRet0() | 0);
      $147 = $143 | $145;
      $148 = $144 | $146;
      $153 = $148;$155 = $147;
     } else {
      $149 = (1 - ($$376$lcssa))|0;
      $150 = (_bitshift64Lshr(($141|0),($142|0),($149|0))|0);
-     $151 = tempRet0;
+     $151 = (getTempRet0() | 0);
      $153 = $151;$155 = $150;
     }
     $152 = $153 | $12;
@@ -60308,7 +60245,7 @@ function ___DOUBLE_BITS_273($0) {
  sp = STACKTOP;
  HEAPF64[tempDoublePtr>>3] = $0;$1 = HEAP32[tempDoublePtr>>2]|0;
  $2 = HEAP32[tempDoublePtr+4>>2]|0;
- tempRet0 = ($2);
+ setTempRet0(($2) | 0);
  return ($1|0);
 }
 function _strlen($0) {
@@ -60529,7 +60466,7 @@ function ___unlist_locked_file($0) {
   $10 = HEAP32[$$pre>>2]|0;
   $11 = ($10|0)==(0|0);
   if ($11) {
-   $13 = (___pthread_self_606()|0);
+   $13 = (___pthread_self_599()|0);
    $14 = ((($13)) + 232|0);
    $$sink = $14;
   } else {
@@ -60540,7 +60477,7 @@ function ___unlist_locked_file($0) {
  }
  return;
 }
-function ___pthread_self_606() {
+function ___pthread_self_599() {
  var $0 = 0, label = 0, sp = 0;
  sp = STACKTOP;
  $0 = (_pthread_self()|0);
@@ -60549,13 +60486,13 @@ function ___pthread_self_606() {
 function ___ofl_lock() {
  var label = 0, sp = 0;
  sp = STACKTOP;
- ___lock((4044|0));
- return (4052|0);
+ ___lock((6136|0));
+ return (6144|0);
 }
 function ___ofl_unlock() {
  var label = 0, sp = 0;
  sp = STACKTOP;
- ___unlock((4044|0));
+ ___unlock((6136|0));
  return;
 }
 function _fclose($0) {
@@ -60568,9 +60505,9 @@ function _fclose($0) {
  $3 = ($2|0)>(-1);
  if ($3) {
   $4 = (___lockfile($0)|0);
-  $30 = $4;
+  $29 = $4;
  } else {
-  $30 = 0;
+  $29 = 0;
  }
  ___unlist_locked_file($0);
  $5 = HEAP32[$0>>2]|0;
@@ -60614,8 +60551,8 @@ function _fclose($0) {
   _free($27);
  }
  if ($7) {
-  $29 = ($30|0)==(0);
-  if (!($29)) {
+  $30 = ($29|0)==(0);
+  if (!($30)) {
    ___unlockfile($0);
   }
  } else {
@@ -60631,12 +60568,12 @@ function _fflush($0) {
  $1 = ($0|0)==(0|0);
  do {
   if ($1) {
-   $8 = HEAP32[444]|0;
+   $8 = HEAP32[454]|0;
    $9 = ($8|0)==(0|0);
    if ($9) {
     $29 = 0;
    } else {
-    $10 = HEAP32[444]|0;
+    $10 = HEAP32[454]|0;
     $11 = (_fflush($10)|0);
     $29 = $11;
    }
@@ -60653,9 +60590,9 @@ function _fflush($0) {
      $16 = ($15|0)>(-1);
      if ($16) {
       $17 = (___lockfile($$02327)|0);
-      $26 = $17;
+      $25 = $17;
      } else {
-      $26 = 0;
+      $25 = 0;
      }
      $18 = ((($$02327)) + 20|0);
      $19 = HEAP32[$18>>2]|0;
@@ -60669,8 +60606,8 @@ function _fflush($0) {
      } else {
       $$1 = $$02426;
      }
-     $25 = ($26|0)==(0);
-     if (!($25)) {
+     $26 = ($25|0)==(0);
+     if (!($26)) {
       ___unlockfile($$02327);
      }
      $27 = ((($$02327)) + 56|0);
@@ -60811,7 +60748,7 @@ function ___muldsi3($a, $b) {
     $8 = ($3 >>> 16) + (Math_imul($2, $6) | 0) | 0;
     $11 = $b >>> 16;
     $12 = Math_imul($11, $1) | 0;
-    return (tempRet0 = (($8 >>> 16) + (Math_imul($11, $6) | 0) | 0) + ((($8 & 65535) + $12 | 0) >>> 16) | 0, 0 | ($8 + $12 << 16 | $3 & 65535)) | 0;
+    return (setTempRet0(((($8 >>> 16) + (Math_imul($11, $6) | 0) | 0) + ((($8 & 65535) + $12 | 0) >>> 16) | 0) | 0), 0 | ($8 + $12 << 16 | $3 & 65535)) | 0;
 }
 function ___muldi3($a$0, $a$1, $b$0, $b$1) {
     $a$0 = $a$0 | 0;
@@ -60822,9 +60759,9 @@ function ___muldi3($a$0, $a$1, $b$0, $b$1) {
     $x_sroa_0_0_extract_trunc = $a$0;
     $y_sroa_0_0_extract_trunc = $b$0;
     $1$0 = ___muldsi3($x_sroa_0_0_extract_trunc, $y_sroa_0_0_extract_trunc) | 0;
-    $1$1 = tempRet0;
+    $1$1 = (getTempRet0() | 0);
     $2 = Math_imul($a$1, $y_sroa_0_0_extract_trunc) | 0;
-    return (tempRet0 = ((Math_imul($b$1, $x_sroa_0_0_extract_trunc) | 0) + $2 | 0) + $1$1 | $1$1 & 0, 0 | $1$0 & -1) | 0;
+    return (setTempRet0((((Math_imul($b$1, $x_sroa_0_0_extract_trunc) | 0) + $2 | 0) + $1$1 | $1$1 & 0) | 0), 0 | $1$0 & -1) | 0;
 }
 function _i64Add(a, b, c, d) {
     /*
@@ -60836,7 +60773,7 @@ function _i64Add(a, b, c, d) {
     var l = 0, h = 0;
     l = (a + c)>>>0;
     h = (b + d + (((l>>>0) < (a>>>0))|0))>>>0; // Add carry from low word to high word on overflow.
-    return ((tempRet0 = h,l|0)|0);
+    return ((setTempRet0((h) | 0),l|0)|0);
 }
 function _i64Subtract(a, b, c, d) {
     a = a|0; b = b|0; c = c|0; d = d|0;
@@ -60844,7 +60781,7 @@ function _i64Subtract(a, b, c, d) {
     l = (a - c)>>>0;
     h = (b - d)>>>0;
     h = (b - d - (((c>>>0) > (a>>>0))|0))>>>0; // Borrow one from high word to low word on underflow.
-    return ((tempRet0 = h,l|0)|0);
+    return ((setTempRet0((h) | 0),l|0)|0);
 }
 function _llvm_cttz_i32(x) { // Note: Currently doesn't take isZeroUndef()
     x = x | 0;
@@ -60872,18 +60809,18 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
         }
         $_0$1 = 0;
         $_0$0 = ($n_sroa_0_0_extract_trunc >>> 0) / ($d_sroa_0_0_extract_trunc >>> 0) >>> 0;
-        return (tempRet0 = $_0$1, $_0$0) | 0;
+        return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
       } else {
         if (!$4) {
           $_0$1 = 0;
           $_0$0 = 0;
-          return (tempRet0 = $_0$1, $_0$0) | 0;
+          return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
         }
         HEAP32[$rem >> 2] = $a$0 & -1;
         HEAP32[$rem + 4 >> 2] = $a$1 & 0;
         $_0$1 = 0;
         $_0$0 = 0;
-        return (tempRet0 = $_0$1, $_0$0) | 0;
+        return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
       }
     }
     $17 = ($d_sroa_1_4_extract_trunc | 0) == 0;
@@ -60896,7 +60833,7 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
           }
           $_0$1 = 0;
           $_0$0 = ($n_sroa_1_4_extract_trunc >>> 0) / ($d_sroa_0_0_extract_trunc >>> 0) >>> 0;
-          return (tempRet0 = $_0$1, $_0$0) | 0;
+          return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
         }
         if (($n_sroa_0_0_extract_trunc | 0) == 0) {
           if (($rem | 0) != 0) {
@@ -60905,7 +60842,7 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
           }
           $_0$1 = 0;
           $_0$0 = ($n_sroa_1_4_extract_trunc >>> 0) / ($d_sroa_1_4_extract_trunc >>> 0) >>> 0;
-          return (tempRet0 = $_0$1, $_0$0) | 0;
+          return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
         }
         $37 = $d_sroa_1_4_extract_trunc - 1 | 0;
         if (($37 & $d_sroa_1_4_extract_trunc | 0) == 0) {
@@ -60915,7 +60852,7 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
           }
           $_0$1 = 0;
           $_0$0 = $n_sroa_1_4_extract_trunc >>> ((_llvm_cttz_i32($d_sroa_1_4_extract_trunc | 0) | 0) >>> 0);
-          return (tempRet0 = $_0$1, $_0$0) | 0;
+          return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
         }
         $49 = Math_clz32($d_sroa_1_4_extract_trunc | 0) | 0;
         $51 = $49 - (Math_clz32($n_sroa_1_4_extract_trunc | 0) | 0) | 0;
@@ -60932,13 +60869,13 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
         if (($rem | 0) == 0) {
           $_0$1 = 0;
           $_0$0 = 0;
-          return (tempRet0 = $_0$1, $_0$0) | 0;
+          return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
         }
         HEAP32[$rem >> 2] = 0 | $a$0 & -1;
         HEAP32[$rem + 4 >> 2] = $n_sroa_1_4_extract_shift$0 | $a$1 & 0;
         $_0$1 = 0;
         $_0$0 = 0;
-        return (tempRet0 = $_0$1, $_0$0) | 0;
+        return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
       } else {
         if (!$17) {
           $117 = Math_clz32($d_sroa_1_4_extract_trunc | 0) | 0;
@@ -60957,13 +60894,13 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
           if (($rem | 0) == 0) {
             $_0$1 = 0;
             $_0$0 = 0;
-            return (tempRet0 = $_0$1, $_0$0) | 0;
+            return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
           }
           HEAP32[$rem >> 2] = 0 | $a$0 & -1;
           HEAP32[$rem + 4 >> 2] = $n_sroa_1_4_extract_shift$0 | $a$1 & 0;
           $_0$1 = 0;
           $_0$0 = 0;
-          return (tempRet0 = $_0$1, $_0$0) | 0;
+          return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
         }
         $66 = $d_sroa_0_0_extract_trunc - 1 | 0;
         if (($66 & $d_sroa_0_0_extract_trunc | 0) != 0) {
@@ -60988,12 +60925,12 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
         if (($d_sroa_0_0_extract_trunc | 0) == 1) {
           $_0$1 = $n_sroa_1_4_extract_shift$0 | $a$1 & 0;
           $_0$0 = 0 | $a$0 & -1;
-          return (tempRet0 = $_0$1, $_0$0) | 0;
+          return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
         } else {
           $78 = _llvm_cttz_i32($d_sroa_0_0_extract_trunc | 0) | 0;
           $_0$1 = 0 | $n_sroa_1_4_extract_trunc >>> ($78 >>> 0);
           $_0$0 = $n_sroa_1_4_extract_trunc << 32 - $78 | $n_sroa_0_0_extract_trunc >>> ($78 >>> 0) | 0;
-          return (tempRet0 = $_0$1, $_0$0) | 0;
+          return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
         }
       }
     } while (0);
@@ -61008,7 +60945,7 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
       $d_sroa_0_0_insert_insert99$0 = 0 | $b$0 & -1;
       $d_sroa_0_0_insert_insert99$1 = $d_sroa_1_4_extract_shift$0 | $b$1 & 0;
       $137$0 = _i64Add($d_sroa_0_0_insert_insert99$0 | 0, $d_sroa_0_0_insert_insert99$1 | 0, -1, -1) | 0;
-      $137$1 = tempRet0;
+      $137$1 = (getTempRet0() | 0);
       $q_sroa_1_1198 = $q_sroa_1_1_ph;
       $q_sroa_0_1199 = $q_sroa_0_1_ph;
       $r_sroa_1_1200 = $r_sroa_1_1_ph;
@@ -61021,12 +60958,12 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
         $r_sroa_0_0_insert_insert42$0 = 0 | ($r_sroa_0_1201 << 1 | $q_sroa_1_1198 >>> 31);
         $r_sroa_0_0_insert_insert42$1 = $r_sroa_0_1201 >>> 31 | $r_sroa_1_1200 << 1 | 0;
         _i64Subtract($137$0 | 0, $137$1 | 0, $r_sroa_0_0_insert_insert42$0 | 0, $r_sroa_0_0_insert_insert42$1 | 0) | 0;
-        $150$1 = tempRet0;
+        $150$1 = (getTempRet0() | 0);
         $151$0 = $150$1 >> 31 | (($150$1 | 0) < 0 ? -1 : 0) << 1;
         $152 = $151$0 & 1;
         $154$0 = _i64Subtract($r_sroa_0_0_insert_insert42$0 | 0, $r_sroa_0_0_insert_insert42$1 | 0, $151$0 & $d_sroa_0_0_insert_insert99$0 | 0, ((($150$1 | 0) < 0 ? -1 : 0) >> 31 | (($150$1 | 0) < 0 ? -1 : 0) << 1) & $d_sroa_0_0_insert_insert99$1 | 0) | 0;
         $r_sroa_0_0_extract_trunc = $154$0;
-        $r_sroa_1_4_extract_trunc = tempRet0;
+        $r_sroa_1_4_extract_trunc = (getTempRet0() | 0);
         $155 = $sr_1202 - 1 | 0;
         if (($155 | 0) == 0) {
           break;
@@ -61055,7 +60992,7 @@ function ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) {
     }
     $_0$1 = (0 | $q_sroa_0_0_insert_ext75$0) >>> 31 | $q_sroa_0_0_insert_insert77$1 << 1 | ($q_sroa_0_0_insert_ext75$1 << 1 | $q_sroa_0_0_insert_ext75$0 >>> 31) & 0 | $carry_0_lcssa$1;
     $_0$0 = ($q_sroa_0_0_insert_ext75$0 << 1 | 0 >>> 31) & -2 | $carry_0_lcssa$0;
-    return (tempRet0 = $_0$1, $_0$0) | 0;
+    return (setTempRet0(($_0$1) | 0), $_0$0) | 0;
 }
 function ___udivdi3($a$0, $a$1, $b$0, $b$1) {
     $a$0 = $a$0 | 0;
@@ -61077,17 +61014,17 @@ function ___uremdi3($a$0, $a$1, $b$0, $b$1) {
     $rem = __stackBase__ | 0;
     ___udivmoddi4($a$0, $a$1, $b$0, $b$1, $rem) | 0;
     STACKTOP = __stackBase__;
-    return (tempRet0 = HEAP32[$rem + 4 >> 2] | 0, HEAP32[$rem >> 2] | 0) | 0;
+    return (setTempRet0((HEAP32[$rem + 4 >> 2] | 0) | 0), HEAP32[$rem >> 2] | 0) | 0;
 }
 function _bitshift64Ashr(low, high, bits) {
     low = low|0; high = high|0; bits = bits|0;
     var ander = 0;
     if ((bits|0) < 32) {
       ander = ((1 << bits) - 1)|0;
-      tempRet0 = high >> bits;
+      setTempRet0((high >> bits) | 0);
       return (low >>> bits) | ((high&ander) << (32 - bits));
     }
-    tempRet0 = (high|0) < 0 ? -1 : 0;
+    setTempRet0(((high|0) < 0 ? -1 : 0) | 0);
     return (high >> (bits - 32))|0;
 }
 function _bitshift64Lshr(low, high, bits) {
@@ -61095,10 +61032,10 @@ function _bitshift64Lshr(low, high, bits) {
     var ander = 0;
     if ((bits|0) < 32) {
       ander = ((1 << bits) - 1)|0;
-      tempRet0 = high >>> bits;
+      setTempRet0((high >>> bits) | 0);
       return (low >>> bits) | ((high&ander) << (32 - bits));
     }
-    tempRet0 = 0;
+    setTempRet0((0) | 0);
     return (high >>> (bits - 32))|0;
 }
 function _bitshift64Shl(low, high, bits) {
@@ -61106,10 +61043,10 @@ function _bitshift64Shl(low, high, bits) {
     var ander = 0;
     if ((bits|0) < 32) {
       ander = ((1 << bits) - 1)|0;
-      tempRet0 = (high << bits) | ((low&(ander << (32 - bits))) >>> (32 - bits));
+      setTempRet0(((high << bits) | ((low&(ander << (32 - bits))) >>> (32 - bits))) | 0);
       return low << bits;
     }
-    tempRet0 = low << (bits - 32);
+    setTempRet0((low << (bits - 32)) | 0);
     return 0;
 }
 function _memcpy(dest, src, num) {
@@ -61704,7 +61641,7 @@ var FUNCTION_TABLE_viiiiii = [b7,jsCall_viiiiii_0,jsCall_viiiiii_1,jsCall_viiiii
 ,b7,b7,b7];
 var FUNCTION_TABLE_viiiiiii = [b8,jsCall_viiiiiii_0,jsCall_viiiiiii_1,jsCall_viiiiiii_2,jsCall_viiiiiii_3,jsCall_viiiiiii_4,b8,b8,b8,b8,b8,b8,b8,b8,b8,_precompute_partition_info_sums_];
 
-  return { _FLAC__stream_decoder_delete: _FLAC__stream_decoder_delete, _FLAC__stream_decoder_finish: _FLAC__stream_decoder_finish, _FLAC__stream_decoder_get_md5_checking: _FLAC__stream_decoder_get_md5_checking, _FLAC__stream_decoder_get_state: _FLAC__stream_decoder_get_state, _FLAC__stream_decoder_init_stream: _FLAC__stream_decoder_init_stream, _FLAC__stream_decoder_new: _FLAC__stream_decoder_new, _FLAC__stream_decoder_process_single: _FLAC__stream_decoder_process_single, _FLAC__stream_decoder_process_until_end_of_metadata: _FLAC__stream_decoder_process_until_end_of_metadata, _FLAC__stream_decoder_process_until_end_of_stream: _FLAC__stream_decoder_process_until_end_of_stream, _FLAC__stream_decoder_reset: _FLAC__stream_decoder_reset, _FLAC__stream_decoder_set_md5_checking: _FLAC__stream_decoder_set_md5_checking, _FLAC__stream_encoder_delete: _FLAC__stream_encoder_delete, _FLAC__stream_encoder_finish: _FLAC__stream_encoder_finish, _FLAC__stream_encoder_get_state: _FLAC__stream_encoder_get_state, _FLAC__stream_encoder_init_stream: _FLAC__stream_encoder_init_stream, _FLAC__stream_encoder_new: _FLAC__stream_encoder_new, _FLAC__stream_encoder_process_interleaved: _FLAC__stream_encoder_process_interleaved, _FLAC__stream_encoder_set_bits_per_sample: _FLAC__stream_encoder_set_bits_per_sample, _FLAC__stream_encoder_set_blocksize: _FLAC__stream_encoder_set_blocksize, _FLAC__stream_encoder_set_channels: _FLAC__stream_encoder_set_channels, _FLAC__stream_encoder_set_compression_level: _FLAC__stream_encoder_set_compression_level, _FLAC__stream_encoder_set_sample_rate: _FLAC__stream_encoder_set_sample_rate, _FLAC__stream_encoder_set_total_samples_estimate: _FLAC__stream_encoder_set_total_samples_estimate, _FLAC__stream_encoder_set_verify: _FLAC__stream_encoder_set_verify, ___errno_location: ___errno_location, ___muldi3: ___muldi3, ___udivdi3: ___udivdi3, ___uremdi3: ___uremdi3, _bitshift64Ashr: _bitshift64Ashr, _bitshift64Lshr: _bitshift64Lshr, _bitshift64Shl: _bitshift64Shl, _emscripten_replace_memory: _emscripten_replace_memory, _fflush: _fflush, _free: _free, _i64Add: _i64Add, _i64Subtract: _i64Subtract, _malloc: _malloc, _memcpy: _memcpy, _memmove: _memmove, _memset: _memset, _round: _round, _sbrk: _sbrk, dynCall_ii: dynCall_ii, dynCall_iii: dynCall_iii, dynCall_iiii: dynCall_iiii, dynCall_iiiii: dynCall_iiiii, dynCall_iiiiiii: dynCall_iiiiiii, dynCall_viii: dynCall_viii, dynCall_viiii: dynCall_viiii, dynCall_viiiiii: dynCall_viiiiii, dynCall_viiiiiii: dynCall_viiiiiii, establishStackSpace: establishStackSpace, getTempRet0: getTempRet0, runPostSets: runPostSets, setTempRet0: setTempRet0, setThrew: setThrew, stackAlloc: stackAlloc, stackRestore: stackRestore, stackSave: stackSave };
+  return { _FLAC__stream_decoder_delete: _FLAC__stream_decoder_delete, _FLAC__stream_decoder_finish: _FLAC__stream_decoder_finish, _FLAC__stream_decoder_get_md5_checking: _FLAC__stream_decoder_get_md5_checking, _FLAC__stream_decoder_get_state: _FLAC__stream_decoder_get_state, _FLAC__stream_decoder_init_stream: _FLAC__stream_decoder_init_stream, _FLAC__stream_decoder_new: _FLAC__stream_decoder_new, _FLAC__stream_decoder_process_single: _FLAC__stream_decoder_process_single, _FLAC__stream_decoder_process_until_end_of_metadata: _FLAC__stream_decoder_process_until_end_of_metadata, _FLAC__stream_decoder_process_until_end_of_stream: _FLAC__stream_decoder_process_until_end_of_stream, _FLAC__stream_decoder_reset: _FLAC__stream_decoder_reset, _FLAC__stream_decoder_set_md5_checking: _FLAC__stream_decoder_set_md5_checking, _FLAC__stream_encoder_delete: _FLAC__stream_encoder_delete, _FLAC__stream_encoder_finish: _FLAC__stream_encoder_finish, _FLAC__stream_encoder_get_state: _FLAC__stream_encoder_get_state, _FLAC__stream_encoder_init_stream: _FLAC__stream_encoder_init_stream, _FLAC__stream_encoder_new: _FLAC__stream_encoder_new, _FLAC__stream_encoder_process_interleaved: _FLAC__stream_encoder_process_interleaved, _FLAC__stream_encoder_set_bits_per_sample: _FLAC__stream_encoder_set_bits_per_sample, _FLAC__stream_encoder_set_blocksize: _FLAC__stream_encoder_set_blocksize, _FLAC__stream_encoder_set_channels: _FLAC__stream_encoder_set_channels, _FLAC__stream_encoder_set_compression_level: _FLAC__stream_encoder_set_compression_level, _FLAC__stream_encoder_set_sample_rate: _FLAC__stream_encoder_set_sample_rate, _FLAC__stream_encoder_set_total_samples_estimate: _FLAC__stream_encoder_set_total_samples_estimate, _FLAC__stream_encoder_set_verify: _FLAC__stream_encoder_set_verify, ___errno_location: ___errno_location, ___muldi3: ___muldi3, ___udivdi3: ___udivdi3, ___uremdi3: ___uremdi3, _bitshift64Ashr: _bitshift64Ashr, _bitshift64Lshr: _bitshift64Lshr, _bitshift64Shl: _bitshift64Shl, _emscripten_replace_memory: _emscripten_replace_memory, _fflush: _fflush, _free: _free, _i64Add: _i64Add, _i64Subtract: _i64Subtract, _malloc: _malloc, _memcpy: _memcpy, _memmove: _memmove, _memset: _memset, _round: _round, _sbrk: _sbrk, dynCall_ii: dynCall_ii, dynCall_iii: dynCall_iii, dynCall_iiii: dynCall_iiii, dynCall_iiiii: dynCall_iiiii, dynCall_iiiiiii: dynCall_iiiiiii, dynCall_viii: dynCall_viii, dynCall_viiii: dynCall_viiii, dynCall_viiiiii: dynCall_viiiiii, dynCall_viiiiiii: dynCall_viiiiiii, establishStackSpace: establishStackSpace, runPostSets: runPostSets, setThrew: setThrew, stackAlloc: stackAlloc, stackRestore: stackRestore, stackSave: stackSave };
 })
 // EMSCRIPTEN_END_ASM
 (Module.asmGlobalArg, Module.asmLibraryArg, buffer);
@@ -61949,18 +61886,6 @@ var real_establishStackSpace = asm["establishStackSpace"]; asm["establishStackSp
   return real_establishStackSpace.apply(null, arguments);
 };
 
-var real_getTempRet0 = asm["getTempRet0"]; asm["getTempRet0"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return real_getTempRet0.apply(null, arguments);
-};
-
-var real_setTempRet0 = asm["setTempRet0"]; asm["setTempRet0"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return real_setTempRet0.apply(null, arguments);
-};
-
 var real_setThrew = asm["setThrew"]; asm["setThrew"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
@@ -62027,9 +61952,7 @@ var _memset = Module["_memset"] = asm["_memset"];
 var _round = Module["_round"] = asm["_round"];
 var _sbrk = Module["_sbrk"] = asm["_sbrk"];
 var establishStackSpace = Module["establishStackSpace"] = asm["establishStackSpace"];
-var getTempRet0 = Module["getTempRet0"] = asm["getTempRet0"];
 var runPostSets = Module["runPostSets"] = asm["runPostSets"];
-var setTempRet0 = Module["setTempRet0"] = asm["setTempRet0"];
 var setThrew = Module["setThrew"] = asm["setThrew"];
 var stackAlloc = Module["stackAlloc"] = asm["stackAlloc"];
 var stackRestore = Module["stackRestore"] = asm["stackRestore"];
@@ -62085,6 +62008,7 @@ if (!Module["writeArrayToMemory"]) Module["writeArrayToMemory"] = function() { a
 if (!Module["writeAsciiToMemory"]) Module["writeAsciiToMemory"] = function() { abort("'writeAsciiToMemory' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Module["addRunDependency"]) Module["addRunDependency"] = function() { abort("'addRunDependency' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
 if (!Module["removeRunDependency"]) Module["removeRunDependency"] = function() { abort("'removeRunDependency' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
+if (!Module["ENV"]) Module["ENV"] = function() { abort("'ENV' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Module["FS"]) Module["FS"] = function() { abort("'FS' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Module["FS_createFolder"]) Module["FS_createFolder"] = function() { abort("'FS_createFolder' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
 if (!Module["FS_createPath"]) Module["FS_createPath"] = function() { abort("'FS_createPath' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ). Alternatively, forcing filesystem support (-s FORCE_FILESYSTEM=1) can export this for you") };
@@ -62124,11 +62048,7 @@ if (!Module["ALLOC_NONE"]) Object.defineProperty(Module, "ALLOC_NONE", { get: fu
 
 if (memoryInitializer) {
   if (!isDataURI(memoryInitializer)) {
-    if (typeof Module['locateFile'] === 'function') {
-      memoryInitializer = Module['locateFile'](memoryInitializer);
-    } else if (Module['memoryInitializerPrefixURL']) {
-      memoryInitializer = Module['memoryInitializerPrefixURL'] + memoryInitializer;
-    }
+    memoryInitializer = locateFile(memoryInitializer);
   }
   if (ENVIRONMENT_IS_NODE || ENVIRONMENT_IS_SHELL) {
     var data = Module['readBinary'](memoryInitializer);
@@ -62158,8 +62078,8 @@ if (memoryInitializer) {
         var request = Module['memoryInitializerRequest'];
         var response = request.response;
         if (request.status !== 200 && request.status !== 0) {
-            // If you see this warning, the issue may be that you are using locateFile or memoryInitializerPrefixURL, and defining them in JS. That
-            // means that the HTML file doesn't know about them, and when it tries to create the mem init request early, does it to the wrong place.
+            // If you see this warning, the issue may be that you are using locateFile and defining it in JS. That
+            // means that the HTML file doesn't know about it, and when it tries to create the mem init request early, does it to the wrong place.
             // Look in your browser's devtools network console to see what's going on.
             console.warn('a problem seems to have happened with Module.memoryInitializerRequest, status: ' + request.status + ', retrying ' + memoryInitializer);
             doBrowserLoad();
@@ -62263,7 +62183,7 @@ function checkUnflushedContent() {
   // builds we do so just for this check, and here we see if there is any
   // content to flush, that is, we check if there would have been
   // something a non-ASSERTIONS build would have not seen.
-  // How we flush the streams depends on whether we are in NO_FILESYSTEM
+  // How we flush the streams depends on whether we are in FILESYSTEM=0
   // mode (which has its own special function for this; otherwise, all
   // the code is inside libc)
   var print = out;
@@ -62293,7 +62213,7 @@ function checkUnflushedContent() {
   out = print;
   err = printErr;
   if (has) {
-    warnOnce('stdio streams had content in them that was not flushed. you should set NO_EXIT_RUNTIME to 0 (see the FAQ), or make sure to emit a newline when you printf etc.');
+    warnOnce('stdio streams had content in them that was not flushed. you should set EXIT_RUNTIME to 1 (see the FAQ), or make sure to emit a newline when you printf etc.');
   }
 }
 
@@ -62311,7 +62231,7 @@ function exit(status, implicit) {
   if (Module['noExitRuntime']) {
     // if exit() was called, we may warn the user if the runtime isn't actually being shut down
     if (!implicit) {
-      err('exit(' + status + ') called, but NO_EXIT_RUNTIME is set, so halting execution but not exiting the runtime or preventing further async execution (build with NO_EXIT_RUNTIME=0, if you want a true shutdown)');
+      err('exit(' + status + ') called, but EXIT_RUNTIME is not set, so halting execution but not exiting the runtime or preventing further async execution (build with EXIT_RUNTIME=1, if you want a true shutdown)');
     }
   } else {
 
@@ -62356,8 +62276,6 @@ function abort(what) {
 }
 Module['abort'] = abort;
 
-// {{PRE_RUN_ADDITIONS}}
-
 if (Module['preInit']) {
   if (typeof Module['preInit'] == 'function') Module['preInit'] = [Module['preInit']];
   while (Module['preInit'].length > 0) {
@@ -62366,11 +62284,9 @@ if (Module['preInit']) {
 }
 
 
-Module["noExitRuntime"] = true;
+  Module["noExitRuntime"] = true;
 
 run();
-
-// {{POST_RUN_ADDITIONS}}
 
 
 
@@ -62721,7 +62637,7 @@ var dec_read_fn_ptr = addFunction(function(p_decoder, buffer, bytes, p_client_da
 
 	var read_callback_fn = getCallback(p_decoder, 'read');
 
-	//callback must return object with: {buffer: ArrayBuffer, readDataLength: number, error: boolean}
+	//callback must return object with: {buffer: TypedArray, readDataLength: number, error: boolean}
 	var readResult = read_callback_fn(len, p_client_data);
 	//in case of END_OF_STREAM or an error, readResult.readDataLength must be returned with 0
 
@@ -63413,7 +63329,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		var heapBytes= new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
 		// console.log("DEBUG heapBytes: " + heapBytes);
 		// copy data into heapBytes
-		heapBytes.set(new Uint8Array(buffer.buffer));
+		heapBytes.set(new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength));// issue #11 (2): do use byteOffset and byteLength for copying the data in case the underlying buffer/ArrayBuffer of the TypedArray view is larger than the TypedArray
 		var status = Module.ccall('FLAC__stream_encoder_process_interleaved', 'number',
 				['number', 'number', 'number'],
 				[encoder, heapBytes.byteOffset, num_of_samples]
