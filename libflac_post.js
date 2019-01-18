@@ -339,7 +339,7 @@ var dec_read_fn_ptr = addFunction(function(p_decoder, buffer, bytes, p_client_da
 
 	var read_callback_fn = getCallback(p_decoder, 'read');
 
-	//callback must return object with: {buffer: ArrayBuffer, readDataLength: number, error: boolean}
+	//callback must return object with: {buffer: TypedArray, readDataLength: number, error: boolean}
 	var readResult = read_callback_fn(len, p_client_data);
 	//in case of END_OF_STREAM or an error, readResult.readDataLength must be returned with 0
 
@@ -1031,7 +1031,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		var heapBytes= new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
 		// console.log("DEBUG heapBytes: " + heapBytes);
 		// copy data into heapBytes
-		heapBytes.set(new Uint8Array(buffer.buffer));
+		heapBytes.set(new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength));// issue #11 (2): do use byteOffset and byteLength for copying the data in case the underlying buffer/ArrayBuffer of the TypedArray view is larger than the TypedArray
 		var status = Module.ccall('FLAC__stream_encoder_process_interleaved', 'number',
 				['number', 'number', 'number'],
 				[encoder, heapBytes.byteOffset, num_of_samples]
