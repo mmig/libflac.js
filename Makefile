@@ -26,34 +26,34 @@ all: all_asmjs all_wasm
 all_asmjs: dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).js dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.js dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.js
 
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/*.o) -o $@
+	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
 
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/*.o) -o $@
+	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
 
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEV) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/*.o) -o $@
+	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEV) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
 
 # wasm builds
 
 all_wasm: dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).wasm.js dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.wasm.js dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.wasm.js
 
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).wasm.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/*.o) -o $@
+	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
 
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.wasm.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/*.o) -o $@
+	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
 
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.wasm.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/*.o) -o $@
+	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
 
 # custom builds that includ OGG
 
 dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/Emscripten/Release/*.o) -o $@
+	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/Emscripten/Release/libFLAC-static.a) -o $@
 
 dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).min.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/Emscripten/Release/*.o) -o $@
+	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/Emscripten/Release/libFLAC-static.a) -o $@
 
 emccvs: dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).js dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).min.js
 
@@ -64,7 +64,7 @@ emmake: $(FLAC)
 $(FLAC): $(FLAC).tar.xz
 	$(XZ) -dc $@.tar.xz | $(TAR) -xv && \
 	cd $@ && \
-	$(EMCONFIGURE) ./configure --disable-asm-optimizations --disable-3dnow --disable-altivec --disable-thorough-tests --disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs --disable-ogg --disable-oggtest && \
+	$(EMCONFIGURE) ./configure --host=asmjs --disable-asm-optimizations --disable-altivec --disable-thorough-tests --disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs --disable-ogg --disable-oggtest && \
 	$(EMMAKE) make
 
 $(FLAC).tar.xz:
