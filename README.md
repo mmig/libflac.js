@@ -5,7 +5,7 @@ libflac.js
 
 Current `libflac.js` version: 4
 Complied from `libFLAC` (static `C` library) version: 1.3.2
-Used compiler `Emscripten` version: 1.38.8
+Used compiler `Emscripten` version: 1.38.20
 
 In order to build _libflac.js_, make sure you have _emscripten_ installed.
 
