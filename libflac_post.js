@@ -1031,7 +1031,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		var heapBytes= new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
 		// console.log("DEBUG heapBytes: " + heapBytes);
 		// copy data into heapBytes
-		heapBytes.set(new Uint8Array(buffer.buffer));
+	        heapBytes.set(new Uint8Array(buffer.buffer, buffer.byteOffset, numBytes));
 		var status = Module.ccall('FLAC__stream_encoder_process_interleaved', 'number',
 				['number', 'number', 'number'],
 				[encoder, heapBytes.byteOffset, num_of_samples]
