@@ -18,42 +18,43 @@ LIB_VERSION:=4
 FLAC_VERSION:=1.3.2
 FLAC:=flac-$(FLAC_VERSION)
 FLAC_URL:="http://downloads.xiph.org/releases/flac/$(FLAC).tar.xz"
+FLAC_LIB:=$(FLAC)/src/libFLAC/.libs/libFLAC.a
 
 all: all_asmjs all_wasm
 
 # asm.js builds
 
-all_asmjs: dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).js dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.js dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.js
+all_asmjs: dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).js dist/min/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.js dist/dev/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.js
 
-dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
+dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
+	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC_LIB) -o $@
 
-dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
+dist/min/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
+	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC_LIB) -o $@
 
-dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEV) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
+dist/dev/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
+	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEV) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC_LIB) -o $@
 
 # wasm builds
 
-all_wasm: dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).wasm.js dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.wasm.js dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.wasm.js
+all_wasm: dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).wasm.js dist/min/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.wasm.js dist/dev/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.wasm.js
 
-dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).wasm.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
+dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).wasm.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
+	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC_LIB) -o $@
 
-dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.wasm.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
+dist/min/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.wasm.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
+	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC_LIB) -o $@
 
-dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.wasm.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
+dist/dev/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.wasm.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
+	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC_LIB) -o $@
 
-# custom builds that includ OGG
+# custom builds that include OGG
 
-dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/Emscripten/Release/libFLAC-static.a) -o $@
+dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
+	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC_LIB) -o $@
 
-dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).min.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/Emscripten/Release/libFLAC-static.a) -o $@
+dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).min.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
+	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC_LIB) -o $@
 
 emccvs: dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).js dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).min.js
 
@@ -61,9 +62,9 @@ emmake: $(FLAC)
 	cd $(FLAC) && \
 	$(EMMAKE) make
 
-$(FLAC): $(FLAC).tar.xz
-	$(XZ) -dc $@.tar.xz | $(TAR) -xv && \
-	cd $@ && \
+$(FLAC_LIB): $(FLAC).tar.xz
+	$(XZ) -dc $(FLAC).tar.xz | $(TAR) -xv && \
+	cd $(FLAC) && \
 	$(EMCONFIGURE) ./configure --host=asmjs --disable-asm-optimizations --disable-altivec --disable-thorough-tests --disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs --disable-ogg --disable-oggtest && \
 	$(EMMAKE) make
 
