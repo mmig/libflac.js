@@ -55,8 +55,6 @@ Module["onRuntimeInitialized"] = function(){
 
 if(global && global.FLAC_SCRIPT_LOCATION){
 
-	Module["memoryInitializerPrefixURL"] = global.FLAC_SCRIPT_LOCATION;
-
 	Module["locateFile"] = function(fileName){
 		var path = global.FLAC_SCRIPT_LOCATION || '';
 		path += path && !/\/$/.test(path)? '/' : '';
