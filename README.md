@@ -1,29 +1,32 @@
 libflac.js
 ==========
 
+![GitHub package.json version](https://img.shields.io/github/package-json/v/mmig/libflac.js)
+[![libFLAC version](https://img.shields.io/badge/libFLAC-1.3.2-yellow)][6]
+
 [FLAC][6] encoder compiled in JavaScript using _emscripten_.
 
-Current `libflac.js` version: 4
-Complied from `libFLAC` (static `C` library) version: 1.3.2
-Used compiler `Emscripten` version: 1.38.20
+For immediate use, the `/dist` sub-directory contains the compiled
+files for the `libflac.js` JavaScript library, as well as a minified version.
+
+> Current `libflac.js` version (_major_): 4\
+> Complied from `libFLAC` (static `C` library) version: 1.3.2\
+> Used compiler `Emscripten` version: 1.38.20\
 
 In order to build _libflac.js_, make sure you have _emscripten_ installed.
 
 On running `make`, the build process will download the sources for the
 FLAC library, extract it, and build the JavaScript version of libflac.
 
-For immediate use, the `/dist` sub-directory contains the compiled
-JavaScript file `libflac.js`, along with a minified version.
-
-__Encoder Demo__
+__Encoder Demo__  
 Try the [Encoding Demo][14] for encoding `*.wav` files to FLAC.
 Or try the [speech-to-flac][12] [demo][13] that encodes the audio stream from a microphone to FLAC.
 
-__Decoder Demo__
+__Decoder Demo__  
 Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.
 _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).
 
-__API Documentation__
+__API Documentation__  
 See [apidoc/index.html][16] for the API documentation.
 
 ----
@@ -160,8 +163,20 @@ If the library-file is not loaded from the default location ("page root"), but f
 let the library know, so that it searches for the additional files, that it needs to load, in that sub-directory/-path.
 
 For this, the path/location must be stored in the global variable `FLAC_SCRIPT_LOCATION` *before* the `libflac.js`
-library is loaded.
-In addition, the path/location should end with a slash (`"/"`), e.g. `'some/path/'`
+library is loaded. 
+If `FLAC_SCRIPT_LOCATION` is given as `string`, it specifies the path to the `libflac.js` files (see examples below), e.g.
+```javascript
+//location example as string:
+FLAC_SCRIPT_LOCATION = 'libs/';
+```
+If `FLAC_SCRIPT_LOCATION` is given as an object, it specifies mappings of the file-names to the file-paths of the `libflac.js` files (see examples below), e.g.
+```javascript
+//location example as object/mapping:
+FLAC_SCRIPT_LOCATION = {
+  'libflac4-1.3.2.min.js.mem': 'libs/flac.mem'
+};
+```
+Note, that the path/location should end with a slash (`"/"`), e.g. `'some/path/'`
 (the library will try to automatically add a slash, if it is missing).
 
 An example for specifying the path/location at `libs/` in an HTML file:
@@ -183,6 +198,17 @@ Or example for specifying the path/location at `libs/` in Node.js script:
   var Flac = require('./libs/libflac4-1.3.2.js');
 ```
 
+Example for specifying custom path and file-name via mapping (`originalFileName -> <newPath/newFileName>`):  
+in this case, the file-name(s) of the additionally required files (e.g. `*.mem` or `.wasm` files)
+need to be mapped to the custom path/file-name(s), that is,
+for all the required files of the used library variant (see details below).
+```javascript
+  self.FLAC_SCRIPT_LOCATION = {
+    'libflac4-1.3.2.min.js.mem': 'libs/flac.mem'
+  };
+  importScripts('libs/flac.min.js');
+```
+
 ### Library Variants
 
 There are multiple variants available for the library, that are compiled with different
@@ -192,8 +218,8 @@ default (release) library variants.
 
 
 In addition, for each of these variants, there is now a `wasm` variant (_WebAssembly_) available:
-the old/default variants where compiled for `asm.js` which is "normal" JavaScript, with some
-optimizations that browsers could take advantage off by specifically supporting `asm.js`.
+the old/default variants are compiled for `asm.js` which is "normal" JavaScript, with some
+optimizations that browsers can take advantage off by specifically supporting `asm.js` (e.g. _FireFox_).
 
 (from the [Emscripten documentation][17])
 > WebAssembly is a new binary format for executing code on the web, allowing much faster start times
@@ -206,13 +232,14 @@ more efficient with regard to code size and execution time.
 
 > NOTE the `WebAssembly` variant does not create "binary-perfect" FLAC files
      compared to the other library variants, or compared to the FLAC
-     command-line tool.
-     That is, comparing the encoding result byte-by-byte with encoding result
+     command-line tool.  
+     That is, comparing the encoding results byte-by-byte with encoding results
      from the `asm.js` variants, or separately encoded data using the FLAC
      command-line tool, results are different for the `WebAssembly` variant.
-     However, decoding these "binary-different" FLAC files (using `WebAssembly`,
-     or `asm.js` or the command-line tool) results in the same WAV data again.
-     _It seems, the `WebAssembly` variant chooses different frame-sizes
+     However, the reverse operation, decoding these "binary-different" FLAC
+     files (using `WebAssembly`, or `asm.js` or the command-line tool) results
+     in the same WAV data again.  
+		 _It seems, the `WebAssembly` variant chooses different frame-sizes
        while encoding; e.g. the max. frame-size may differ from when encoding
        with the `asm.js` variant or with the command-line tool._
 
@@ -237,7 +264,7 @@ _(see [`/dist/min`](dist/min))_
      * `libflac<lib version>-<flac version>.min.js`
      * `libflac<lib version>-<flac version>.min.js.mem` (**required**; will be loaded by the library)
      * `libflac<lib version>-<flac version>.min.js.symbols` (optional; contains renaming information)
-  * WebAssembly variant _(dynamically loaded)_:
+ * WebAssembly variant _(dynamically loaded)_:
      * `libflac<lib version>-<flac version>.min.wasm.js`
      * `libflac<lib version>-<flac version>.min.wasm.wasm` (**required**; will be loaded by the library)
      * `libflac<lib version>-<flac version>.min.wasm.js.symbols` (optional; contains renaming information)
@@ -247,7 +274,7 @@ _(see [`/dist/dev`](dist/dev))_
  * ASM.js Variant:
    * `libflac<lib version>-<flac version>.dev.js`
    * `libflac<lib version>-<flac version>.dev.js.map` (optional; mapping to C code)
-* WebAssembly variant _(dynamically loaded)_:
+ * WebAssembly variant _(dynamically loaded)_:
    * `libflac<lib version>-<flac version>.dev.wasm.js`
    * `libflac<lib version>-<flac version>.dev.wasm.wasm` (**required**; will be loaded by the library)
    * `libflac<lib version>-<flac version>.dev.wasm.js.map` (optional; mapping to C code)
@@ -631,8 +658,8 @@ This project was inspired by Krennmair's [libmp3lame-js][5] project for [JS mp3]
 ## License
 -------
 
-libflac.js is compiled from the reference implementation of FLAC (BSD license)
-and published under the MIT license (see file LICENSE).
+libflac.js is compiled from the reference implementation of FLAC (BSD license);
+the additional resources and wrapper-code of this project is published under the MIT license (see file LICENSE).
 
 
 [1]: https://github.com/kripken/emscripten
