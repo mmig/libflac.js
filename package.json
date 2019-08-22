@@ -1,6 +1,6 @@
 {
     "name": "libflacjs",
-    "version": "4.0.1",
+    "version": "4.0.2",
     "main": "index.js",
     "description": "FLAC encoder compiled in JavaScript using emscripten.",
     "directories": {
