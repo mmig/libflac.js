@@ -28,10 +28,9 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 	var lib, env;
 	if (typeof define === 'function' && define.amd) {
 		// AMD. Register as an anonymous module.
-		define(function () {
-				var _lib = factory(root);
-				lib = _lib;
-				return _lib;
+		define(['require'], function (req) {
+			lib = factory(root, req);
+			return lib;
 		});
 	} else if (typeof module === 'object' && module.exports) {
 		// Node. Does not work with strict CommonJS, but
@@ -40,7 +39,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 
 		// use process.env (if available) for reading Flac environment settings:
 		env = typeof process !== 'undefined' && process && process.env? process.env : root;
-		lib = factory(env);
+		lib = factory(env, module.require);
 		module.exports = lib;
 	} else {
 		// Browser globals
@@ -59,7 +58,7 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 		root.Flac = lib;
 	}
 
-}(typeof self !== 'undefined' ? self : this, function (global) {
+}(typeof self !== 'undefined' ? self : typeof window !== 'undefined' ? window : this, function (global, require) {
 'use strict';
 
 var Module = Module || {};
@@ -79,6 +78,9 @@ if(global && global.FLAC_SCRIPT_LOCATION){
 
 	Module["locateFile"] = function(fileName){
 		var path = global.FLAC_SCRIPT_LOCATION || '';
+		if(path[fileName]){
+			return path[fileName];
+		}
 		path += path && !/\/$/.test(path)? '/' : '';
 		return path + fileName;
 	};
