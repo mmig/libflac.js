@@ -64,7 +64,7 @@ emmake: $(FLAC)
 $(FLAC): $(FLAC).tar.xz
 	$(XZ) -dc $@.tar.xz | $(TAR) -xv && \
 	cd $@ && \
-	$(EMCONFIGURE) ./configure --disable-asm-optimizations --disable-3dnow --disable-altivec --disable-thorough-tests --disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs --disable-ogg --disable-oggtest && \
+	$(EMCONFIGURE) ./configure --host=asmjs --disable-asm-optimizations --disable-3dnow --disable-altivec --disable-thorough-tests --disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs --disable-ogg --disable-oggtest && \
 	$(EMMAKE) make
 
 $(FLAC).tar.xz:
