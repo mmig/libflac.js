@@ -47,7 +47,7 @@ dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.wasm.js: $(FLAC) $(PREFILE) $(POS
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.wasm.js: $(FLAC) $(PREFILE) $(POSTFILE)
 	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC)/src/libFLAC/.libs/libFLAC-static.a -o $@
 
-# custom builds that includ OGG
+# custom builds that includes OGG
 
 dist/libflac$(LIB_VERSION)-vs-$(FLAC_VERSION).js: $(FLAC) $(PREFILE) $(POSTFILE)
 	$(EMCC) $(EMCC_DEF_OPT_LEVEL) $(EMCC_OPTS) -s USE_OGG=1 --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC)/src/libFLAC/.libs/libFLAC-static.a -o $@
