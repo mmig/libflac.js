@@ -1,6 +1,8 @@
 EMCC:=emcc
 EMCC_DEF_OPT_LEVEL:=-O1
-EMCC_MAX_OPT_LEVEL:=-O0 -g4
+EMCC_MAX_OPT_LEVEL:=-O0
+EMCC_MAX_OPT_LEVEL_ASMJS=$(EMCC_MAX_OPT_LEVEL) -g3
+EMCC_MAX_OPT_LEVEL_WASM=$(EMCC_MAX_OPT_LEVEL) -g4
 EMCC_MIN_OPT_LEVEL:=-O3
 EMCC_OPTS_GENERAL:=-s NO_EXIT_RUNTIME=1 -s LINKABLE=1 -s RESERVED_FUNCTION_POINTERS=5 -s ALLOW_MEMORY_GROWTH=1 -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["ccall","cwrap","getValue","setValue"]' -s EXPORTED_FUNCTIONS='["_FLAC__stream_encoder_set_verify","_FLAC__stream_encoder_set_compression_level","_FLAC__stream_encoder_set_blocksize","_FLAC__stream_encoder_new","_FLAC__stream_encoder_set_channels","_FLAC__stream_encoder_set_bits_per_sample","_FLAC__stream_encoder_set_sample_rate","_FLAC__stream_encoder_set_total_samples_estimate","_FLAC__stream_decoder_new","_FLAC__stream_decoder_set_md5_checking","_FLAC__stream_encoder_init_stream","_FLAC__stream_decoder_init_stream","_FLAC__stream_encoder_process_interleaved","_FLAC__stream_decoder_process_single","_FLAC__stream_decoder_process_until_end_of_stream","_FLAC__stream_decoder_process_until_end_of_metadata","_FLAC__stream_decoder_get_state","_FLAC__stream_encoder_get_state","_FLAC__stream_decoder_get_md5_checking","_FLAC__stream_encoder_finish","_FLAC__stream_decoder_finish","_FLAC__stream_decoder_reset","_FLAC__stream_encoder_delete","_FLAC__stream_decoder_delete"]'
 EMCC_OPTS_ASMJS_DEV:=$(EMCC_OPTS_GENERAL) -s WASM=0
@@ -32,7 +34,7 @@ dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.js: $(FLAC) $(PREFILE) $(POSTFILE
 	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
 
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_ASMJS_DEV) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
+	$(EMCC) $(EMCC_MAX_OPT_LEVEL_ASMJS) $(EMCC_OPTS_ASMJS_DEV) --pre-js $(PREFILE) --post-js $(POSTFILE) $(wildcard $(FLAC)/src/libFLAC/.libs/libFLAC-static.a) -o $@
 
 # wasm builds
 
@@ -45,7 +47,7 @@ dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).min.wasm.js: $(FLAC) $(PREFILE) $(POS
 	$(EMCC) $(EMCC_MIN_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC)/src/libFLAC/.libs/libFLAC-static.a -o $@
 
 dist/libflac$(LIB_VERSION)-$(FLAC_VERSION).dev.wasm.js: $(FLAC) $(PREFILE) $(POSTFILE)
-	$(EMCC) $(EMCC_MAX_OPT_LEVEL) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC)/src/libFLAC/.libs/libFLAC-static.a -o $@
+	$(EMCC) $(EMCC_MAX_OPT_LEVEL_WASM) $(EMCC_OPTS_WASM_DEFAULT) --pre-js $(PREFILE) --post-js $(POSTFILE) $(FLAC)/src/libFLAC/.libs/libFLAC-static.a -o $@
 
 # custom builds that includes OGG
 
