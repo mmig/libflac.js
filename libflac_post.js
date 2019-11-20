@@ -493,6 +493,9 @@ var add_event_listener = function (eventName, listener){
 	} else {
 		list.push(listener);
 	}
+	check_and_trigger_persisted_event(eventName, listener);
+};
+var check_and_trigger_persisted_event = function(eventName, listener){
 	var activated;
 	for(var i=persistedEvents.length-1; i >= 0; --i){
 		activated = persistedEvents[i];
@@ -560,24 +563,45 @@ var _exported = {
 	/**
 	 * Returns if Flac has been initialized / is ready to be used.
 	 *
-	 * @returns {boolean} true, if Flac is ready to be used
+	 * @returns {boolean} <code>true</code>, if Flac is ready to be used
 	 *
 	 * @memberOf Flac#
+	 * @function
+	 * @see #onready
+	 * @see #on
 	 */
 	isReady: function() { return _flac_ready; },
 	/**
 	 * Callback that gets called, when asynchronous initialization has finished.
 	 *
-	 * Note that this function is not called again, after #isReady() is TRUE
+	 * NOTE that if the execution environment does not support Object.defineProperty, then
+	 *      this function is not called, after {@link #isReady()} is <code>true</code>.
+	 *      In this case, {@link #isReady()} should be checked, before setting <code>onready</code>
+	 *      and if it is TRUE, handler should be executed immediately instead of setting <code>onready</code>.
 	 *
 	 * @memberOf Flac#
 	 * @function
+	 * @see #isReady
+	 * @see #on
 	 * @example
+	 *  // [1] if Object.defineProperty() IS supported:
+	 *  Flac.onready = function(){
+	 *     //gets executed when library becomes ready, or immediately, if it already is ready...
+	 *	   doSomethingWithFlac();
+	 *  };
+	 *
+	 *  // [2] if Object.defineProperty() is NOT supported:
+	 *	// do check Flac.isReady(), and only set handler, if not ready yet
+	 *  // (otherwise immediately excute handler code)
 	 *  if(!Flac.isReady()){
 	 *    Flac.onready = function(){
 	 *       //gets executed when library becomes ready...
+	 *		 doSomethingWithFlac();
 	 *    };
-	 *  }
+	 *  } else {
+	 * 		// Flac is already ready: immediately start processing
+	 *		doSomethingWithFlac();
+	 *	}
 	 */
 	onready: void(0),
 	/**
@@ -594,6 +618,8 @@ var _exported = {
 	 *
 	 * @memberOf Flac#
 	 * @function
+	 * @see #off
+	 * @see #onready
 	 * @example
 	 *  Flac.on('ready', function(){
 	 *     //gets executed when library is ready, or becomes ready...
@@ -602,11 +628,12 @@ var _exported = {
 	on: add_event_listener,
 	/**
 	 * Remove an event listener for module-events.
-	 * @function
 	 * @param {string} eventName
 	 * @param {Function} listener
 	 *
 	 * @memberOf Flac#
+	 * @function
+	 * @see #on
 	 */
 	off: remove_event_listener,
 
@@ -786,7 +813,11 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		}
 		return 0;
 	},
-	/** @deprecated use {@link #create_libflac_encoder} instead */
+	/**
+	 * @deprecated use {@link #create_libflac_encoder} instead
+	 * @memberOf Flac#
+	 * @function
+	 */
 	init_libflac_encoder: function(){ return this.create_libflac_encoder.apply(this, arguments); },
 
 	/**
@@ -811,7 +842,11 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		}
 		return 0;
 	},
-	/** @deprecated use {@link #create_libflac_decoder} instead */
+	/**
+	 * @deprecated use {@link #create_libflac_decoder} instead
+	 * @memberOf Flac#
+	 * @function
+	 */
 	init_libflac_decoder: function(){ return this.create_libflac_decoder.apply(this, arguments); },
 
 	/**
@@ -1214,6 +1249,28 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	}
 
 };//END: var _exported = {
+
+//if Properties are supported by JS execution environment:
+// support "immediate triggering" onready function, if library is already initialized when setting onready callback
+if(typeof Object.defineProperty === 'function'){
+	//add internal field for storing onready callback:
+	_exported._onready = void(0);
+	//define getter & define setter with "immediate trigger" functionality:
+	Object.defineProperty(_exported, 'onready', {
+		get() { return this._onready; },
+		set(newValue) {
+			this._onready = newValue;
+			if(this.isReady()){
+				check_and_trigger_persisted_event('ready', newValue);
+			}
+		}
+	});
+} else {
+	//if Properties are NOTE supported by JS execution environment:
+	// pring usage warning for onready hook instead
+	console.warn('WARN: note that setting Flac.onready handler after Flac.isReady() is already true, will have no effect, that is, the handler function will not be triggered!');
+}
+
 return _exported;
 
 }));//END: UMD wrapper
