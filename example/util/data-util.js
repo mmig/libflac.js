@@ -4,7 +4,7 @@
 /**
  *  creates one buffer out of an array of arraybuffers
  *  needs the exact amount of bytes used by the array of arraybuffers
- *  
+ *
  *  @param channelBuffer {Array<Uint8Array>}
  *  @param recordingLength {Number} byte-length for target/returned Uint8Array
  *  @returns {Uint8Array} the concatenated data for the list of buffered Uint8Array data
@@ -22,14 +22,14 @@ function mergeBuffers(channelBuffer, recordingLength){
 }
 
 /**
- * 
+ *
  * @param recBuffers {Array<Array<Uint8Array>>}
  * 			the array of buffered audio data, where each entry contains an array for the channels, i.e.
  * 			recBuffers[0]: [channel_1_data, channel_2_data, ..., channel_n_data]
  * 			recBuffers[1]: [channel_1_data, channel_2_data, ..., channel_n_data]
  * 			...
  * 			recBuffers[length-1]: [channel_1_data, channel_2_data, ..., channel_n_data]
- * 
+ *
  * @param channels {Number} count of channels
  * @param bitsPerSample {Number} bits per sample, i.e.: bitsPerSample/8 == bytes-per-sample
  * @returns {Uint8Array} audio data where channels are interleaved
@@ -41,7 +41,7 @@ function interleave(recBuffers, channels, bitsPerSample){
 	for(var i=0; i < channels; ++i){
 		dataLength += getLengthFor(recBuffers, i);
 	}
-	
+
 	var result = new Uint8Array(dataLength);
 
 	var byteLen = bitsPerSample / 8;
@@ -53,15 +53,15 @@ function interleave(recBuffers, channels, bitsPerSample){
 		b_i = 0;
 
 	for(var arrNum = 0, arrCount = recBuffers.length; arrNum < arrCount; ++arrNum){
-		
+
 		//for each buffer (i.e. array of Uint8Arrays):
 		buff = recBuffers[arrNum];
 		buffLen = buff[0].length;
 		inputIndex = 0;
-		
+
 		//interate over buffer
 		while(inputIndex < buffLen){
-			
+
 			//write channel data
 			for(ch_i=0; ch_i < channels; ++ch_i){
 				//write sample-length
@@ -79,18 +79,18 @@ function interleave(recBuffers, channels, bitsPerSample){
 
 /**
  * creates blob element PCM audio data incl. WAV header
- * 
+ *
  * @param recBuffers {Array<Array<Uint8Array>>}
  * 			the array of buffered audio data, where each entry contains an array for the channels, i.e.
  * 			recBuffers[0]: [channel_1_data, channel_2_data, ..., channel_n_data]
  * 			recBuffers[1]: [channel_1_data, channel_2_data, ..., channel_n_data]
  * 			...
  * 			recBuffers[length-1]: [channel_1_data, channel_2_data, ..., channel_n_data]
- * 
+ *
  * @returns {Blob} blob with MIME type audio/wav
  */
 function exportWavFile(recBuffers, sampleRate, channels, bitsPerSample){
-	
+
 	//convert buffers into one single buffer
 	var samples = interleave(recBuffers, channels, bitsPerSample);
 	var dataView = encodeWAV(samples, sampleRate, channels, bitsPerSample);
@@ -113,7 +113,7 @@ function exportFlacFile(recBuffers, metaData){
 }
 
 /**
- * 
+ *
  * @param recBuffers {Array<TypedArray>}
  * @returns {Number}
  * 			the byte-length
@@ -129,10 +129,10 @@ function getLength(recBuffers){
 }
 
 /**
- * 
+ *
  * @param recBuffers {Array<Array<TypedArray>>}
  * @param index {Number}
- * 			selects the Array<TypedArray> within the outer Array, for which the byte-length should be calculated 
+ * 			selects the Array<TypedArray> within the outer Array, for which the byte-length should be calculated
  * @returns {Number}
  * 			the byte-length
  */
@@ -148,18 +148,18 @@ function getLengthFor(recBuffers, index){
 
 /**
  * write PCM data to a WAV file, incl. header
- * 
+ *
  * @param samples {Uint8Array} the PCM audio data
  * @param sampleRate {Number} the sample rate for the audio data
  * @param channels {Number} the number of channels that the audio data contains
- * 
+ *
  * @returns {DataView} the WAV data incl. header
  */
 function encodeWAV(samples, sampleRate, channels, bitsPerSample){
 
 	var bytePerSample = bitsPerSample / 8;
 	var length = samples.length * samples.BYTES_PER_ELEMENT;
-	
+
 	var buffer = new ArrayBuffer(44 + length);
 	var view = new DataView(buffer);
 
@@ -197,7 +197,7 @@ function encodeWAV(samples, sampleRate, channels, bitsPerSample){
 
 /**
  * data (missing) meta-data to STREAMINFO meta-data block of the FLAC data
- * 
+ *
  * @param chunks {Array<Uint8Array} data chunks of encoded FLAC audio, where the first one is the one produced after encoder was initialized and feed the first/multiple audio frame(s)
  * @param metadata {FlacStreamInfo} the FLAC stream-info (meta-data)
  */
@@ -209,15 +209,15 @@ function addFLACMetaData(chunks, metadata){
 		console.error('Unknown data format: cannot add additional FLAC meta data to header');
 		return;
 	}
-	
+
 	//first chunk only contains the flac identifier string?
 	if(data.length == 4){
 		data = chunks[1];//get 2nd data chunk which should contain STREAMINFO meta-data block (and probably more)
-		offset = 0;	
+		offset = 0;
 	}
-	
+
 	var view = new DataView(data.buffer);
-	
+
 	//NOTE by default, the encoder writes a 2nd meta-data block (type VORBIS_COMMENT) with encoder/version info -> do not set "is last" to TRUE for first one
 //	// write "is last meta data block" & type STREAMINFO type (0) as little endian combined uint1 & uint7 -> uint8:
 //	var isLast = 1;//1 bit
@@ -227,19 +227,19 @@ function addFLACMetaData(chunks, metadata){
 	// block-header: STREAMINFO type, block length -> already set
 
 	// block-content: min_blocksize, min_blocksize -> already set
-	
+
 	// write min_framesize as little endian uint24:
 	view.setUint8( 8 + offset, metadata.min_framesize >> 16, true);//24 bit
 	view.setUint8( 9 + offset, metadata.min_framesize >> 8, true);//24 bit
 	view.setUint8(10 + offset, metadata.min_framesize, true);//24 bit
-	
+
 	// write max_framesize as little endian uint24:
 	view.setUint8(11 + offset, metadata.max_framesize >> 16, true);//24 bit
 	view.setUint8(12 + offset, metadata.max_framesize >> 8, true);//24 bit
 	view.setUint8(13 + offset, metadata.max_framesize, true);//24 bit
 
 	// block-content: sampleRate, channels, bitsPerSample -> already set
-	
+
 	// write total_samples as little endian uint36:
 	//TODO set last 4 bits to half of the value in index 17
 	view.setUint8(18 + offset, metadata.total_samples >> 24, true);//36 bit
@@ -251,7 +251,7 @@ function addFLACMetaData(chunks, metadata){
 }
 
 /**
- * 
+ *
  * @param view {DataView}
  * 				the buffer into which the MD5 checksum will be written
  * @param offset {Number}
@@ -299,7 +299,7 @@ function wav_file_processing_check_wav_format(ui8_data){
  *  checks if the given ui8_data (ui8array) is of a flac-file
  */
 function flac_file_processing_check_flac_format(ui8_data){
-	
+
 	// check: is file a compatible flac-file?
 	if ((ui8_data.length < 42) ||
 		(String.fromCharCode.apply(null, ui8_data.subarray(0,4)) != "fLaC")
@@ -307,14 +307,14 @@ function flac_file_processing_check_flac_format(ui8_data){
 		console.log("ERROR: wrong format for flac-file.");
 		return false;
 	}
-	
+
 	var view = new DataView(ui8_data.buffer);
 	//check last 7 bits of 4th byte for meta-data BLOCK type: must be STREAMINFO (0)
 	if ((view.getUint8(4) & 0x7f) != 0){
 		console.log("ERROR: wrong format for flac-file.");
-		return false;	
+		return false;
 	}
-	
+
 	return true;
 }
 
@@ -334,7 +334,7 @@ function wav_file_processing_read_parameters(ui8_data){
 	bps = ui8_data[34];
 	block_align = ui8_data[32];
 	total_samples = ((((((ui8_data[43] << 8) | ui8_data[42]) << 8) | ui8_data[41]) << 8) | ui8_data[40]) / block_align;
-	
+
 	return {
 		sample_rate: sample_rate,
 		channels: channels,
@@ -345,7 +345,7 @@ function wav_file_processing_read_parameters(ui8_data){
 }
 
 /**
- *  converts the PCM data of the wav file (each sample stored as 16 bit value) into 
+ *  converts the PCM data of the wav file (each sample stored as 16 bit value) into
  *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
  */
 function wav_file_processing_convert_16bitdata_to32bitdata(arraybuffer){
@@ -389,4 +389,3 @@ function getDownloadLink(blob, filename, omitLinkLabel){
 	}
 	return link;
 }
-

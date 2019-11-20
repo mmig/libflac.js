@@ -8,8 +8,8 @@ function encodeFlac(binData, recBuffers, isVerify){
 		total_samples=0,
 		block_align,
 		position=0,
-	    recLength = 0,
-	    meta_data;
+		recLength = 0,
+		meta_data;
 
 	/**
 	 *  records/saves the output data of libflac-encode method
@@ -19,7 +19,7 @@ function encodeFlac(binData, recBuffers, isVerify){
 		recLength += bytes;
 		// recLength += buffer.byteLength;
 	}
-	
+
 	function metadata_callback_fn(data){
 		console.info('meta data: ', data);
 		meta_data = data;
@@ -29,7 +29,7 @@ function encodeFlac(binData, recBuffers, isVerify){
 	if (wav_file_processing_check_wav_format(ui8_data) == false){
 		return {error: 'Wrong WAV file format', status: 0};
 	}
-	
+
 	// get WAV/PCM parameters from data / file
 	var wav_parameters = wav_file_processing_read_parameters(ui8_data);
 
@@ -51,10 +51,10 @@ function encodeFlac(binData, recBuffers, isVerify){
 		console.log("flac init: " + flac_ok);
 	} else {
 		var msg = 'Error initializing the decoder.';
-	    console.error(msg);
+		console.error(msg);
 		return {error: msg, status: 1};
 	}
-	
+
 	// convert the PCM-Data to the appropriate format for the libflac library methods (32-bit array of samples)
 	// creates a new array (32-bit) and stores the 16-bit data of the wav-file as 32-bit data
 	var buffer_i32 = wav_file_processing_convert_16bitdata_to32bitdata(ui8_data.buffer);
@@ -64,10 +64,10 @@ function encodeFlac(binData, recBuffers, isVerify){
 	if (flac_return != true){
 		console.log("Error: FLAC__stream_encoder_process_interleaved returned false. " + flac_return);
 	}
-	
+
 	flac_ok &= Flac.FLAC__stream_encoder_finish(flac_encoder);
-	
+
 	Flac.FLAC__stream_encoder_delete(flac_encoder);
-	
+
 	return {metaData: meta_data, status: flac_ok};
 }

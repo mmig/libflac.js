@@ -1,14 +1,14 @@
 
 /**
- * Handle loaded WAV file: encode to FLAC 
- * 
+ * Handle loaded WAV file: encode to FLAC
+ *
  * @param evt
  * 			evt.result {Blob} binary file contents
  * 			evt.fileInfoId {String}
  * 			evt.fileName {String}
  */
 function onWavLoad(evt) {
-	
+
 	var fileInfo = [];
 
 	var arrayBuffer = new Uint8Array(this.result);
@@ -16,7 +16,7 @@ function onWavLoad(evt) {
 	var encData = [];
 	var result = encodeFlac(arrayBuffer, encData, isVerify());
 	console.log('encoded data array: ', encData);
-	
+
 	if(result.error){
 		fileInfo.push('</br><span style="color: red;">', result.error, '</span>');
 	}
@@ -38,12 +38,12 @@ function onWavLoad(evt) {
 
 	var fileInfoEl = document.getElementById(evt.fileInfoId);
 	fileInfoEl.innerHTML = fileInfo.join('') ;
-	
+
 	if(!result.error){
-		
+
 		//using data-util.js utility function(s)
 		var blob = exportFlacFile(encData, metaData);
-		
+
 		var fileName = getFileName(evt.fileName, 'flac');
 
 		//using data-util.js utility function(s)

@@ -163,7 +163,7 @@ If the library-file is not loaded from the default location ("page root"), but f
 let the library know, so that it searches for the additional files, that it needs to load, in that sub-directory/-path.
 
 For this, the path/location must be stored in the global variable `FLAC_SCRIPT_LOCATION` *before* the `libflac.js`
-library is loaded. 
+library is loaded.
 If `FLAC_SCRIPT_LOCATION` is given as `string`, it specifies the path to the `libflac.js` files (see examples below), e.g.
 ```javascript
 //location example as string:
@@ -452,8 +452,8 @@ function write_callback_fn(buffer){
 
 //[1] (c) optional callbacks for receiving details about errors and/or metadata
 
-function error_callback_fn(decoder, err, client_data){
-    console.error('decode error callback', err);
+function error_callback_fn(err, errMsg, client_data){
+    console.error('decode error callback', err, errMsg);
 }
 
 function metadata_callback_fn(data){
