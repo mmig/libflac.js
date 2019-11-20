@@ -48,8 +48,8 @@ function decodeFlac(binData, decData, isVerify){
 	}
 
 	/** @memberOf decode */
-	function error_callback_fn(decoder, err, client_data){
-		console.log('decode error callback', err);
+	function error_callback_fn(err, errMsg, client_data){
+		console.log('decode error callback', err, errMsg);
 	}
 
 	// check: is file a compatible flac-file?
