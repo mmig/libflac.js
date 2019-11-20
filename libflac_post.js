@@ -211,12 +211,17 @@ var FLAC__STREAM_DECODER_READ_STATUS_ABORT = 2;
 var FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE = 0;
 var FLAC__STREAM_DECODER_WRITE_STATUS_ABORT = 1;
 
-//FLAC__STREAM_DECODER_INIT_STATUS_OK						Initialization was successful.
-//FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER 	The library was not compiled with support for the given container format.
-//FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS 			A required callback was not supplied.
-//FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR 	An error occurred allocating memory.
-//FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE 		fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
-//FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED 		FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
+/**
+ * @interface FLAC__StreamDecoderInitStatus
+ * @memberOf Flac
+ *
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_OK"}	0 	Initialization was successful.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}	1 	The library was not compiled with support for the given container format.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS"}	2 	A required callback was not supplied.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR"}	3 	An error occurred allocating memory.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE"}	4 	fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED"}	5 	FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
+ */
 var FLAC__STREAM_DECODER_INIT_STATUS_OK	= 0;
 var FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER	= 1;
 var FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS	= 2;
@@ -224,25 +229,30 @@ var FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR = 3;
 var FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE = 4;
 var FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED = 5;
 
-//FLAC__STREAM_ENCODER_INIT_STATUS_OK									Initialization was successful.
-//FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR						General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
-//FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER				The library was not compiled with support for the given container format.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS					A required callback was not supplied.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS			The encoder has an invalid setting for number of channels.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE				The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE					The encoder has an invalid setting for the input sample rate.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE					The encoder has an invalid setting for the block size.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER				The encoder has an invalid setting for the maximum LPC order.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION			The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
-//FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER	The specified block size is less than the maximum LPC order.
-//FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE						The encoder is bound to the Subset but other settings violate it.
-//FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA						The metadata input to the encoder is invalid, in one of the following ways:
-//																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
-//																	      One of the metadata blocks contains an undefined type
-//																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
-//																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
-//																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
-//FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED					FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
+/**
+ * @interface FLAC__StreamEncoderInitStatus
+ * @memberOf Flac
+ *
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_OK"}	0 	Initialization was successful.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR"}	1 	General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}	2 	The library was not compiled with support for the given container format.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS"}	3 	A required callback was not supplied.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS"}	4 	The encoder has an invalid setting for number of channels.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE"}	5 	The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE"}	6 	The encoder has an invalid setting for the input sample rate.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE"}	7 	The encoder has an invalid setting for the block size.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER"}	8 	The encoder has an invalid setting for the maximum LPC order.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION"}	9 	The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER"}	10 	The specified block size is less than the maximum LPC order.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE"}	11 	The encoder is bound to the Subset but other settings violate it.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA"}	12 	The metadata input to the encoder is invalid, in one of the following ways:
+ *																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
+ *																	      One of the metadata blocks contains an undefined type
+ *																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
+ *																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
+ *																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED"}	13 	FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
+ */
 var FLAC__STREAM_ENCODER_INIT_STATUS_OK = 0;
 var FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR = 1;
 var FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER = 2;
@@ -399,34 +409,34 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 	return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }, 'iiiii');
 
-
+/**
+ * Decoding error codes.
+ *
+ * <br>
+ * If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.
+ *
+ * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"}					0   An error in the stream caused the decoder to lose synchronization.
+ * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"}  				1   The decoder encountered a corrupted frame header.
+ * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"}	2   The frame's data did not match the CRC in the footer.
+ * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"}	3   The decoder encountered reserved fields in use in the stream.
+ *
+ *
+ * @interface FLAC__StreamDecoderErrorStatus
+ * @memberOf Flac
+ */
+var DecoderErrorCode = {
+	0: 'FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC',
+	1: 'FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER',
+	2: 'FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH',
+	3: 'FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM'
+}
 
 //(const FLAC__StreamDecoder *decoder, FLAC__StreamDecoderErrorStatus status, void *client_data)
 // -> void
 var dec_error_fn_ptr = addFunction(function(p_decoder, err, p_client_data){
 
 	//err:
-	// FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC         An error in the stream caused the decoder to lose synchronization.
-	// FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER       The decoder encountered a corrupted frame header.
-	// FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH   The frame's data did not match the CRC in the footer.
-	// FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM   The decoder encountered reserved fields in use in the stream.
-	var msg;
-	switch(err){
-	case 0:
-		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC';
-		break;
-	case 1:
-		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER';
-		break;
-	case 2:
-		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH';
-		break;
-	case 3:
-		msg = 'FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM';
-		break;
-	default:
-		msg = 'FLAC__STREAM_DECODER_ERROR__UNKNOWN__';//<- this should never happen
-	}
+	var msg = DecoderErrorCode[err] || 'FLAC__STREAM_DECODER_ERROR__UNKNOWN__';//<- this should never happen;
 
 	var error_callback_fn = getCallback(p_decoder, 'error');
 	error_callback_fn(err, msg, p_client_data);
@@ -546,6 +556,12 @@ var do_fire_event = function (eventName, args, isPersist){
  * The <code>Flac</code> module that provides functionality
  * for encoding WAV/PCM audio to Flac and decoding Flac to PCM.
  *
+ * <br/><br/>
+ * <p>
+ * NOTE most functions are named analogous to the original C library functions,
+ *      so that its documentation may be used for further reading.
+ * </p>
+ *
  * @see https://xiph.org/flac/api/group__flac__stream__encoder.html
  * @see https://xiph.org/flac/api/group__flac__stream__decoder.html
  *
@@ -572,17 +588,18 @@ var _exported = {
 	 */
 	isReady: function() { return _flac_ready; },
 	/**
-	 * Callback that gets called, when asynchronous initialization has finished.
+	 * Hook for handler function that gets called, when asynchronous initialization has finished.
 	 *
-	 * NOTE that if the execution environment does not support Object.defineProperty, then
-	 *      this function is not called, after {@link #isReady()} is <code>true</code>.
-	 *      In this case, {@link #isReady()} should be checked, before setting <code>onready</code>
-	 *      and if it is TRUE, handler should be executed immediately instead of setting <code>onready</code>.
+	 * NOTE that if the execution environment does not support <code>Object#defineProperty</code>, then
+	 *      this function is not called, after {@link #isReady} is <code>true</code>.
+	 *      In this case, {@link #isReady} should be checked, before setting <code>onready</code>
+	 *      and if it is <code>true</code>, handler should be executed immediately instead of setting <code>onready</code>.
 	 *
 	 * @memberOf Flac#
 	 * @function
 	 * @see #isReady
 	 * @see #on
+	 * @default undefined
 	 * @example
 	 *  // [1] if Object.defineProperty() IS supported:
 	 *  Flac.onready = function(){
@@ -605,11 +622,27 @@ var _exported = {
 	 */
 	onready: void(0),
 	/**
+	 * Ready event: is fired when the library has been initialized and is ready to be used
+	 * (e.g. asynchronous loading of binary / WASM modules has been completed).
+	 *
+	 * Before this event is fired, use of functions related to encoding and decoding may
+	 * cause errors.
+	 *
+	 * @event ReadyEvent
+	 * @memberOf Flac
+	 * @type {object}
+	 * @property {string} type 	the type of the event <code>"ready"</code>
+	 * @property {Flac} target 	the initalized FLAC library instance
+	 *
+	 * @see #isReady
+	 * @see #on
+	 */
+	/**
 	 * Add an event listener for module-events.
 	 * Supported events:
 	 * <ul>
-	 *  <li> <code>"ready"</code>: emitted when module is ready for usage (i.e. {@link #isReady} is true)<br/>
-	 *             (NOTE listener will get immediately triggered if module is already <code>"ready"</code>)
+	 *  <li> <code>"ready"</code> &rarr; {@link Flac.event:ReadyEvent}: emitted when module is ready for usage (i.e. {@link #isReady} is true)<br/>
+	 *             <em>NOTE listener will get immediately triggered if module is already <code>"ready"</code></em>
 	 *  </li>
 	 * </ul>
 	 *
@@ -621,7 +654,7 @@ var _exported = {
 	 * @see #off
 	 * @see #onready
 	 * @example
-	 *  Flac.on('ready', function(){
+	 *  Flac.on('ready', function(event){
 	 *     //gets executed when library is ready, or becomes ready...
 	 *  });
 	 */
@@ -848,39 +881,55 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @function
 	 */
 	init_libflac_decoder: function(){ return this.create_libflac_decoder.apply(this, arguments); },
-
+	/**
+	 * the callback for writing the encoded FLAC data.
+	 *
+	 * @callback Flac~encoder_write_callback_fn
+	 * @param {Uint8Array} data the encoded FLAC data
+	 * @param {number} numberOfBytes the number of bytes in data
+	 * @param {number} samples the number of samples encoded in data
+	 * @param {number} currentFrame the number of the (current) encoded frame in data
+	 */
+	/**
+	 * the callback for the metadata of the encoded/decoded Flac data.
+	 * @callback Flac~metadata_callback_fn
+	 * @param {Flac.StreamMetadata} metadata the FLAC meta data
+	 */
+	/**
+	 * FLAC meta data
+	 * @interface Metadata
+	 * @memberOf Flac
+	 * @property {number}  sampleRate the sample rate (Hz)
+	 * @property {number}  channels the number of channels
+	 * @property {number}  bitsPerSample bits per sample
+	 */
+	/**
+	 * FLAC stream meta data
+	 * @interface StreamMetadata
+	 * @memberOf Flac
+	 * @augments Flac.Metadata
+	 * @property {number}  min_blocksize the minimal block size (bytes)
+	 * @property {number}  max_blocksize the maximal block size (bytes)
+	 * @property {number}  min_framesize the minimal frame size (bytes)
+	 * @property {number}  max_framesize the maximal frame size (bytes)
+	 * @property {number}  total_samples the total number of (encoded/decoded) samples
+	 * @property {string}  md5sum  the MD5 checksum for the decoded data (if validation is active)
+	 */
 	/**
 	 * Initialize the decoder.
 	 *
 	 * @param {number} encoder
 	 * 				the ID of the encoder instance
 	 *
-	 * @param {Function} write_callback_fn
+	 * @param {Flac~encoder_write_callback_fn} write_callback_fn
 	 * 				the callback for writing the encoded Flac data:
-	 * 				<pre>
-	 * 				write_callback_fn(data: Uint8Array, numberOfBytes: Number, samples: Number, currentFrame: Number)
+	 * 				<pre>write_callback_fn(data: Uint8Array, numberOfBytes: Number, samples: Number, currentFrame: Number)</pre>
 	 *
-	 * 				data: the encoded Flac data
-	 * 				numberOfBytes: the number of bytes in data
-	 * 				samples: the number of samples encoded in data
-	 * 				currentFrame: the number of the (current) encoded frame in data
-	 * 				</pre>
-	 *
-	 * @param {Function} [metadata_callback_fn] OPTIONAL
+	 * @param {Flac~metadata_callback_fn} [metadata_callback_fn] OPTIONAL
 	 * 				the callback for the metadata of the encoded Flac data:
-	 * 				<pre>
-	 * 				metadata_callback_fn(metadata: StreamMetadata)
+	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
 	 *
-	 * 				metadata.min_blocksize (Number): the minimal block size (bytes)
-	 * 				metadata.max_blocksize (Number): the maximal block size (bytes)
-	 * 				metadata.min_framesize (Number): the minimal frame size (bytes)
-	 * 				metadata.max_framesize (Number): the maximal frame size (bytes)
-	 * 				metadata.sampleRate (Number): the sample rate (Hz)
-	 * 				metadata.channels (Number): the number of channels
-	 * 				metadata.bitsPerSample (Number): bits per sample
-	 * 				metadata.total_samples (Number): the total number of (decoded) samples
-	 * 				metadata.md5sum (String): the MD5 checksum for the decoded data (if validation is active)
-	 * 				</pre>
+	 * @returns {number} the encoder status, see {@link Flac.FLAC__StreamEncoderInitStatus}
 	 *
 	 * @memberOf Flac#
 	 * @function
@@ -904,78 +953,80 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 				'FLAC__stream_encoder_init_stream', 'number',
 				['number', 'number', 'number', 'number', 'number', 'number'],
 				[
-				 	encoder,
-				 	enc_write_fn_ptr,
-				 	0,//	FLAC__StreamEncoderSeekCallback
-				 	0,//	FLAC__StreamEncoderTellCallback
-				 	__metadata_callback_fn_ptr,
-				 	client_data
+					encoder,
+					enc_write_fn_ptr,
+					0,//	FLAC__StreamEncoderSeekCallback
+					0,//	FLAC__StreamEncoderTellCallback
+					__metadata_callback_fn_ptr,
+					client_data
 				]
 		);
 
 		return init_status;
 	},
-
+	/**
+	 * Result / return value for {@link Flac~decoder_read_callback_fn} callback function
+	 *
+	 * @interface ReadResult
+	 * @memberOf Flac
+	 * @property {TypedArray}  buffer  a TypedArray (e.g. Uint8Array) with the read data
+	 * @property {number}  readDataLength the number of read data bytes. A number of 0 (zero) indicates that the end-of-stream is reached.
+	 * @property {boolean}  error <code>true</code> indicates that an error occured (decoding will be aborted)
+	 */
+	/**
+	 * the callback for writing the encoded FLAC data.
+	 *
+	 * @callback Flac~decoder_read_callback_fn
+	 * @param {number} numberOfBytes the maximal number of bytes that the read callback can return
+	 * @returns {Flac.ReadResult} the result of the reading action/request
+	 */
+	/**
+	 * the callback for writing the encoded FLAC data.
+	 *
+	 * @callback Flac~decoder_write_callback_fn
+	 * @param {Uint8Array} data the decoded PCM data as Uint8Array
+	 * @param {Flac.BlockMetadata} frameInfo the metadata information for the decoded data
+	 */
+	/**
+	 * the callback for reporting decoding errors.
+	 *
+	 * @callback Flac~decoder_error_callback_fn
+	 * @param {number} errorCode the error code
+	 * @param {Flac.FLAC__StreamDecoderErrorStatus} errorDescription the string representation / description of the error
+	 */
+	/**
+	 * FLAC block meta data
+	 * @interface BlockMetadata
+	 * @augments Flac.Metadata
+	 * @memberOf Flac
+	 *
+	 * @property {number}  blocksize the block size (bytes)
+	 * @property {number}  number the number of the decoded samples
+	 * @property {string}  crc the MD5 checksum for the decoded data (if validation is active)
+	 */
 	/**
 	 * Initialize the decoder.
 	 *
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
-	 * @param {Function} read_callback_fn
+	 * @param {Flac~decoder_read_callback_fn} read_callback_fn
 	 * 				the callback for reading the Flac data that should get decoded:
-	 * 				<pre>
-	 * 				read_callback_fn(numberOfBytes: Number) : {buffer: ArrayBuffer, readDataLength: number, error: boolean}
+	 * 				<pre>read_callback_fn(numberOfBytes: Number) : {buffer: ArrayBuffer, readDataLength: number, error: boolean}</pre>
 	 *
-	 * 				numberOfBytes: the maximal number of bytes that the read callback can return
-	 *
-	 * 				RETURN.buffer: a TypedArray (e.g. Uint8Array) with the read data
-	 * 				RETURN.readDataLength: the number of read data bytes. A number of 0 (zero) indicates that the end-of-stream is reached.
-	 * 				RETURN.error: TRUE indicates that an error occurs (decoding will be aborted)
-	 * 				</pre>
-	 *
-	 * @param {Function} write_callback_fn
+	 * @param {Flac~decoder_write_callback_fn} write_callback_fn
 	 * 				the callback for writing the decoded data:
-	 * 				<pre>
-	 * 				write_callback_fn(data: TypedArray, frameInfo: Metadata)
+	 * 				<pre>write_callback_fn(data: TypedArray, frameInfo: Metadata)</pre>
 	 *
-	 * 				data: the decoded PCM data as Uint8Array
-	 * 				frameInfo: the metadata information for the decoded data with
-	 * 				frameInfo.blocksize (Number): the block size (bytes)
-	 * 				frameInfo.sampleRate (Number): the sample rate (Hz)
-	 * 				frameInfo.channels (Number): number of channels
-	 * 				frameInfo.bitsPerSample (Number): bits per sample
-	 * 				frameInfo.number (Number):  the number of the decoded sample
-	 * 				frameInfo.crc (String): the MD5 checksum for the decoded data (if validation is active)
-	 * 				</pre>
-	 *
-	 * @param {Function} [error_callback_fn] OPTIONAL
+	 * @param {Flac~decoder_error_callback_fn} [error_callback_fn] OPTIONAL
 	 * 				the error callback:
-	 * 				<pre>
-	 * 				error_callback_fn(errorCode: Number, errorMessage: String)
+	 * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
 	 *
-	 * 				where
-	 * 					FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC        		An error in the stream caused the decoder to lose synchronization.
-	 * 					FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER       		The decoder encountered a corrupted frame header.
-	 * 					FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH   	The frame's data did not match the CRC in the footer.
-	 * 					FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM   	The decoder encountered reserved fields in use in the stream.
-	 * 				</pre>
-	 *
-	 * @param {Function} [metadata_callback_fn] OPTIONAL
+	 * @param {Flac~metadata_callback_fn} [metadata_callback_fn] OPTIONAL
 	 * 				callback for receiving the metadata of the decoded PCM data:
-	 * 				<pre>
-	 * 				metadata_callback_fn(metadata: StreamMetadata)
+	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
 	 *
-	 * 				metadata.min_blocksize (Number): the minimal block size (bytes)
-	 * 				metadata.max_blocksize (Number): the maximal block size (bytes)
-	 * 				metadata.min_framesize (Number): the minimal frame size (bytes)
-	 * 				metadata.max_framesize (Number): the maximal frame size (bytes)
-	 * 				metadata.sampleRate (Number): the sample rate (Hz)
-	 * 				metadata.channels (Number): the number of channels
-	 * 				metadata.bitsPerSample (Number): bits per sample
-	 * 				metadata.total_samples (Number): the total number of (decoded) samples
-	 * 				metadata.md5sum (String): the MD5 checksum for the decoded data (if validation is active)
-	 * 				</pre>
+	 * @returns {number} the decoder status, see {@link Flac.FLAC__StreamDecoderInitStatus}
 	 *
 	 * @memberOf Flac#
 	 * @function
@@ -1010,17 +1061,17 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 				'FLAC__stream_decoder_init_stream', 'number',
 				[ 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
 				[
-                   decoder,
-                   dec_read_fn_ptr,
-                   0,// FLAC__StreamDecoderSeekCallback
-                   0,// FLAC__StreamDecoderTellCallback
-                   0,//	FLAC__StreamDecoderLengthCallback
-                   0,//	FLAC__StreamDecoderEofCallback
-                   dec_write_fn_ptr,
-                   __metadata_callback_fn_ptr,
-                   __error_callback_fn_ptr,
-                   client_data
-                ]
+									 decoder,
+									 dec_read_fn_ptr,
+									 0,// FLAC__StreamDecoderSeekCallback
+									 0,// FLAC__StreamDecoderTellCallback
+									 0,//	FLAC__StreamDecoderLengthCallback
+									 0,//	FLAC__StreamDecoderEofCallback
+									 dec_write_fn_ptr,
+									 __metadata_callback_fn_ptr,
+									 __error_callback_fn_ptr,
+									 client_data
+								]
 		);
 
 		return init_status;
@@ -1078,7 +1129,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	/**
 	 * Decodes a single frame.
 	 *
-	 * To check decoding progress, use #FLAC__stream_decoder_get_state().
+	 * To check decoding progress, use {@link #FLAC__stream_decoder_get_state}.
 	 *
 	 * @param {number} encoder
 	 * 				the ID of the encoder instance
@@ -1117,49 +1168,63 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	FLAC__stream_decoder_process_until_end_of_metadata: Module.cwrap('FLAC__stream_decoder_process_until_end_of_metadata', 'number', ['number']),
 
 	/**
+	 * Decoder state code.
+	 *
+	 * @interface FLAC__StreamDecoderState
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__STREAM_DECODER_SEARCH_FOR_METADATA"} 		0	The decoder is ready to search for metadata
+	 * @property {"FLAC__STREAM_DECODER_READ_METADATA"}  					1	The decoder is ready to or is in the process of reading metadata
+	 * @property {"FLAC__STREAM_DECODER_SEARCH_FOR_FRAME_SYNC"} 	2	The decoder is ready to or is in the process of searching for the frame sync code
+	 * @property {"FLAC__STREAM_DECODER_READ_FRAME"}							3	The decoder is ready to or is in the process of reading a frame
+	 * @property {"FLAC__STREAM_DECODER_END_OF_STREAM"}						4	The decoder has reached the end of the stream
+	 * @property {"FLAC__STREAM_DECODER_OGG_ERROR"}								5	An error occurred in the underlying Ogg layer
+	 * @property {"FLAC__STREAM_DECODER_SEEK_ERROR"}							6	An error occurred while seeking. The decoder must be flushed with FLAC__stream_decoder_flush() or reset with FLAC__stream_decoder_reset() before decoding can continue
+	 * @property {"FLAC__STREAM_DECODER_ABORTED"}									7	The decoder was aborted by the read callback
+	 * @property {"FLAC__STREAM_DECODER_MEMORY_ALLOCATION_ERROR"}	8	An error occurred allocating memory. The decoder is in an invalid state and can no longer be used
+	 * @property {"FLAC__STREAM_DECODER_UNINITIALIZED"}						9	The decoder is in the uninitialized state; one of the FLAC__stream_decoder_init_*() functions must be called before samples can be processed.
+	 *
+	 */
+	/**
 	 *
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
-	 * @returns {number} the decoder state:
-	 * <pre>
-	 * 0	FLAC__STREAM_DECODER_SEARCH_FOR_METADATA:		The decoder is ready to search for metadata
-	 * 1	FLAC__STREAM_DECODER_READ_METADATA:				The decoder is ready to or is in the process of reading metadata
-	 * 2	FLAC__STREAM_DECODER_SEARCH_FOR_FRAME_SYNC:		The decoder is ready to or is in the process of searching for the frame sync code
-	 * 3	FLAC__STREAM_DECODER_READ_FRAME:				The decoder is ready to or is in the process of reading a frame
-	 * 4	FLAC__STREAM_DECODER_END_OF_STREAM:				The decoder has reached the end of the stream
-	 * 5	FLAC__STREAM_DECODER_OGG_ERROR:					An error occurred in the underlying Ogg layer
-	 * 6	FLAC__STREAM_DECODER_SEEK_ERROR:				An error occurred while seeking. The decoder must be flushed with FLAC__stream_decoder_flush() or reset with FLAC__stream_decoder_reset() before decoding can continue
-	 * 7	FLAC__STREAM_DECODER_ABORTED:					The decoder was aborted by the read callback
-	 * 8	FLAC__STREAM_DECODER_MEMORY_ALLOCATION_ERROR:	An error occurred allocating memory. The decoder is in an invalid state and can no longer be used
-	 * 9	FLAC__STREAM_DECODER_UNINITIALIZED:				The decoder is in the uninitialized state; one of the FLAC__stream_decoder_init_*() functions must be called before samples can be processed.
-	 * </pre>
+	 * @returns {number} the decoder state, see {@link Flac.FLAC__StreamDecoderState}
 	 *
 	 * @memberOf Flac#
 	 * @function
+	 * @see .FLAC__StreamDecoderState
 	 */
 	FLAC__stream_decoder_get_state: Module.cwrap('FLAC__stream_decoder_get_state', 'number', ['number']),
 
+	/**
+	 * Encoder state code.
+	 *
+	 * @interface FLAC__StreamEncoderState
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__STREAM_ENCODER_OK"}														0 	The encoder is in the normal OK state and samples can be processed.
+	 * @property {"FLAC__STREAM_ENCODER_UNINITIALIZED"}									1 	The encoder is in the uninitialized state; one of the FLAC__stream_encoder_init_*() functions must be called before samples can be processed.
+	 * @property {"FLAC__STREAM_ENCODER_OGG_ERROR"}											2 	An error occurred in the underlying Ogg layer.
+	 * @property {"FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR"}					3 	An error occurred in the underlying verify stream decoder; check FLAC__stream_encoder_get_verify_decoder_state().
+	 * @property {"FLAC__STREAM_ENCODER_VERIFY_MISMATCH_IN_AUDIO_DATA"}	4 	The verify decoder detected a mismatch between the original audio signal and the decoded audio signal.
+	 * @property {"FLAC__STREAM_ENCODER_CLIENT_ERROR"}									5 	One of the callbacks returned a fatal error.
+	 * @property {"FLAC__STREAM_ENCODER_IO_ERROR"}											6 	An I/O error occurred while opening/reading/writing a file. Check errno.
+	 * @property {"FLAC__STREAM_ENCODER_FRAMING_ERROR"}									7 	An error occurred while writing the stream; usually, the write_callback returned an error.
+	 * @property {"FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR"}				8 	Memory allocation failed.
+	 *
+	 */
 	/**
 	 *
 	 * @param {number} encoder
 	 * 				the ID of the encoder instance
 	 *
-	 * @returns {number} the encoder state:
-	 * <pre>
-	 * 0	FLAC__STREAM_ENCODER_OK								The encoder is in the normal OK state and samples can be processed.
-	 * 1	FLAC__STREAM_ENCODER_UNINITIALIZED					The encoder is in the uninitialized state; one of the FLAC__stream_encoder_init_*() functions must be called before samples can be processed.
-	 * 2	FLAC__STREAM_ENCODER_OGG_ERROR						An error occurred in the underlying Ogg layer.
-	 * 3	FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR			An error occurred in the underlying verify stream decoder; check FLAC__stream_encoder_get_verify_decoder_state().
-	 * 4	FLAC__STREAM_ENCODER_VERIFY_MISMATCH_IN_AUDIO_DATA	The verify decoder detected a mismatch between the original audio signal and the decoded audio signal.
-	 * 5	FLAC__STREAM_ENCODER_CLIENT_ERROR					One of the callbacks returned a fatal error.
-	 * 6	FLAC__STREAM_ENCODER_IO_ERROR						An I/O error occurred while opening/reading/writing a file. Check errno.
-	 * 7	FLAC__STREAM_ENCODER_FRAMING_ERROR					An error occurred while writing the stream; usually, the write_callback returned an error.
-	 * 8	FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR		Memory allocation failed.
-	 * </pre>
+	 * @returns {number} the encoder state, see {@link Flac.FLAC__StreamEncoderState}
 	 *
 	 * @memberOf Flac#
 	 * @function
+	 * @see Flac.FLAC__StreamEncoderState
 	 */
 	FLAC__stream_encoder_get_state:  Module.cwrap('FLAC__stream_encoder_get_state', 'number', ['number']),
 
@@ -1169,7 +1234,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
-	 * @returns {boolean} TRUE if MD5 verification is enabled
+	 * @returns {boolean} <code>true</code> if MD5 verification is enabled
 	 * @memberOf Flac#
 	 * @function
 	 */
@@ -1184,9 +1249,9 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} encoder
 	 * 				the ID of the encoder instance
 	 *
-	 * @returns {boolean} false if an error occurred processing the last frame;
-	 * 					 or if verify mode is set, there was a verify mismatch; else true.
-	 * 					 If false, caller should check the state with FLAC__stream_encoder_get_state()
+	 * @returns {boolean} <code>false</code> if an error occurred processing the last frame;
+	 * 					 or if verify mode is set, there was a verify mismatch; else <code>true</code>.
+	 * 					 If <code>false</code>, caller should check the state with {@link Flac#FLAC__stream_encoder_get_state}
 	 * 					 for more information about the error.
 	 *
 	 * @memberOf Flac#
@@ -1201,9 +1266,9 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
-	 * @returns {boolean} false if MD5 checking is on AND a STREAMINFO block was available AND the MD5 signature in
+	 * @returns {boolean} <code>false</code> if MD5 checking is on AND a STREAMINFO block was available AND the MD5 signature in
 	 * 						 the STREAMINFO block was non-zero AND the signature does not match the one computed by the decoder;
-	 * 						 else true.
+	 * 						 else <code>true</code>.
 	 *
 	 * @memberOf Flac#
 	 * @function

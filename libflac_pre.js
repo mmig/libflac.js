@@ -45,10 +45,10 @@ var _flac_ready = false;
 Module["onRuntimeInitialized"] = function(){
 	_flac_ready = true;
 	if(!_exported){
-		//if _exported is not yet set, "pause" until initialization has run through
-		setTimeout(function(){do_fire_event('ready', [_exported], true);}, 0);
+		//if _exported is not yet set, "pause" until sync initialization has run through
+		setTimeout(function(){do_fire_event('ready', [{type: 'ready', target: _exported}], true);}, 0);
 	} else {
-		do_fire_event('ready', [_exported], true);
+		do_fire_event('ready', [{type: 'ready', target: _exported}], true);
 	}
 };
 
