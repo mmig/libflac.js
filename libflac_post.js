@@ -111,6 +111,7 @@ function _readFrameHdr(p_frame){
 	var sample_number = Module.getValue(p_frame+24,'i64');
 
 	var number = number_type === 0? frame_number : sample_number;
+	var numberType = number_type === 0? 'frames' : 'samples';
 
 	var crc = Module.getValue(p_frame+36,'i8');
 
@@ -123,6 +124,7 @@ function _readFrameHdr(p_frame){
 		channels: channels,
 		bitsPerSample: bits_per_sample,
 		number: number,
+		numberType: numberType,
 		crc: crc
 	};
 }
@@ -1001,8 +1003,9 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @memberOf Flac
 	 *
 	 * @property {number}  blocksize the block size (bytes)
-	 * @property {number}  number the number of the decoded samples
-	 * @property {string}  crc the MD5 checksum for the decoded data (if validation is active)
+	 * @property {number}  number the number of the decoded samples or frames
+	 * @property {string}  numberType the type to which <code>number</code> refers to: either <code>"frames"</code> or <code>"samples"</code>
+	 * @property {string}  crc the MD5 checksum for the decoded data, if validation is enabled
 	 */
 	/**
 	 * Initialize the decoder.
