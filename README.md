@@ -101,7 +101,7 @@ var Flac = require('libflacjs')();
 // can be combined with dot, e.g. "min.wasm":
 var FlacFactory = require('libflacjs');
 var Flac = FlacFactory('min.wasm');
-Flac.on('ready', function(flac){
+Flac.on('ready', function(event){
   ...
 ```
 
@@ -111,7 +111,7 @@ _(thanks to @jay-shah for providing this solution)_
 For `reactjs`:
 install with `npm` (see above), and `require()` the library directly, like
 ```javascript
-var Flac = require('../node_modules/libflacjs/dist/libflac4-1.3.2.js');
+var Flac = require('libflacjs/dist/libflac4-1.3.2.js');
 ```
 
 
@@ -126,16 +126,32 @@ Code example:
 ```javascript
 
 //either use Flac.on() or set handler Flac.onready:
-Flac.on('ready', function(libFlac){
+Flac.on('ready', function(event){
+  var libFlac = event.target;
   //NOTE: Flac === libFlac
 
-  //call function that uses libflac.js:
+  //execute code that uses libflac.js:
   someFunctionForProcessingFLAC();
 };
 
 //... or set handler
+Flac.onready = function(event){
+  var libFlac = event.target;
+  //NOTE: Flac === libFlac
+
+  //execute code that uses libflac.js:
+  someFunctionForProcessingFLAC();
+};
+
+
+// IMPORTANT: if execution environment does not support Object.defineProperty
+//            setting the handler will have no effect, if Flac is already ready.
+//            In this case, ready-state needs be checked, and if already ready,
+//            the handler-code should be triggered immediately insteady of setting
+//            the handler.
 if( !Flac.isReady() ){
-  Flac.onready = function(libFlac){
+  Flac.onready = function(event){
+    var libFlac = event.target;
     //NOTE: Flac === libFlac
 
     //call function that uses libflac.js:
@@ -143,14 +159,16 @@ if( !Flac.isReady() ){
   };
 } else {
 
-  //call function that uses libflac.js:
+  //execute code that uses libflac.js:
   someFunctionForProcessingFLAC();
 }
 ```
 
-**NOTE** that the `onready()` handler will not be called, when the library already
-         has been initialized, i.e. when `Flac.isReady()` returns `true`.
-         So you should always check `Flac.isReady()` and provide alternative code
+**NOTE:** If `Object.defineProperty()` is not supported in the execution environment,
+         then the `onready()` handler will not be called, when the library already
+         has been initialized before assigning it to `Flac.onready` (i.e. when
+         `Flac.isReady()` returns `true`).
+         In this case, you should check `Flac.isReady()` and provide alternative code
          execution to the `onready()` function, in case `Flac.isReady()` is `true`
          (or use `Flac.on('ready', ...)` instead).
 
@@ -230,11 +248,11 @@ In short, the (old) `asm.js` is backwards compatible, since it is simply JavaScr
 while the new `WebAssembly` format requires more recent/modern browsers, but is generally
 more efficient with regard to code size and execution time.
 
-> NOTE the `WebAssembly` variant does not create "binary-perfect" FLAC files
+> NOTE the `WebAssembly` variant does not create/encode "binary-perfect" FLAC files
      compared to the other library variants, or compared to the FLAC
      command-line tool.  
-     That is, comparing the encoding results byte-by-byte with encoding results
-     from the `asm.js` variants, or separately encoded data using the FLAC
+     More specifically, comparing the encoding results byte-by-byte with encoding
+     results from the `asm.js` variants, or separately encoded data using the FLAC
      command-line tool, results are different for the `WebAssembly` variant.
      However, the reverse operation, decoding these "binary-different" FLAC
      files (using `WebAssembly`, or `asm.js` or the command-line tool) results
