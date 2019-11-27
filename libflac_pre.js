@@ -45,7 +45,8 @@ var _flac_ready = false;
 Module["onRuntimeInitialized"] = function(){
 	_flac_ready = true;
 	if(!_exported){
-		//if _exported is not yet set, "pause" until sync initialization has run through
+		//if _exported is not yet set (may happen, in case initialization was strictly synchronously),
+		// do "pause" until sync initialization has run through
 		setTimeout(function(){do_fire_event('ready', [{type: 'ready', target: _exported}], true);}, 0);
 	} else {
 		do_fire_event('ready', [{type: 'ready', target: _exported}], true);
@@ -63,11 +64,12 @@ if(global && global.FLAC_SCRIPT_LOCATION){
 		return path + fileName;
 	};
 
-	Module["readBinary"] = function(filePath){
+	//NOTE will be overwritten if emscripten has env specific implementation for this
+	var readBinary = function(filePath){
 
 		//for Node: use default implementation (copied from generated code):
 		if(ENVIRONMENT_IS_NODE){
-			var ret = Module['read'](filePath, true);
+			var ret = read_(filePath, true);
 			if (!ret.buffer) {
 				ret = new Uint8Array(ret);
 			}
@@ -87,6 +89,24 @@ if(global && global.FLAC_SCRIPT_LOCATION){
 			});
 			xhr.open("GET", filePath);
 			xhr.send();
+		});
+	};
+}
+
+//fallback for fetch && support file://-protocol: try read as binary if fetch fails
+if(global && typeof global.fetch === 'function'){
+	var _fetch = global.fetch;
+	global.fetch = function(url){
+		return _fetch.apply(null, arguments).catch(function(err){
+			try{
+				var result = readBinary(url);
+				if(result && result.catch){
+					result.catch(function(_err){throw err});
+				}
+				return result;
+			} catch(_err){
+				throw err;
+			}
 		});
 	};
 }
