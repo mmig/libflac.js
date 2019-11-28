@@ -1,0 +1,50 @@
+{
+	"tags": {
+		"allowUnknownTags": true
+	},
+	"source": {
+		"includePattern": ".+\\.js(doc)?$",
+		"excludePattern": "((^|\\/|\\\\)_)|((\\/|\\\\)node_modules)|((\\/|\\\\)vendor)"
+	},
+	"opts": {
+		"recurse": true,
+		"private": false,
+		"verbose": true
+	},
+	"plugins": [
+		"./plugins/short-symbolic-links",
+		"./plugins/convert-atag-links-in-see-tag",
+		"./plugins/copydoc-tag-def",
+		"./plugins/copydoc-process",
+		"./plugins/link-builtin-to-mdn",
+		"./node_modules/jaguarjs-jsdoc/plugins/inherit-properties"
+	],
+	"templates": {
+		"cleverLinks": true,
+		"monospaceLinks": true,
+		"default": {
+			"outputSourceFiles": false,
+			"includeDate": false
+		},
+		"navType ": "inline",
+		"linenums": true,
+		"theme": "cerulean",
+		"copyright": "<a href='https://github.com/mmig/libflac.js'>libflac.js</a>",
+
+		"applicationName": "libflac.js",
+		"disqus": "",
+		"googleAnalytics": "",
+		"openGraph": {
+			"title": "libflac.js API",
+			"type": "website",
+			"site_name": "libflac.js",
+			"url": "https://github.com/mmig/libflac.js"
+		},
+		"meta": {
+			"title": "libflac.js",
+			"description": "",
+			"keyword": "flac, javascript, emscripten"
+		},
+		"sourceLinks": false
+	}
+}

@@ -1,0 +1,28 @@
+{
+  "name": "libflacjs-doc",
+  "version": "0.2.0",
+  "description": "API doc generation for libFLAC.js",
+  "keywords": [
+    "documentation",
+    "mmir"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mmig/libflacjs"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^8.0.0",
+    "@types/gulp": "^4.0.6",
+    "@types/webpack": "^4.39.1",
+    "del": "^5.1.0",
+    "fs-extra": "^8.1.0",
+    "gulp": "^4.0.2",
+    "gulp-jsdoc3": "^2.0.0",
+    "jaguarjs-jsdoc": "git+https://github.com/mmig/jaguarjs-jsdoc.git#patched",
+    "jsdoc": "^3.6.3"
+  },
+  "scripts": {
+    "doc": "gulp"
+  }
+}
