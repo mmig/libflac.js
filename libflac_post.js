@@ -853,7 +853,10 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @memberOf Flac#
 	 * @function
 	 */
-	init_libflac_encoder: function(){ return this.create_libflac_encoder.apply(this, arguments); },
+	init_libflac_encoder: function(){
+		console.warn('Flac.init_libflac_encoder() is deprecated, use Flac.create_libflac_encoder() instead!');
+		return this.create_libflac_encoder.apply(this, arguments);
+	},
 
 	/**
 	 * Create a decoder.
@@ -882,7 +885,10 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @memberOf Flac#
 	 * @function
 	 */
-	init_libflac_decoder: function(){ return this.create_libflac_decoder.apply(this, arguments); },
+	init_libflac_decoder: function(){
+		console.warn('Flac.init_libflac_decoder() is deprecated, use Flac.create_libflac_decoder() instead!');
+		return this.create_libflac_decoder.apply(this, arguments);
+	},
 	/**
 	 * the callback for writing the encoded FLAC data.
 	 *
@@ -918,10 +924,10 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @property {string}  md5sum  the MD5 checksum for the decoded data (if validation is active)
 	 */
 	/**
-	 * Initialize the decoder.
+	 * Initialize the encoder.
 	 *
 	 * @param {number} encoder
-	 * 				the ID of the encoder instance
+	 * 				the ID of the encoder instance that has not been initialized (or has been reset)
 	 *
 	 * @param {Flac~encoder_write_callback_fn} write_callback_fn
 	 * 				the callback for writing the encoded Flac data:
@@ -931,13 +937,21 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				the callback for the metadata of the encoded Flac data:
 	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
 	 *
-	 * @returns {number} the encoder status, see {@link Flac.FLAC__StreamEncoderInitStatus}
+	 * @param {number|boolean} [ogg_serial_number] OPTIONAL
+	 * 				if number or <code>true</code> is specified, the encoder will be initialized to
+	 * 				write to an OGG container, see {@link #init_encoder_ogg_stream}:
+	 * 				<code>true</code> will set a default serial number (<code>1</code>),
+	 * 				if specified as number, it will be used as the stream's serial number within the ogg container.
+	 *
+	 * @returns {number} the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>),
+	 * 					 see {@link Flac.FLAC__StreamEncoderInitStatus}
 	 *
 	 * @memberOf Flac#
 	 * @function
 	 */
-	init_encoder_stream: function(encoder, write_callback_fn, metadata_callback_fn, client_data){
+	init_encoder_stream: function(encoder, write_callback_fn, metadata_callback_fn, ogg_serial_number, client_data){
 
+		var is_ogg = (ogg_serial_number === true);
 		client_data = client_data|0;
 
 		if(typeof write_callback_fn !== 'function'){
@@ -951,20 +965,85 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 			__metadata_callback_fn_ptr = metadata_fn_ptr;
 		}
 
-		var init_status = Module.ccall(
-				'FLAC__stream_encoder_init_stream', 'number',
-				['number', 'number', 'number', 'number', 'number', 'number'],
-				[
-					encoder,
-					enc_write_fn_ptr,
-					0,//	FLAC__StreamEncoderSeekCallback
-					0,//	FLAC__StreamEncoderTellCallback
-					__metadata_callback_fn_ptr,
-					client_data
-				]
-		);
+		//NOTE the following comments are used for auto-detecting exported functions (only change if ccall function name(s) change!):
+		//	Module.ccall('FLAC__stream_encoder_init_stream'
+		var func_name = 'FLAC__stream_encoder_init_stream';
+		var args_types = ['number', 'number', 'number', 'number', 'number', 'number'];
+		var args = [
+			encoder,
+			enc_write_fn_ptr,
+			0,//	FLAC__StreamEncoderSeekCallback
+			0,//	FLAC__StreamEncoderTellCallback
+			__metadata_callback_fn_ptr,
+			client_data
+		];
+
+		if(typeof ogg_serial_number === 'number'){
+
+			is_ogg = true;
+
+		} else if(is_ogg){//else: set default serial number for stream in OGG container
+
+			//NOTE from FLAC docs: "It is recommended to set a serial number explicitly as the default of '0' may collide with other streams."
+			ogg_serial_number = 1;
+		}
+
+		if(is_ogg){
+			//NOTE the following comments are used for auto-detecting exported functions (only change if ccall function name(s) change!):
+			//	Module.ccall('FLAC__stream_encoder_init_ogg_stream'
+			func_name = 'FLAC__stream_encoder_init_ogg_stream';
+
+			//2nd arg: FLAC__StreamEncoderReadCallback ptr -> duplicate first entry & insert at [1]
+			args.unshift(args[0]);
+			args[1] = 0;//	FLAC__StreamEncoderReadCallback
+
+			args_types.unshift(args_types[0]);
+			args_types[1] = 'number';
+
+
+			//NOTE ignore BOOL return value when setting serial number, since init-call's returned
+			//     status will also indicate, if encoder already has been initialized
+			Module.ccall(
+				'FLAC__stream_encoder_set_ogg_serial_number', 'number',
+				['number', 'number'],
+				[ encoder, ogg_serial_number ]
+			);
+		}
+
+		var init_status = Module.ccall(func_name, 'number', args_types, args);
 
 		return init_status;
+	},
+	/**
+	 * Initialize the encoder for writing to an OGG container.
+	 *
+	 * @param {number} encoder
+	 * 				the ID of the encoder instance that has not been initialized (or has been reset)
+	 *
+	 * @param {Flac~encoder_write_callback_fn} write_callback_fn
+	 * 				the callback for writing the encoded Flac data:
+	 * 				<pre>write_callback_fn(data: Uint8Array, numberOfBytes: Number, samples: Number, currentFrame: Number)</pre>
+	 *
+	 * @param {Flac~metadata_callback_fn} [metadata_callback_fn] OPTIONAL
+	 * 				the callback for the metadata of the encoded Flac data:
+	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
+	 *
+	 * @param {number} [ogg_serial_number] OPTIONAL
+	 * 				the serial number for the stream in the OGG container
+	 * 				DEFAULT: <code>1</code>
+	 *
+	 * @returns {number} the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>),
+	 * 					 see {@link Flac.FLAC__StreamEncoderInitStatus}
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 */
+	init_encoder_ogg_stream: function(encoder, write_callback_fn, metadata_callback_fn, ogg_serial_number, client_data){
+
+		if(typeof ogg_serial_number !== 'number'){
+			ogg_serial_number = true;
+		}
+		return this.init_encoder_stream(encoder, write_callback_fn, metadata_callback_fn, ogg_serial_number, client_data);
 	},
 	/**
 	 * Result / return value for {@link Flac~decoder_read_callback_fn} callback function
@@ -972,7 +1051,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @interface ReadResult
 	 * @memberOf Flac
 	 * @property {TypedArray}  buffer  a TypedArray (e.g. Uint8Array) with the read data
-	 * @property {number}  readDataLength the number of read data bytes. A number of 0 (zero) indicates that the end-of-stream is reached.
+	 * @property {number}  readDataLength the number of read data bytes. A number of <code>0</code> (zero) indicates that the end-of-stream is reached.
 	 * @property {boolean}  error <code>true</code> indicates that an error occured (decoding will be aborted)
 	 */
 	/**
@@ -986,7 +1065,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * the callback for writing the encoded FLAC data.
 	 *
 	 * @callback Flac~decoder_write_callback_fn
-	 * @param {Uint8Array} data the decoded PCM data as Uint8Array
+	 * @param {Uint8Array[]} data array of the channels with the decoded PCM data as <code>Uint8Array</code>s
 	 * @param {Flac.BlockMetadata} frameInfo the metadata information for the decoded data
 	 */
 	/**
@@ -1011,7 +1090,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * Initialize the decoder.
 	 *
 	 * @param {number} decoder
-	 * 				the ID of the decoder instance
+	 * 				the ID of the decoder instance that has not been initialized (or has been reset)
 	 *
 	 * @param {Flac~decoder_read_callback_fn} read_callback_fn
 	 * 				the callback for reading the Flac data that should get decoded:
@@ -1029,12 +1108,19 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				callback for receiving the metadata of the decoded PCM data:
 	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
 	 *
-	 * @returns {number} the decoder status, see {@link Flac.FLAC__StreamDecoderInitStatus}
+	 * @param {number|boolean} [ogg_serial_number] OPTIONAL
+	 * 				if number or <code>true</code> is specified, the decoder will be initilized to
+	 * 				read from an OGG container, see {@link #init_decoder_ogg_stream}:
+	 * 				<code>true</code> will use the default serial number, if specified as number the
+	 * 				corresponding stream with the serial number from the ogg container will be used.
+	 *
+	 * @returns {number} the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>),
+	 * 					 see {@link Flac.FLAC__StreamDecoderInitStatus}
 	 *
 	 * @memberOf Flac#
 	 * @function
 	 */
-	init_decoder_stream: function(decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, client_data){
+	init_decoder_stream: function(decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, ogg_serial_number, client_data){
 
 		client_data = client_data|0;
 
@@ -1060,26 +1146,83 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 			__metadata_callback_fn_ptr = metadata_fn_ptr;
 		}
 
+		var is_ogg = (ogg_serial_number === true);
+		if(typeof ogg_serial_number === 'number'){
+
+			is_ogg = true;
+
+			//NOTE ignore BOOL return value when setting serial number, since init-call's returned
+			//     status will also indicate, if decoder already has been initialized
+			Module.ccall(
+				'FLAC__stream_decoder_set_ogg_serial_number', 'number',
+				['number', 'number'],
+				[ decoder, ogg_serial_number ]
+			);
+		}
+
+		//NOTE the following comments are used for auto-detecting exported functions (only change if ccall function name(s) change!):
+		//	Module.ccall('FLAC__stream_decoder_init_stream'
+		//	Module.ccall('FLAC__stream_decoder_init_ogg_stream'
+		var init_func_name = !is_ogg? 'FLAC__stream_decoder_init_stream' : 'FLAC__stream_decoder_init_ogg_stream';
+
 		var init_status = Module.ccall(
-				'FLAC__stream_decoder_init_stream', 'number',
+				init_func_name, 'number',
 				[ 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
 				[
-									 decoder,
-									 dec_read_fn_ptr,
-									 0,// FLAC__StreamDecoderSeekCallback
-									 0,// FLAC__StreamDecoderTellCallback
-									 0,//	FLAC__StreamDecoderLengthCallback
-									 0,//	FLAC__StreamDecoderEofCallback
-									 dec_write_fn_ptr,
-									 __metadata_callback_fn_ptr,
-									 __error_callback_fn_ptr,
-									 client_data
-								]
+					 decoder,
+					 dec_read_fn_ptr,
+					 0,// FLAC__StreamDecoderSeekCallback
+					 0,// FLAC__StreamDecoderTellCallback
+					 0,//	FLAC__StreamDecoderLengthCallback
+					 0,//	FLAC__StreamDecoderEofCallback
+					 dec_write_fn_ptr,
+					 __metadata_callback_fn_ptr,
+					 __error_callback_fn_ptr,
+					 client_data
+				]
 		);
 
 		return init_status;
 	},
+	/**
+	 * Initialize the decoder for writing to an OGG container.
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance that has not been initialized (or has been reset)
+	 *
+	 * @param {Flac~decoder_read_callback_fn} read_callback_fn
+	 * 				the callback for reading the Flac data that should get decoded:
+	 * 				<pre>read_callback_fn(numberOfBytes: Number) : {buffer: ArrayBuffer, readDataLength: number, error: boolean}</pre>
+	 *
+	 * @param {Flac~decoder_write_callback_fn} write_callback_fn
+	 * 				the callback for writing the decoded data:
+	 * 				<pre>write_callback_fn(data: TypedArray, frameInfo: Metadata)</pre>
+	 *
+	 * @param {Flac~decoder_error_callback_fn} [error_callback_fn] OPTIONAL
+	 * 				the error callback:
+	 * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
+	 *
+	 * @param {Flac~metadata_callback_fn} [metadata_callback_fn] OPTIONAL
+	 * 				callback for receiving the metadata of the decoded PCM data:
+	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
+	 *
+	 * @param {number} [ogg_serial_number] OPTIONAL
+	 * 				the serial number for the stream in the OGG container that should be decoded.<br/>
+	 * 				The default behavior is to use the serial number of the first Ogg page. Setting a serial number here will explicitly specify which stream is to be decoded.
+	 *
+	 * @returns {number} the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>),
+	 * 					 see {@link Flac.FLAC__StreamDecoderInitStatus}
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 */
+	init_decoder_ogg_stream: function(decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, ogg_serial_number, client_data){
 
+		if(typeof ogg_serial_number !== 'number'){
+			ogg_serial_number = true;
+		}
+		return this.init_decoder_stream(decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, ogg_serial_number, client_data);
+	},
 	/**
 	 * Encode / submit data for encoding.
 	 *
