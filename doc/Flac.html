@@ -3329,7 +3329,7 @@
 
                     
                 
-                OPTIONAL				callback for receiving the metadata of the decoded PCM data:				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre></td>
+                OPTIONAL				callback for receiving the metadata of FLAC data that will be decoded:				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre></td>
         </tr>
 
     
@@ -4573,7 +4573,7 @@
 
     
     <div class="description">
-        the callback for reporting decoding errors.
+        The callback for reporting decoding errors.
     </div>
     
 
@@ -4711,7 +4711,7 @@
 
     
     <div class="description">
-        the callback for writing the encoded FLAC data.
+        The callback for reading the FLAC data that will be decoded.
     </div>
     
 
@@ -4855,7 +4855,7 @@
 
     
     <div class="description">
-        the callback for writing the encoded FLAC data.
+        The callback for writing the decoded FLAC data.
     </div>
     
 
@@ -7185,6 +7185,8 @@
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -7211,6 +7213,14 @@
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
@@ -7234,6 +7244,14 @@
             
             </td>
 
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
             
 
             
@@ -7259,10 +7277,20 @@
             </td>
 
             
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
 
             
 
-            <td class="description last"><code>true</code> indicates that an error occured (decoding will be aborted)</td>
+            <td class="description last">OPTIONAL value of <code>true</code> indicates that an error occured (decoding will be aborted)</td>
         </tr>
 
     

@@ -3,7 +3,7 @@ libflac.js
 
 [![npm](https://img.shields.io/npm/v/libflacjs)](https://www.npmjs.com/package/libflacjs)
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/mmig/libflac.js/master)
-[![emscripten version](https://img.shields.io/badge/emsripten-1.39.3-green)][1]
+[![emscripten version](https://img.shields.io/badge/emscripten-1.39.3-green)][1]
 [![libFLAC version](https://img.shields.io/badge/libFLAC-1.3.2-yellow)][6]
 [![libogg version](https://img.shields.io/badge/libogg-1.3.4-yellow)][18]
 
@@ -55,7 +55,9 @@ See [doc/index.html][16] for the API documentation.
 		- [Browser](#browser)
 		- [WebWorker](#webworker)
 		- [Node](#node)
-		- [React](#react)
+- [install from npm](#install-from-npm)
+- [install latest from master branch](#install-latest-from-master-branch)
+		- [React/webpack](#reactwebpack)
 	- [Including Dynamically Loaded libflac.js](#including-dynamically-loaded-libflacjs)
 		- [Including Dynamically Loaded  libflac.js from Non-Default Location](#including-dynamically-loaded-libflacjs-from-non-default-location)
 	- [Library Variants](#library-variants)
@@ -128,7 +130,7 @@ Flac.on('ready', function(event){
   ...
 ```
 
-#### React
+#### React/webpack
 
 For `reactjs`:
 install with `npm` (see above), and `require()` the library directly, like
@@ -142,7 +144,7 @@ var Flac = require('libflacjs/dist/libflac.js');
 Some variants of the `libflac.js` library are loaded asynchronously
 (e.g. minimized/optimized variants may load a separate binary file during initialization of the library).
 
-In this case, you have to make sure, not to use `libflac.js` before is has been completely loaded / initialized.
+In this case, you have to make sure, not to use `libflac.js` before it has been completely loaded / initialized.
 
 Code example:
 ```javascript
@@ -168,7 +170,7 @@ Flac.onready = function(event){
 
 // IMPORTANT: if execution environment does not support Object.defineProperty
 //            setting the handler will have no effect, if Flac is already ready.
-//            In this case, ready-state needs be checked, and if already ready,
+//            In this case, ready-state needs to be checked, and if already ready,
 //            the handler-code should be triggered immediately insteady of setting
 //            the handler.
 if( !Flac.isReady() ){
@@ -251,11 +253,13 @@ for all the required files of the used library variant (see details below).
 
 ### Library Variants
 
+#### _default_ vs `min` vs `dev`
+
 There are multiple variants available for the library, that are compiled with different
 settings for debug-output and code optimization, namely `debug`, `min`, and the
 default (release) library variants.
 
-
+#### `asm.js` vs `WASM`
 
 In addition, for each of these variants, there is now a `wasm` variant (_WebAssembly_) available:
 the old/default variants are compiled for `asm.js` which is "normal" JavaScript, with some
@@ -269,6 +273,24 @@ In short, the (old) `asm.js` is backwards compatible, since it is simply JavaScr
 (and browsers that specifically support it, can execute it optimized/more efficiently),
 while the new `WebAssembly` format requires more recent/modern browsers, but is generally
 more efficient with regard to code size and execution time.
+
+#### Example `WASM` Feature Detection
+
+simple detection of `WASM` support in browser:
+```javascript
+var Flac;
+if(typeof WebAssembly === 'object' && WebAssembly){
+  //load wasm-based library
+  Flac = require('libflac.min.wasm.js');
+  //or, for example, in worker script: importScripts('libflac.min.wasm.js');
+} else {
+  //load asm.js-based library
+  Flac = require('libflac.min.js');
+  //or, for example, in worker script: importScripts('libflac.min.js');
+}
+```
+
+#### Variants and Notes
 
 > NOTE the `WebAssembly` variant does not create/encode "binary-perfect" FLAC files
      compared to the other library variants, or compared to the FLAC
@@ -690,7 +712,7 @@ Then open the project settings for `libFLAC_static`, and modify settings for `Co
 * Modify sources file:
  * `flac-1.3.0\src\libFLAC\format.c` add the following at the beginning (e.g. after the `#include` statements):
    ```
-  #define VERSION "1.3.0"
+   #define VERSION "1.3.0"
    ```
 
 
@@ -764,20 +786,22 @@ function `the_function`, the string for the exported function would be `_the_fun
 There is a [helper script](tools/extract_EXPORTED_FUNCTIONS.js) that will try to extract the compile option from `libflac_post.js` (i.e. the list of functions that need to be declared).
 Run the script with `Node.js` in `tools/` (and copy&paste the output value):
 ```
+cd tools
 node extract_EXPORTED_FUNCTIONS.js
 ```
 
 IMPORTANT: the helper script extracts function names that are invoked by `Module.ccall()`
-           or `Module.cwrap()`.
-           If invoked dynamically (i.e. use variable instead of string), add a DEV comment
-           where the function is explicitly stated as string, e.g.
-           ```javascript
-           //  Module.ccall('FLAC__stream_decoder_init_stream'
-           //  Module.ccall('FLAC__stream_decoder_init_ogg_stream'
-           var func_name = test? 'FLAC__stream_decoder_init_stream' : 'FLAC__stream_decoder_init_ogg_stream';
-          Module.ccall(
-            func_name,
-           ```
+          or `Module.cwrap()`.
+          If invoked dynamically (i.e. use of variable instead of string), add a DEV comment
+          where the function is explicitly stated as string, e.g.
+```javascript
+//DEV comment for exported-functions script:
+//  Module.ccall('FLAC__stream_decoder_init_stream'
+//  Module.ccall('FLAC__stream_decoder_init_ogg_stream'
+var func_name = test? 'FLAC__stream_decoder_init_stream' : 'FLAC__stream_decoder_init_ogg_stream';
+Module.ccall(
+  func_name,
+```
 
 
 ## Contributors

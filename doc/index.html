@@ -396,7 +396,7 @@
         <article class="readme"><h1>libflac.js</h1>
 <p><a target='_blank' href="https://www.npmjs.com/package/libflacjs"><img src="https://img.shields.io/npm/v/libflacjs" alt="npm"></a>
 <img src="https://img.shields.io/github/package-json/v/mmig/libflac.js/master" alt="GitHub package.json version">
-<a target='_blank' href="https://github.com/kripken/emscripten"><img src="https://img.shields.io/badge/emsripten-1.39.3-green" alt="emscripten version"></a>
+<a target='_blank' href="https://github.com/kripken/emscripten"><img src="https://img.shields.io/badge/emscripten-1.39.3-green" alt="emscripten version"></a>
 <a target='_blank' href="https://xiph.org/flac/"><img src="https://img.shields.io/badge/libFLAC-1.3.2-yellow" alt="libFLAC version"></a>
 <a target='_blank' href="https://xiph.org/ogg/"><img src="https://img.shields.io/badge/libogg-1.3.4-yellow" alt="libogg version"></a></p>
 <p><a target='_blank' href="https://xiph.org/flac/">FLAC</a> data stream encoder and decoder compiled in JavaScript using <em>emscripten</em>.</p>
@@ -417,6 +417,16 @@ Used compiler <code>Emscripten</code> toolchain: LLVM (upstream)</p>
 <p>In order to build <em>libflac.js</em>, make sure you have <em>emscripten</em> installed (with toolchain <code>LLVM/upstream</code>; default since version 1.39.x).</p>
 <p>On running <code>make</code>, the build process will download the sources for the
 FLAC and OGG libraries, extract them, and build the JavaScript version of libflac.</p>
+<hr>
+<blockquote>
+<p><strong>IMPORTANT</strong> changes for version <code>5.x</code>: simplified naming scheme and library location!</p>
+<ul>
+<li>removed version information from library file names, e.g.<br>
+<code>libflac4-1.3.2.min.js -&gt; libflac.min.js</code></li>
+<li>moved all library files directly into <code>dist/</code>, i.e. there are <em>no</em> sub-directories <code>dist/min/</code> and <code>dist/dev/</code> anymore</li>
+</ul>
+</blockquote>
+<hr>
 <p><strong>Encoder Demo</strong><br>
 Try the <a target='_blank' href="https://mmig.github.io/libflac.js/example/encode.html">Encoding Demo</a> for encoding <code>*.wav</code> files to FLAC.
 Or try the <a target='_blank' href="https://github.com/mmig/speech-to-flac">speech-to-flac</a> <a target='_blank' href="https://mmig.github.io/speech-to-flac/">demo</a> that encodes the audio stream from a microphone to FLAC.</p>
@@ -435,9 +445,14 @@ See <a target='_blank' href="https://mmig.github.io/libflac.js/doc/">doc/index.h
 <li><a href="#browser">Browser</a></li>
 <li><a href="#webworker">WebWorker</a></li>
 <li><a href="#node">Node</a></li>
-<li><a href="#react">React</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a href="#install-from-npm">install from npm</a></li>
+<li><a href="#install-latest-from-master-branch">install latest from master branch</a>
+- <a href="#reactwebpack">React/webpack</a>
+<ul>
 <li><a href="#including-dynamically-loaded-libflacjs">Including Dynamically Loaded libflac.js</a>
 <ul>
 <li><a href="#including-dynamically-loaded-libflacjs-from-non-default-location">Including Dynamically Loaded  libflac.js from Non-Default Location</a></li>
@@ -484,7 +499,11 @@ See <a target='_blank' href="https://mmig.github.io/libflac.js/doc/">doc/index.h
 <h4>Node</h4>
 <p>In <code>Node.js</code>:
 install with <code>npm</code></p>
-<pre class="prettyprint source"><code>npm install --save git+https://github.com/mmig/libflac.js.git
+<pre class="prettyprint source lang-bash"><code>#install from npm
+npm install --save libflacjs
+
+#install latest from master branch
+npm install --save git+https://github.com/mmig/libflac.js.git
 </code></pre>
 <p>then, use factory method for loading one of the library variants:</p>
 <pre class="prettyprint source lang-javascript"><code>
@@ -505,7 +524,7 @@ var Flac = FlacFactory('min.wasm');
 Flac.on('ready', function(event){
   ...
 </code></pre>
-<h4>React</h4>
+<h4>React/webpack</h4>
 <p>For <code>reactjs</code>:
 install with <code>npm</code> (see above), and <code>require()</code> the library directly, like</p>
 <pre class="prettyprint source lang-javascript"><code>var Flac = require('libflacjs/dist/libflac.js');
@@ -513,7 +532,7 @@ install with <code>npm</code> (see above), and <code>require()</code> the librar
 <h3>Including Dynamically Loaded libflac.js</h3>
 <p>Some variants of the <code>libflac.js</code> library are loaded asynchronously
 (e.g. minimized/optimized variants may load a separate binary file during initialization of the library).</p>
-<p>In this case, you have to make sure, not to use <code>libflac.js</code> before is has been completely loaded / initialized.</p>
+<p>In this case, you have to make sure, not to use <code>libflac.js</code> before it has been completely loaded / initialized.</p>
 <p>Code example:</p>
 <pre class="prettyprint source lang-javascript"><code>
 //either use Flac.on() or set handler Flac.onready:
@@ -537,7 +556,7 @@ Flac.onready = function(event){
 
 // IMPORTANT: if execution environment does not support Object.defineProperty
 //            setting the handler will have no effect, if Flac is already ready.
-//            In this case, ready-state needs be checked, and if already ready,
+//            In this case, ready-state needs to be checked, and if already ready,
 //            the handler-code should be triggered immediately insteady of setting
 //            the handler.
 if( !Flac.isReady() ){
@@ -602,9 +621,11 @@ for all the required files of the used library variant (see details below).</p>
   importScripts('libs/flac.min.js');
 </code></pre>
 <h3>Library Variants</h3>
+<h4><em>default</em> vs <code>min</code> vs <code>dev</code></h4>
 <p>There are multiple variants available for the library, that are compiled with different
 settings for debug-output and code optimization, namely <code>debug</code>, <code>min</code>, and the
 default (release) library variants.</p>
+<h4><code>asm.js</code> vs <code>WASM</code></h4>
 <p>In addition, for each of these variants, there is now a <code>wasm</code> variant (<em>WebAssembly</em>) available:
 the old/default variants are compiled for <code>asm.js</code> which is &quot;normal&quot; JavaScript, with some
 optimizations that browsers can take advantage of by specifically supporting <code>asm.js</code> (e.g. <em>FireFox</em>).</p>
@@ -617,6 +638,20 @@ optimizations that browsers can take advantage of by specifically supporting <co
 (and browsers that specifically support it, can execute it optimized/more efficiently),
 while the new <code>WebAssembly</code> format requires more recent/modern browsers, but is generally
 more efficient with regard to code size and execution time.</p>
+<h4>Example <code>WASM</code> Feature Detection</h4>
+<p>simple detection of <code>WASM</code> support in browser:</p>
+<pre class="prettyprint source lang-javascript"><code>var Flac;
+if(typeof WebAssembly === 'object' && WebAssembly){
+  //load wasm-based library
+  Flac = require('libflac.min.wasm.js');
+  //or, for example, in worker script: importScripts('libflac.min.wasm.js');
+} else {
+  //load asm.js-based library
+  Flac = require('libflac.min.js');
+  //or, for example, in worker script: importScripts('libflac.min.js');
+}
+</code></pre>
+<h4>Variants and Notes</h4>
 <blockquote>
 <p>NOTE the <code>WebAssembly</code> variant does not create/encode &quot;binary-perfect&quot; FLAC files
 compared to the other library variants, or compared to the FLAC
@@ -1042,27 +1077,27 @@ VERSION=&quot;1.3.0&quot;
 </li>
 <li>
 <p><code>flac-1.3.0\src\libFLAC\format.c</code> add the following at the beginning (e.g. after the <code>#include</code> statements):</p>
-<pre class="prettyprint source"><code></code></pre>
+<pre class="prettyprint source"><code>#define VERSION &quot;1.3.0&quot;
+</code></pre>
 </li>
 </ul>
-<p>#define VERSION &quot;1.3.0&quot;</p>
-<pre class="prettyprint source"><code>
-
-### Building *nix (libflac 1.3.2)
-
-For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.
-
-* in `flac-1.3.2/Makefile.in` at line 400, disable (or remove) the last entry `microbench` in the line, e.g. change to:
+<h3>Building *nix (libflac 1.3.2)</h3>
+<p>For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.</p>
+<ul>
+<li>
+<p>in <code>flac-1.3.2/Makefile.in</code> at line 400, disable (or remove) the last entry <code>microbench</code> in the line, e.g. change to:</p>
+<pre class="prettyprint source"><code>SUBDIRS = doc include m4 man src examples test build obj #microbench
 </code></pre>
-<p>SUBDIRS = doc include m4 man src examples test build obj #microbench</p>
-<pre class="prettyprint source"><code>* in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
-
+</li>
+<li>
+<p>in <code>flac-1.3.2/src/libFLAC/cpu.c</code> at line 89, disable (or remove) the following lines:</p>
+<pre class="prettyprint source"><code>#elif defined __GNUC__
+    uint32_t lo, hi;
+    asm volatile (&quot;.byte 0x0f, 0x01, 0xd0&quot; : &quot;=a&quot;(lo), &quot;=d&quot;(hi) : &quot;c&quot; (0));
+    return lo;
 </code></pre>
-<p>#elif defined <strong>GNUC</strong>
-uint32_t lo, hi;
-asm volatile (&quot;.byte 0x0f, 0x01, 0xd0&quot; : &quot;=a&quot;(lo), &quot;=d&quot;(hi) : &quot;c&quot; (0));
-return lo;
-```</p>
+</li>
+</ul>
 <p>After these changes, continue compilation with</p>
 <pre class="prettyprint source"><code>make emmake
 </code></pre>
@@ -1100,13 +1135,20 @@ note, when manually editing <code>EXPORTED_FUNCTIONS</code>, that the function-n
 function <code>the_function</code>, the string for the exported function would be <code>_the_function</code>.</p>
 <p>There is a <a href="tools/extract_EXPORTED_FUNCTIONS.js">helper script</a> that will try to extract the compile option from <code>libflac_post.js</code> (i.e. the list of functions that need to be declared).
 Run the script with <code>Node.js</code> in <code>tools/</code> (and copy&amp;paste the output value):</p>
-<pre class="prettyprint source"><code>node extract_EXPORTED_FUNCTIONS.js
+<pre class="prettyprint source"><code>cd tools
+node extract_EXPORTED_FUNCTIONS.js
 </code></pre>
 <p>IMPORTANT: the helper script extracts function names that are invoked by <code>Module.ccall()</code>
 or <code>Module.cwrap()</code>.
-If invoked dynamically (i.e. use variable instead of string), add a DEV comment
-where the function is explicitly stated as string, e.g.
-<code>javascript // Module.ccall('FLAC__stream_decoder_init_stream' // Module.ccall('FLAC__stream_decoder_init_ogg_stream' var func_name = test? 'FLAC__stream_decoder_init_stream' : 'FLAC__stream_decoder_init_ogg_stream'; Module.ccall( func_name,</code></p>
+If invoked dynamically (i.e. use of variable instead of string), add a DEV comment
+where the function is explicitly stated as string, e.g.</p>
+<pre class="prettyprint source lang-javascript"><code>//DEV comment for exported-functions script:
+//  Module.ccall('FLAC__stream_decoder_init_stream'
+//  Module.ccall('FLAC__stream_decoder_init_ogg_stream'
+var func_name = test? 'FLAC__stream_decoder_init_stream' : 'FLAC__stream_decoder_init_ogg_stream';
+Module.ccall(
+  func_name,
+</code></pre>
 <h2>Contributors</h2>
 <hr>
 <p>See <code>CONTRIBUTORS</code> for list of contributors.</p>

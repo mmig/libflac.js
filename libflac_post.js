@@ -1052,24 +1052,24 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @memberOf Flac
 	 * @property {TypedArray}  buffer  a TypedArray (e.g. Uint8Array) with the read data
 	 * @property {number}  readDataLength the number of read data bytes. A number of <code>0</code> (zero) indicates that the end-of-stream is reached.
-	 * @property {boolean}  error <code>true</code> indicates that an error occured (decoding will be aborted)
+	 * @property {boolean}  [error] OPTIONAL value of <code>true</code> indicates that an error occured (decoding will be aborted)
 	 */
 	/**
-	 * the callback for writing the encoded FLAC data.
+	 * The callback for reading the FLAC data that will be decoded.
 	 *
 	 * @callback Flac~decoder_read_callback_fn
 	 * @param {number} numberOfBytes the maximal number of bytes that the read callback can return
 	 * @returns {Flac.ReadResult} the result of the reading action/request
 	 */
 	/**
-	 * the callback for writing the encoded FLAC data.
+	 * The callback for writing the decoded FLAC data.
 	 *
 	 * @callback Flac~decoder_write_callback_fn
 	 * @param {Uint8Array[]} data array of the channels with the decoded PCM data as <code>Uint8Array</code>s
 	 * @param {Flac.BlockMetadata} frameInfo the metadata information for the decoded data
 	 */
 	/**
-	 * the callback for reporting decoding errors.
+	 * The callback for reporting decoding errors.
 	 *
 	 * @callback Flac~decoder_error_callback_fn
 	 * @param {number} errorCode the error code
@@ -1105,7 +1105,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
 	 *
 	 * @param {Flac~metadata_callback_fn} [metadata_callback_fn] OPTIONAL
-	 * 				callback for receiving the metadata of the decoded PCM data:
+	 * 				callback for receiving the metadata of FLAC data that will be decoded:
 	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
 	 *
 	 * @param {number|boolean} [ogg_serial_number] OPTIONAL
