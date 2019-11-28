@@ -104,7 +104,7 @@ function initHandlers(onFileLoaded){
 			for (var i = 0, f; f = files[i]; i++) {
 
 				var fileInfoId = 'file_info_'+i;
-				appendInfo(fileListInfoEl, '<li>','<strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
+				appendInfo(fileListInfoEl, '<li>','<strong>', (f.name || '').replace(/(<|>)/g, '_'), '</strong> (', f.type || 'n/a', ') - ',
 						f.size, ' bytes, last modified: ',
 						f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a',
 						'<span id="', fileInfoId, '"></span></li>');
