@@ -1,4 +1,6 @@
 
+var path = require('path');
+
 // confiuration for loading libflac.js:
 
 // avoid export to global namespace, i.e. export as module only:
@@ -19,24 +21,20 @@ var tecVariant = {
 	wasm: '.wasm'
 };
 
-var baseDir = './dist';
-var baseName = 'libflac4-1.3.2';
+var baseDir = path.resolve(__dirname, 'dist');
+var baseName = 'libflac';
 var ext = '.js';
 
 // export factory method:
 module.exports = function(impl){
 
-	var libPath;
 	var optv;
 	if(/\bdev\b/.test(impl)){
 		optv = optVariant['dev'];
-		libPath = '/dev';
 	} else if(/\bmin\b/.test(impl)){
 		optv = optVariant['min'];
-		libPath = '/min';
 	} else {
 		optv = optVariant['default'];
-		libPath = '';
 	}
 
 	var tecv;
@@ -46,7 +44,7 @@ module.exports = function(impl){
 		tecv = tecVariant['default'];
 	}
 
-	libPath = baseDir + libPath + '/';
+	var libPath = baseDir + path.sep;
 	// set library directory
 	process.env.FLAC_SCRIPT_LOCATION = libPath;
 	// load library variant

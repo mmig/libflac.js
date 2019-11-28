@@ -101,14 +101,14 @@ function exportWavFile(recBuffers, sampleRate, channels, bitsPerSample){
 /**
  *  creates blob element from libflac-encoder output
  */
-function exportFlacFile(recBuffers, metaData){
+function exportFlacFile(recBuffers, metaData, isOgg){
 	var recLength = getLength(recBuffers);
 	if(metaData){
-		addFLACMetaData(recBuffers, metaData);
+		addFLACMetaData(recBuffers, metaData, isOgg);
 	}
 	//convert buffers into one single buffer
 	var samples = mergeBuffers(recBuffers, recLength);
-	var the_blob = new Blob([samples]);
+	var the_blob = new Blob([samples], {type: isOgg? 'audio/ogg' : 'audio/flac'});
 	return the_blob;
 }
 
@@ -201,18 +201,34 @@ function encodeWAV(samples, sampleRate, channels, bitsPerSample){
  * @param chunks {Array<Uint8Array} data chunks of encoded FLAC audio, where the first one is the one produced after encoder was initialized and feed the first/multiple audio frame(s)
  * @param metadata {FlacStreamInfo} the FLAC stream-info (meta-data)
  */
-function addFLACMetaData(chunks, metadata){
+function addFLACMetaData(chunks, metadata, isOgg){
 
 	var offset = 4;
-	var data = chunks[0];//1st data chunk should contain FLAC identifier "fLaC"
-	if(data.length < 4 || String.fromCharCode.apply(null, data.subarray(0,4)) != "fLaC"){
+	var dataIndex = 0;
+	var data = chunks[0];//1st data chunk should contain FLAC identifier "fLaC" or OGG identifier "OggS"
+	if(isOgg){
+		offset = 13;
+		dataIndex = 1;
+		if(data.length < 4 || String.fromCharCode.apply(null, data.subarray(0, 4)) != "OggS"){
+			console.error('Unknown data format: cannot add additional FLAC meta data to OGG header');
+			return;
+		}
+	}
+
+	data = chunks[dataIndex];//data chunk should contain FLAC identifier "fLaC"
+	if(data.length < 4 || String.fromCharCode.apply(null, data.subarray(offset-4, offset)) != "fLaC"){
 		console.error('Unknown data format: cannot add additional FLAC meta data to header');
+		return;
+	}
+
+	if(isOgg){
+		console.info('OGG Container: cannot add additional FLAC meta data to header due to OGG format\'s header checksum!');
 		return;
 	}
 
 	//first chunk only contains the flac identifier string?
 	if(data.length == 4){
-		data = chunks[1];//get 2nd data chunk which should contain STREAMINFO meta-data block (and probably more)
+		data = chunks[dataIndex + 1];//get 2nd data chunk which should contain STREAMINFO meta-data block (and probably more)
 		offset = 0;
 	}
 
@@ -298,20 +314,31 @@ function wav_file_processing_check_wav_format(ui8_data){
 /**
  *  checks if the given ui8_data (ui8array) is of a flac-file
  */
-function flac_file_processing_check_flac_format(ui8_data){
+function flac_file_processing_check_flac_format(ui8_data, isOgg){
+
+	var offset = 4;//-> offset for end of FLAC identifier "fLaC"
+
+	// check: is file really an OGG container file?
+	if(isOgg){
+		offset = 41;
+		if(ui8_data.length < 4 || String.fromCharCode.apply(null, ui8_data.subarray(0, 4)) != "OggS"){
+			console.error('ERROR: wrong format for OGG-file.');
+			return false;
+		}
+	}
 
 	// check: is file a compatible flac-file?
-	if ((ui8_data.length < 42) ||
-		(String.fromCharCode.apply(null, ui8_data.subarray(0,4)) != "fLaC")
+	if ((ui8_data.length < 38 + offset) ||
+		(String.fromCharCode.apply(null, ui8_data.subarray(offset-4, offset)) != "fLaC")
 	){
-		console.log("ERROR: wrong format for flac-file.");
+		console.error("ERROR: wrong format for flac-file.");
 		return false;
 	}
 
 	var view = new DataView(ui8_data.buffer);
 	//check last 7 bits of 4th byte for meta-data BLOCK type: must be STREAMINFO (0)
-	if ((view.getUint8(4) & 0x7f) != 0){
-		console.log("ERROR: wrong format for flac-file.");
+	if ((view.getUint8(offset) & 0x7f) != 0){
+		console.error("ERROR: wrong format for flac-file.");
 		return false;
 	}
 

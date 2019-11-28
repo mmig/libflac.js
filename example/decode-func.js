@@ -1,5 +1,5 @@
 
-function decodeFlac(binData, decData, isVerify){
+function decodeFlac(binData, decData, isVerify, isOgg){
 
 	var flac_decoder,
 		VERIFY = true,
@@ -53,15 +53,16 @@ function decodeFlac(binData, decData, isVerify){
 	}
 
 	// check: is file a compatible flac-file?
-	if (flac_file_processing_check_flac_format(binData) == false){
-		return {error: 'Wrong FLAC file format', status: 1};
+	if (flac_file_processing_check_flac_format(binData, isOgg) == false){
+		var container = isOgg? 'OGG/' : '';
+		return {error: 'Wrong '+container+'FLAC file format', status: 1};
 	}
 
 	// init decoder
 	flac_decoder = Flac.create_libflac_decoder(VERIFY);
 
 	if (flac_decoder != 0){
-		var init_status = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn);
+		var init_status = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, isOgg);
 		flac_ok &= init_status == 0;
 		console.log("flac init     : " + flac_ok);//DEBUG
 	} else {

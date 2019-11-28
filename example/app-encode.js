@@ -14,7 +14,7 @@ function onWavLoad(evt) {
 	var arrayBuffer = new Uint8Array(this.result);
 
 	var encData = [];
-	var result = encodeFlac(arrayBuffer, encData, isVerify());
+	var result = encodeFlac(arrayBuffer, encData, isVerify(), isUseOgg());
 	console.log('encoded data array: ', encData);
 
 	if(result.error){
@@ -42,9 +42,9 @@ function onWavLoad(evt) {
 	if(!result.error){
 
 		//using data-util.js utility function(s)
-		var blob = exportFlacFile(encData, metaData);
+		var blob = exportFlacFile(encData, metaData, isUseOgg());
 
-		var fileName = getFileName(evt.fileName, 'flac');
+		var fileName = getFileName(evt.fileName, isUseOgg()? 'ogg' : 'flac');
 
 		//using data-util.js utility function(s)
 		if(isDownload()){

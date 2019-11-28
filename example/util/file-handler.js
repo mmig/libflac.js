@@ -164,11 +164,16 @@ function isVerify(){
 	return document.getElementById('check_verify').checked;
 }
 
+function isUseOgg(){
+	return document.getElementById('check_ogg').checked;
+}
+
 function getFileName(srcName, targetExt){
 
-	var isFlac = /flac/i.test(targetExt);
-	var source = isFlac? 'wav' : 'flac';
-	var target = isFlac? 'flac' : 'wav';
+	var isCompressed = /(flac|ogg)/i.test(targetExt);
+	var containerExt = /ogg/i.test(targetExt)? 'ogg' : 'flac';
+	var source = isCompressed? 'wav' : containerExt;
+	var target = isCompressed? containerExt : 'wav';
 
 	var reSrc = new RegExp('\.'+source+'$', 'i');
 	var reTarget = new RegExp('\.'+target+'$', 'i');

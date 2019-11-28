@@ -1,5 +1,5 @@
 
-function encodeFlac(binData, recBuffers, isVerify){
+function encodeFlac(binData, recBuffers, isVerify, isUseOgg){
 
 	var ui8_data = new Uint8Array(binData);
 	var sample_rate=0,
@@ -43,10 +43,11 @@ function encodeFlac(binData, recBuffers, isVerify){
 	var compression_level = 5;
 	var flac_ok = 1;
 	var is_verify = isVerify;
+	var is_write_ogg = isUseOgg;
 
 	var flac_encoder = Flac.create_libflac_encoder(wav_parameters.sample_rate, wav_parameters.channels, wav_parameters.bps, compression_level, tot_samples, is_verify);
 	if (flac_encoder != 0){
-		var init_status = Flac.init_encoder_stream(flac_encoder, write_callback_fn, metadata_callback_fn, 0);
+		var init_status = Flac.init_encoder_stream(flac_encoder, write_callback_fn, metadata_callback_fn, is_write_ogg, 0);
 		flac_ok &= init_status == 0;
 		console.log("flac init: " + flac_ok);
 	} else {
