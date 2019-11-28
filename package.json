@@ -1,24 +1,20 @@
 {
-    "name": "libflacjs",
-    "version": "4.0.2",
-    "main": "index.js",
-    "description": "FLAC encoder compiled in JavaScript using emscripten.",
-    "directories": {
-      "doc": "apidoc",
-      "bin": "dist",
-      "example": "example"
-    },
-    "repository": {
-      "type": "git",
-      "url": "git+https://github.com/mmig/libflac.js.git"
-    },
-    "contributors": [
-      {"name": "F. Petersen"},
-      {"name": "A. Russ"}
-    ],
-    "license": "MIT",
-    "bugs": {
-      "url": "https://github.com/mmig/libflac.js/issues"
-    },
-    "homepage": "https://github.com/mmig/libflac.js"
-  }
+  "name": "libflacjs",
+  "version": "5.0.0",
+  "main": "index.js",
+  "description": "FLAC data stream encoder and decoder compiled in JavaScript using emscripten.",
+  "directories": {
+    "doc": "apidoc",
+    "bin": "dist",
+    "example": "example"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmig/libflac.js.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mmig/libflac.js/issues"
+  },
+  "homepage": "https://github.com/mmig/libflac.js"
+}
