@@ -99,7 +99,11 @@ importScripts('libflac.js');
 
 In `Node.js`:
 install with `npm`
-```
+```bash
+#install from npm
+npm install --save libflacjs
+
+#install latest from master branch
 npm install --save git+https://github.com/mmig/libflac.js.git
 ```
 
