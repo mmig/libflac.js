@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>libflac.js 5.0.0</title>
+    
+    
+    
+        <meta name="keywords" content="flac, javascript, emscripten" />
+        <meta name="keyword" content="flac, javascript, emscripten" />
+    
+    
+    
+    <meta property="og:title" content="libflac.js API 5.0.0"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:image" content=""/>
+    <meta property="og:site_name" content="libflac.js"/>
+    <meta property="og:url" content="https://github.com/mmig/libflac.js"/>
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <script src="scripts/jquery.min.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/bootstrap.min.css">
+    <link type="text/css" rel="stylesheet" href="styles/jaguar.css">
+
+    
+    <script>
+    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.0.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.0.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
+    </script>
+    
+
+    
+</head>
+<body>
+<div id="wrap" class="clearfix">
+    
+<div class="navigation">
+    <h3 class="applicationName"><a href="index.html">libflac.js</a></h3>
+
+    <div class="search">
+        <input id="search" type="text" class="form-control input-sm" placeholder="Search Documentation">
+    </div>
+    <ul class="list">
+    
+        <h3 class="typeHeading">Namespaces</h3>
+        
+            <li class="item" data-name="Flac.html">
+                <span class="title">
+                    <a href="Flac.html">Flac</a>
+                    
+                    <span class="static">static</span>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                <span class="subtitle">Typedefs</span>
+                
+                    <li data-name="Flac~decoder_error_callback_fn"><a href="Flac.html#~decoder_error_callback_fn">decoder_error_callback_fn</a></li>
+                
+                    <li data-name="Flac~decoder_read_callback_fn"><a href="Flac.html#~decoder_read_callback_fn">decoder_read_callback_fn</a></li>
+                
+                    <li data-name="Flac~decoder_write_callback_fn"><a href="Flac.html#~decoder_write_callback_fn">decoder_write_callback_fn</a></li>
+                
+                    <li data-name="Flac~encoder_write_callback_fn"><a href="Flac.html#~encoder_write_callback_fn">encoder_write_callback_fn</a></li>
+                
+                    <li data-name="Flac~metadata_callback_fn"><a href="Flac.html#~metadata_callback_fn">metadata_callback_fn</a></li>
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                <span class="subtitle">Interfaces</span>
+                
+                    <li data-name="Flac.BlockMetadata"><a href="Flac.BlockMetadata.html">BlockMetadata</a></li>
+                
+                    <li data-name="Flac.FLAC__StreamDecoderErrorStatus"><a href="Flac.FLAC__StreamDecoderErrorStatus.html">FLAC__StreamDecoderErrorStatus</a></li>
+                
+                    <li data-name="Flac.FLAC__StreamDecoderInitStatus"><a href="Flac.FLAC__StreamDecoderInitStatus.html">FLAC__StreamDecoderInitStatus</a></li>
+                
+                    <li data-name="Flac.FLAC__StreamDecoderState"><a href="Flac.FLAC__StreamDecoderState.html">FLAC__StreamDecoderState</a></li>
+                
+                    <li data-name="Flac.FLAC__StreamEncoderInitStatus"><a href="Flac.FLAC__StreamEncoderInitStatus.html">FLAC__StreamEncoderInitStatus</a></li>
+                
+                    <li data-name="Flac.FLAC__StreamEncoderState"><a href="Flac.FLAC__StreamEncoderState.html">FLAC__StreamEncoderState</a></li>
+                
+                    <li data-name="Flac.Metadata"><a href="Flac.Metadata.html">Metadata</a></li>
+                
+                    <li data-name="Flac.ReadResult"><a href="Flac.ReadResult.html">ReadResult</a></li>
+                
+                    <li data-name="Flac.StreamMetadata"><a href="Flac.StreamMetadata.html">StreamMetadata</a></li>
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                <span class="subtitle">Methods</span>
+                
+                    <li data-name="Flac#create_libflac_decoder"><a href="Flac.html#create_libflac_decoder">create_libflac_decoder</a></li>
+                
+                    <li data-name="Flac#create_libflac_encoder"><a href="Flac.html#create_libflac_encoder">create_libflac_encoder</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_decoder_delete"><a href="Flac.html#FLAC__stream_decoder_delete">FLAC__stream_decoder_delete</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_decoder_finish"><a href="Flac.html#FLAC__stream_decoder_finish">FLAC__stream_decoder_finish</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_decoder_get_md5_checking"><a href="Flac.html#FLAC__stream_decoder_get_md5_checking">FLAC__stream_decoder_get_md5_checking</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_decoder_get_state"><a href="Flac.html#FLAC__stream_decoder_get_state">FLAC__stream_decoder_get_state</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_decoder_process_single"><a href="Flac.html#FLAC__stream_decoder_process_single">FLAC__stream_decoder_process_single</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_decoder_process_until_end_of_metadata"><a href="Flac.html#FLAC__stream_decoder_process_until_end_of_metadata">FLAC__stream_decoder_process_until_end_of_metadata</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_decoder_process_until_end_of_stream"><a href="Flac.html#FLAC__stream_decoder_process_until_end_of_stream">FLAC__stream_decoder_process_until_end_of_stream</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_decoder_reset"><a href="Flac.html#FLAC__stream_decoder_reset">FLAC__stream_decoder_reset</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_encoder_delete"><a href="Flac.html#FLAC__stream_encoder_delete">FLAC__stream_encoder_delete</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_encoder_finish"><a href="Flac.html#FLAC__stream_encoder_finish">FLAC__stream_encoder_finish</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_encoder_get_state"><a href="Flac.html#FLAC__stream_encoder_get_state">FLAC__stream_encoder_get_state</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_encoder_process_interleaved"><a href="Flac.html#FLAC__stream_encoder_process_interleaved">FLAC__stream_encoder_process_interleaved</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_encoder_set_blocksize"><a href="Flac.html#FLAC__stream_encoder_set_blocksize">FLAC__stream_encoder_set_blocksize</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_encoder_set_compression_level"><a href="Flac.html#FLAC__stream_encoder_set_compression_level">FLAC__stream_encoder_set_compression_level</a></li>
+                
+                    <li data-name="Flac#FLAC__stream_encoder_set_verify"><a href="Flac.html#FLAC__stream_encoder_set_verify">FLAC__stream_encoder_set_verify</a></li>
+                
+                    <li data-name="Flac#init_decoder_ogg_stream"><a href="Flac.html#init_decoder_ogg_stream">init_decoder_ogg_stream</a></li>
+                
+                    <li data-name="Flac#init_decoder_stream"><a href="Flac.html#init_decoder_stream">init_decoder_stream</a></li>
+                
+                    <li data-name="Flac#init_encoder_ogg_stream"><a href="Flac.html#init_encoder_ogg_stream">init_encoder_ogg_stream</a></li>
+                
+                    <li data-name="Flac#init_encoder_stream"><a href="Flac.html#init_encoder_stream">init_encoder_stream</a></li>
+                
+                    <li data-name="Flac#init_libflac_decoder"><a href="Flac.html#init_libflac_decoder">init_libflac_decoder</a></li>
+                
+                    <li data-name="Flac#init_libflac_encoder"><a href="Flac.html#init_libflac_encoder">init_libflac_encoder</a></li>
+                
+                    <li data-name="Flac#isReady"><a href="Flac.html#isReady">isReady</a></li>
+                
+                    <li data-name="Flac#off"><a href="Flac.html#off">off</a></li>
+                
+                    <li data-name="Flac#on"><a href="Flac.html#on">on</a></li>
+                
+                    <li data-name="Flac#onready"><a href="Flac.html#onready">onready</a></li>
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                <span class="subtitle">Events</span>
+                
+                    <li data-name="Flac.event:ReadyEvent"><a href="Flac.html#.event:ReadyEvent">ReadyEvent</a></li>
+                
+                </ul>
+            </li>
+        
+      
+        <h3 class="typeHeading">Interfaces</h3>
+        
+            <li class="item" data-name="Flac.BlockMetadata.html">
+                <span class="title">
+                    <a href="Flac.BlockMetadata.html">BlockMetadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__StreamDecoderErrorStatus.html">
+                <span class="title">
+                    <a href="Flac.FLAC__StreamDecoderErrorStatus.html">FLAC__StreamDecoderErrorStatus</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__StreamDecoderInitStatus.html">
+                <span class="title">
+                    <a href="Flac.FLAC__StreamDecoderInitStatus.html">FLAC__StreamDecoderInitStatus</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__StreamDecoderState.html">
+                <span class="title">
+                    <a href="Flac.FLAC__StreamDecoderState.html">FLAC__StreamDecoderState</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__StreamEncoderInitStatus.html">
+                <span class="title">
+                    <a href="Flac.FLAC__StreamEncoderInitStatus.html">FLAC__StreamEncoderInitStatus</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__StreamEncoderState.html">
+                <span class="title">
+                    <a href="Flac.FLAC__StreamEncoderState.html">FLAC__StreamEncoderState</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.Metadata.html">
+                <span class="title">
+                    <a href="Flac.Metadata.html">Metadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.ReadResult.html">
+                <span class="title">
+                    <a href="Flac.ReadResult.html">ReadResult</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.StreamMetadata.html">
+                <span class="title">
+                    <a href="Flac.StreamMetadata.html">StreamMetadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+      
+    </ul>
+</div>
+
+    <div class="main">
+        <h1 class="page-title" data-filename="index.html">Index</h1>
+        
+
+
+    
+
+
+    <h3> </h3>
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+    <section>
+        <article class="readme"><h1>libflac.js</h1>
+<p><a target='_blank' href="https://www.npmjs.com/package/libflacjs"><img src="https://img.shields.io/npm/v/libflacjs" alt="npm"></a>
+<img src="https://img.shields.io/github/package-json/v/mmig/libflac.js/master" alt="GitHub package.json version">
+<a target='_blank' href="https://github.com/kripken/emscripten"><img src="https://img.shields.io/badge/emsripten-1.39.3-green" alt="emscripten version"></a>
+<a target='_blank' href="https://xiph.org/flac/"><img src="https://img.shields.io/badge/libFLAC-1.3.2-yellow" alt="libFLAC version"></a>
+<a target='_blank' href="https://xiph.org/ogg/"><img src="https://img.shields.io/badge/libogg-1.3.4-yellow" alt="libogg version"></a></p>
+<p><a target='_blank' href="https://xiph.org/flac/">FLAC</a> data stream encoder and decoder compiled in JavaScript using <em>emscripten</em>.</p>
+<p><strong>Features</strong></p>
+<ul>
+<li>available as pure JavaScript, JavaScript+<em>binary</em>, JavaScript+WASM</li>
+<li>encode/decode data all-at-once (~ <em>file</em>) or chunk-by-chunk (~ <em>stream</em>)</li>
+<li>supported container formats: native FLAC container (<code>*.flac</code>), OGG container (<code>*.ogg</code>)</li>
+</ul>
+<p>For immediate use, the <code>/dist</code> sub-directory contains the compiled
+files for the <code>libflac.js</code> JavaScript library, as well as a minified version.</p>
+<blockquote>
+<p>Complied from <code>libFLAC</code> (static <code>C</code> library) version: 1.3.2<br>
+Used library <code>libogg</code> (static <code>C</code> library) version: 1.3.4<br>
+Used compiler <code>Emscripten</code> version: 1.39.2<br>
+Used compiler <code>Emscripten</code> toolchain: LLVM (upstream)</p>
+</blockquote>
+<p>In order to build <em>libflac.js</em>, make sure you have <em>emscripten</em> installed (with toolchain <code>LLVM/upstream</code>; default since version 1.39.x).</p>
+<p>On running <code>make</code>, the build process will download the sources for the
+FLAC and OGG libraries, extract them, and build the JavaScript version of libflac.</p>
+<p><strong>Encoder Demo</strong><br>
+Try the <a target='_blank' href="https://mmig.github.io/libflac.js/example/encode.html">Encoding Demo</a> for encoding <code>*.wav</code> files to FLAC.
+Or try the <a target='_blank' href="https://github.com/mmig/speech-to-flac">speech-to-flac</a> <a target='_blank' href="https://mmig.github.io/speech-to-flac/">demo</a> that encodes the audio stream from a microphone to FLAC.</p>
+<p><strong>Decoder Demo</strong><br>
+Try the <a target='_blank' href="https://mmig.github.io/libflac.js/example/decode.html">Decoding Demo</a> for decoding <code>*.flac</code> files to <code>*.wav</code> files.
+<em>TODO</em> example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).</p>
+<p><strong>API Documentation</strong><br>
+See <a target='_blank' href="https://mmig.github.io/libflac.js/doc/">doc/index.html</a> for the API documentation.</p>
+<hr>
+<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:0 orderedList:0 -->
+<ul>
+<li><a href="#usage">Usage</a>
+<ul>
+<li><a href="#including-libflacjs">Including libflac.js</a>
+<ul>
+<li><a href="#browser">Browser</a></li>
+<li><a href="#webworker">WebWorker</a></li>
+<li><a href="#node">Node</a></li>
+<li><a href="#react">React</a></li>
+</ul>
+</li>
+<li><a href="#including-dynamically-loaded-libflacjs">Including Dynamically Loaded libflac.js</a>
+<ul>
+<li><a href="#including-dynamically-loaded-libflacjs-from-non-default-location">Including Dynamically Loaded  libflac.js from Non-Default Location</a></li>
+</ul>
+</li>
+<li><a href="#library-variants">Library Variants</a>
+<ul>
+<li><a href="#default-library">Default Library:</a></li>
+<li><a href="#minified-library">Minified Library:</a></li>
+<li><a href="#development-library">Development Library:</a></li>
+</ul>
+</li>
+<li><a href="#encoding-with-libflacjs">Encoding with libflac.js</a></li>
+<li><a href="#decoding-with-libflacjs">Decoding with libflac.js</a></li>
+<li><a href="#api">API</a></li>
+</ul>
+</li>
+<li><a href="#building">Building</a>
+<ul>
+<li><a href="#build-nix-libflac-130">Build *nix (libflac 1.3.0)</a></li>
+<li><a href="#build-windowsvisualstudio-10-libflac-130">Build Windows/VisualStudio 10 (libflac 1.3.0)</a></li>
+<li><a href="#building-nix-libflac-132">Building *nix (libflac 1.3.2)</a></li>
+<li><a href="#prerequisite-building-nix-libogg-134">Prerequisite: Building *nix (libogg 1.3.4)</a></li>
+<li><a href="#prerequisite-building-windowsviusalstudio-10-libogg-132">Prerequisite: Building Windows/ViusalStudio 10 (libogg 1.3.2)</a></li>
+<li><a href="#change-library-api">Change Library API</a></li>
+</ul>
+</li>
+<li><a href="#contributors">Contributors</a></li>
+<li><a href="#acknowledgments">Acknowledgments</a></li>
+<li><a href="#license">License</a></li>
+</ul>
+<!-- /TOC -->
+<h2>Usage</h2>
+<hr>
+<h3>Including libflac.js</h3>
+<h4>Browser</h4>
+<p>Include the library file, e.g.</p>
+<pre class="prettyprint source lang-html"><code>&lt;script src=&quot;libflac.js&quot; type=&quot;text/javascript&quot;>&lt;/script>
+</code></pre>
+<h4>WebWorker</h4>
+<p>Import the library file, e.g.</p>
+<pre class="prettyprint source lang-javascript"><code>importScripts('libflac.js');
+</code></pre>
+<h4>Node</h4>
+<p>In <code>Node.js</code>:
+install with <code>npm</code></p>
+<pre class="prettyprint source"><code>npm install --save git+https://github.com/mmig/libflac.js.git
+</code></pre>
+<p>then, use factory method for loading one of the library variants:</p>
+<pre class="prettyprint source lang-javascript"><code>
+//load default/release asm.js variant:
+var Flac = require('libflacjs')();
+
+// use one of the optimization-variants:
+//  * &lt;empty> / &quot;release&quot;
+//  * &quot;min&quot;
+//  * &quot;dev&quot;
+// use one of the technology-variants:
+//  * &lt;empty> / &quot;asmjs&quot;
+//  * &quot;wasm&quot;
+//
+// can be combined with dot, e.g. &quot;min.wasm&quot;:
+var FlacFactory = require('libflacjs');
+var Flac = FlacFactory('min.wasm');
+Flac.on('ready', function(event){
+  ...
+</code></pre>
+<h4>React</h4>
+<p>For <code>reactjs</code>:
+install with <code>npm</code> (see above), and <code>require()</code> the library directly, like</p>
+<pre class="prettyprint source lang-javascript"><code>var Flac = require('libflacjs/dist/libflac.js');
+</code></pre>
+<h3>Including Dynamically Loaded libflac.js</h3>
+<p>Some variants of the <code>libflac.js</code> library are loaded asynchronously
+(e.g. minimized/optimized variants may load a separate binary file during initialization of the library).</p>
+<p>In this case, you have to make sure, not to use <code>libflac.js</code> before is has been completely loaded / initialized.</p>
+<p>Code example:</p>
+<pre class="prettyprint source lang-javascript"><code>
+//either use Flac.on() or set handler Flac.onready:
+Flac.on('ready', function(event){
+  var libFlac = event.target;
+  //NOTE: Flac === libFlac
+
+  //execute code that uses libflac.js:
+  someFunctionForProcessingFLAC();
+};
+
+//... or set handler
+Flac.onready = function(event){
+  var libFlac = event.target;
+  //NOTE: Flac === libFlac
+
+  //execute code that uses libflac.js:
+  someFunctionForProcessingFLAC();
+};
+
+
+// IMPORTANT: if execution environment does not support Object.defineProperty
+//            setting the handler will have no effect, if Flac is already ready.
+//            In this case, ready-state needs be checked, and if already ready,
+//            the handler-code should be triggered immediately insteady of setting
+//            the handler.
+if( !Flac.isReady() ){
+  Flac.onready = function(event){
+    var libFlac = event.target;
+    //NOTE: Flac === libFlac
+
+    //call function that uses libflac.js:
+    someFunctionForProcessingFLAC();
+  };
+} else {
+
+  //execute code that uses libflac.js:
+  someFunctionForProcessingFLAC();
+}
+</code></pre>
+<p><strong>NOTE:</strong> If <code>Object.defineProperty()</code> is not supported in the execution environment,
+then the <code>onready()</code> handler will not be called, when the library already
+has been initialized before assigning it to <code>Flac.onready</code> (i.e. when
+<code>Flac.isReady()</code> returns <code>true</code>).
+In this case, you should check <code>Flac.isReady()</code> and provide alternative code
+execution to the <code>onready()</code> function, in case <code>Flac.isReady()</code> is <code>true</code>
+(or use <code>Flac.on('ready', ...)</code> instead).</p>
+<h4>Including Dynamically Loaded  libflac.js from Non-Default Location</h4>
+<p>Variants of the <code>libflac.js</code> library that are loaded asynchronously do usually also load some additional files.</p>
+<p>If the library-file is not loaded from the default location (&quot;page root&quot;), but from a sub-directory/-path, you need to
+let the library know, so that it searches for the additional files, that it needs to load, in that sub-directory/-path.</p>
+<p>For this, the path/location must be stored in the global variable <code>FLAC_SCRIPT_LOCATION</code> <em>before</em> the <code>libflac.js</code>
+library is loaded.
+If <code>FLAC_SCRIPT_LOCATION</code> is given as <code>string</code>, it specifies the path to the <code>libflac.js</code> files (see examples below), e.g.</p>
+<pre class="prettyprint source lang-javascript"><code>//location example as string:
+FLAC_SCRIPT_LOCATION = 'libs/';
+</code></pre>
+<p>If <code>FLAC_SCRIPT_LOCATION</code> is given as an object, it specifies mappings of the file-names to the file-paths of the <code>libflac.js</code> files (see examples below), e.g.</p>
+<pre class="prettyprint source lang-javascript"><code>//location example as object/mapping:
+FLAC_SCRIPT_LOCATION = {
+  'libflac.min.js.mem': 'libs/flac.mem'
+};
+</code></pre>
+<p>Note, that the path/location should end with a slash (<code>&quot;/&quot;</code>), e.g. <code>'some/path/'</code>
+(the library will try to automatically add a slash, if it is missing).</p>
+<p>An example for specifying the path/location at <code>libs/</code> in an HTML file:</p>
+<pre class="prettyprint source lang-html"><code>  &lt;script type=&quot;text/javascript&quot;>window.FLAC_SCRIPT_LOCATION = 'libs/';&lt;/script>
+  &lt;script src=&quot;libs/libflac.js&quot; type=&quot;text/javascript&quot;>&lt;/script>
+</code></pre>
+<p>Or example for specifying the path/location at <code>libs/</code> in a WebWorker script:</p>
+<pre class="prettyprint source lang-javascript"><code>  self.FLAC_SCRIPT_LOCATION = 'libs/';
+  importScripts('libs/libflac.js');
+</code></pre>
+<p>Or example for specifying the path/location at <code>libs/</code> in Node.js script:</p>
+<pre class="prettyprint source lang-javascript"><code>  process.env.FLAC_SCRIPT_LOCATION = './libs/';
+  process.env.FLAC_UMD_MODE = true;//&lt;- OPTIONAL: avoid export to global namespace
+  var Flac = require('./libs/libflac.js');
+</code></pre>
+<p>Example for specifying custom path and file-name via mapping (<code>originalFileName -&gt; &lt;newPath/newFileName&gt;</code>):<br>
+in this case, the file-name(s) of the additionally required files (e.g. <code>*.mem</code> or <code>.wasm</code> files)
+need to be mapped to the custom path/file-name(s), that is,
+for all the required files of the used library variant (see details below).</p>
+<pre class="prettyprint source lang-javascript"><code>  self.FLAC_SCRIPT_LOCATION = {
+    'libflac.min.js.mem': 'libs/flac.mem'
+  };
+  importScripts('libs/flac.min.js');
+</code></pre>
+<h3>Library Variants</h3>
+<p>There are multiple variants available for the library, that are compiled with different
+settings for debug-output and code optimization, namely <code>debug</code>, <code>min</code>, and the
+default (release) library variants.</p>
+<p>In addition, for each of these variants, there is now a <code>wasm</code> variant (<em>WebAssembly</em>) available:
+the old/default variants are compiled for <code>asm.js</code> which is &quot;normal&quot; JavaScript, with some
+optimizations that browsers can take advantage of by specifically supporting <code>asm.js</code> (e.g. <em>FireFox</em>).</p>
+<p>(from the <a target='_blank' href="http://kripken.github.io/emscripten-site/docs/compiling/WebAssembly.html#webassembly">Emscripten documentation</a>)</p>
+<blockquote>
+<p>WebAssembly is a new binary format for executing code on the web, allowing much faster start times
+(smaller download, much faster parsing in browsers)</p>
+</blockquote>
+<p>In short, the (old) <code>asm.js</code> is backwards compatible, since it is simply JavaScript
+(and browsers that specifically support it, can execute it optimized/more efficiently),
+while the new <code>WebAssembly</code> format requires more recent/modern browsers, but is generally
+more efficient with regard to code size and execution time.</p>
+<blockquote>
+<p>NOTE the <code>WebAssembly</code> variant does not create/encode &quot;binary-perfect&quot; FLAC files
+compared to the other library variants, or compared to the FLAC
+command-line tool.<br>
+More specifically, comparing the encoding results byte-by-byte with encoding
+results from the <code>asm.js</code> variants, or separately encoded data using the FLAC
+command-line tool, results are different for the <code>WebAssembly</code> variant.
+However, the reverse operation, decoding these &quot;binary-different&quot; FLAC
+files (using <code>WebAssembly</code>, or <code>asm.js</code> or the command-line tool) results
+in the same WAV data again.<br>
+<em>It seems, the <code>WebAssembly</code> variant chooses different frame-sizes
+while encoding; e.g. the max. frame-size may differ from when encoding
+with the <code>asm.js</code> variant or with the command-line tool.</em></p>
+</blockquote>
+<p>NOTES for dynamically loaded library variants:</p>
+<ul>
+<li>the corresponding <em>required</em> files must be included in the same directory as the library/JavaScript file</li>
+<li>the additional <em>required</em> files file must not be renamed (or the library/JavaScript file must be edited accordingly)</li>
+<li>see also the section above for handling dynamically loaded library variants, and, if appropriate, the section for
+including dynamically loaded libraries from a sub-path/location</li>
+</ul>
+<h4>Default Library:</h4>
+<p><em>(see <a href="dist"><code>/dist</code></a>)</em></p>
+<ul>
+<li>ASM.js Variant:
+<ul>
+<li><code>libflac.js</code></li>
+</ul>
+</li>
+<li>WebAssembly variant <em>(dynamically loaded)</em>:
+<ul>
+<li><code>libflac.wasm.js</code></li>
+<li><code>libflac.wasm.wasm</code> (<strong>required</strong>; will be loaded by the library)</li>
+<li><code>libflac.wasm.js.symbols</code> (optional; contains renaming information)</li>
+</ul>
+</li>
+</ul>
+<h4>Minified Library:</h4>
+<p><em>(see <a href="dist"><code>/dist</code></a>)</em></p>
+<ul>
+<li>ASM.js Variant <em>(dynamically loaded)</em>:
+<ul>
+<li><code>libflac.min.js</code></li>
+<li><code>libflac.min.js.mem</code> (<strong>required</strong>; will be loaded by the library)</li>
+<li><code>libflac.min.js.symbols</code> (optional; contains renaming information)</li>
+</ul>
+</li>
+<li>WebAssembly variant <em>(dynamically loaded)</em>:
+<ul>
+<li><code>libflac.min.wasm.js</code></li>
+<li><code>libflac.min.wasm.wasm</code> (<strong>required</strong>; will be loaded by the library)</li>
+<li><code>libflac.min.wasm.js.symbols</code> (optional; contains renaming information)</li>
+</ul>
+</li>
+</ul>
+<h4>Development Library:</h4>
+<p><em>(see <a href="dist"><code>/dist</code></a>)</em></p>
+<ul>
+<li>ASM.js Variant:
+<ul>
+<li><code>libflac.dev.js</code></li>
+<li><s><code>libflac.dev.js.map</code> (optional; mapping to C code)</s> <em>currently not supported by LLVM toolchain</em></li>
+<li><code>libflac.dev.js.symbols</code> (optional; contains renaming information)</li>
+</ul>
+</li>
+<li>WebAssembly variant <em>(dynamically loaded)</em>:
+<ul>
+<li><code>libflac.dev.wasm.js</code></li>
+<li><code>libflac.dev.wasm.wasm</code> (<strong>required</strong>; will be loaded by the library)</li>
+<li><code>libflac.dev.wasm.js.map</code> (optional; mapping to C code)</li>
+</ul>
+</li>
+</ul>
+<h3>Encoding with libflac.js</h3>
+<p>Generally, <code>libflac.js</code> supports a subset of the <a target='_blank' href="https://xiph.org/flac/api/group__flac__stream__encoder.html">libflac encoding interface</a> for encoding audio data to FLAC (no full support yet!).</p>
+<p>Supported encoding types:</p>
+<ul>
+<li>encode from <code>PCM</code> data all-at-once</li>
+<li>encode from <code>PCM</code> data chunk-by-chunk (i.e. <em>streaming</em>)</li>
+</ul>
+<p>Supported target containers:</p>
+<ul>
+<li>native <code>FLAC</code> container</li>
+<li><code>OGG</code> transport container</li>
+</ul>
+<p>See <a href="example/encode.html">example/encode.html</a> for a small example,
+on how to encode a <code>WAV</code> file.</p>
+<p>For a larger example on how to encode audio data from the
+microphone see the <a target='_blank' href="https://github.com/mmig/speech-to-flac">Speech to FLAC</a> example.</p>
+<p>Small usage example:</p>
+<pre class="prettyprint source lang-javascript"><code>
+//load libflac.js -> Flac object exported into global namespace
+
+var flac_encoder,
+    CHANNELS = 1,
+    SAMPLERATE = 44100,
+    COMPRESSION = 5,
+    BPS = 16,
+    VERIFY = false,
+    BLOCK_SIZE = 0,
+    flac_ok = 1,
+    USE_OGG = false;
+
+
+////////
+// [1] INIT -> IN: config { ... }
+
+//overwrite default configuration from config object
+COMPRESSION = config.compression;
+BPS = config.bps;
+SAMPLERATE = config.samplerate;
+CHANNELS = config.channels;
+VERIFY = config.isVerify;//verification can be disabled for speeding up encoding process
+BLOCK_SIZE = config.blockSize;
+USE_OGG = config.useOgg;
+
+//init encoder
+flac_encoder = Flac.create_libflac_encoder(SAMPLERATE, CHANNELS, BPS, COMPRESSION, 0, VERIFY, BLOCK_SIZE);
+
+if (flac_encoder == 0){
+  return;
+}
+
+//for storing the encoded FLAC data
+var encBuffer = [];
+//for storing the encoding FLAC metadata summary
+var metaData;
+
+var write_callback_fn = function(encodedData /*Uint8Array*/, bytes, samples, current_frame){
+  //store all encoded data &quot;pieces&quot; into a buffer
+  encBuffer.push(encodedData);
+};
+
+function metadata_callback_fn(data){
+  // data -> [example] {
+  //  min_blocksize: 4096,
+  //  max_blocksize: 4096,
+  //  min_framesize: 14,
+  //  max_framesize: 5408,
+  //  sampleRate: 44100,
+  //  channels: 2,
+  //  bitsPerSample: 16,
+  //  total_samples: 267776,
+  //  md5sum: &quot;50d4d469448e5ea75eb44ab6b7f111f4&quot;
+  //}
+  console.info('meta data: ', data);
+  metaData = data;
+}
+
+var status_encoder;
+if(!USE_OGG){
+  // encode to native FLAC container
+  status_encoder = Flac.init_encoder_stream(flac_encoder, write_callback_fn, metadata_callback_fn);
+} else {
+  // encode to OGG container
+  status_encoder = Flac.init_encoder_ogg_stream(flac_encoder, write_callback_fn, metadata_callback_fn);
+}
+flac_ok &= (status_encoder == 0);
+
+
+////////
+// [2] ENCODE -> IN: PCM Float32 audio data (this example: mono stream)
+// ... repeat encoding step [2] as often as necessary
+
+var buf_length = buffer.length;
+var buffer_i32 = new Uint32Array(buf_length);
+var view = new DataView(buffer_i32.buffer);
+var volume = 1;
+var index = 0;
+for (var i = 0; i &lt; buf_length; i++){
+    view.setInt32(index, (buffer[i] * (0x7FFF * volume)), true);
+    index += 4;
+}
+
+var flac_return = Flac.FLAC__stream_encoder_process_interleaved(flac_encoder, buffer_i32, buf_length);
+if (flac_return != true){
+    console.log(&quot;Error: FLAC__stream_encoder_process_interleaved returned false. &quot; + flac_return);
+}
+
+
+////////
+// [3] FINISH ENCODING
+
+flac_ok &= Flac.FLAC__stream_encoder_finish(flac_encoder);
+console.log(&quot;flac finish: &quot; + flac_ok);
+
+//after usage: free up all resources for the encoder
+Flac.FLAC__stream_encoder_delete(flac_encoder);
+
+////////
+// [4] ... do something with the encoded data, e.g.
+//     merge &quot;encoded pieces&quot; in encBuffer into one single Uint8Array...
+
+</code></pre>
+<h3>Decoding with libflac.js</h3>
+<p>Generally, <code>libflac.js</code> supports a subset of the <a target='_blank' href="https://xiph.org/flac/api/group__flac__stream__decoder.html">libflac decoding interface</a> for decoding audio data from FLAC (no full support yet!).</p>
+<p>Supported encoding types:</p>
+<ul>
+<li>decode from <code>FLAC</code> data to <code>PCM</code> data all-at-once</li>
+<li>decode from <code>FLAC</code> data to <code>PCM</code> chunk-by-chunk (i.e. <em>streaming</em>)</li>
+</ul>
+<p>Supported source containers:</p>
+<ul>
+<li>native <code>FLAC</code> container</li>
+<li><code>OGG</code> transport container</li>
+</ul>
+<p>See <a href="example/decode.html">example/decode.html</a> for a small example,
+on how to decode a <code>FLAC</code> file.</p>
+<p>Small usage example:</p>
+<pre class="prettyprint source lang-javascript"><code>
+var VERIFY = true,
+  USE_OGG = false;
+
+
+////////
+// [1] INIT -> IN: config { ... }
+//             IN: flacData Uint8Array (FLAC data)
+
+//overwrite default configuration from config object
+VERIFY = config.isVerify;//verification can be disabled for speeding up decoding process
+
+//decode from native FLAC container or from OGG container
+USE_OGG = config.isOgg;
+
+// create decoder
+var flac_decoder = Flac.create_libflac_decoder(VERIFY);
+
+if (flac_decoder == 0){
+  return;
+}
+
+
+//[1] (a) setup reading input data
+var currentDataOffset = 0;
+var size = flacData.buffer.byteLength;
+
+//function that will be called for reading the input (FLAC) data:
+function read_callback_fn(bufferSize){
+
+    var start = currentDataOffset;
+    var end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
+
+    var _buffer;
+    var numberOfReadBytes;
+    if(end !== -1){
+
+      _buffer = flacData.subarray(currentDataOffset, end);
+      numberOfReadBytes = end - currentDataOffset;
+
+      currentDataOffset = end;
+    } else {
+      //nothing left to read: return zero read bytes (indicates end-of-stream)
+      numberOfReadBytes = 0;
+    }
+
+    return {buffer: _buffer, readDataLength: numberOfReadBytes, error: false};
+}
+
+
+//[1] (b) setup writing (decoded) output data
+
+//for &quot;buffering&quot; the decoded data:
+var decBuffer = [];
+//for storing the decoded FLAC metadata
+var metaData;
+
+//function that will be called for decoded output data (WAV audio)
+function write_callback_fn(buffer){
+    // buffer is an Array of the decoded audio data (Uint8Array):
+    // the length of array corresponds to the channels, i.e. there is an Uint8Array for each channel)
+  decBuffer.push(buffer);
+}
+
+//[1] (c) optional callbacks for receiving details about errors and/or metadata
+
+function error_callback_fn(err, errMsg, client_data){
+    console.error('decode error callback', err, errMsg);
+}
+
+function metadata_callback_fn(data){
+  // data -> [example] {
+  //  min_blocksize: 4096,
+  //  max_blocksize: 4096,
+  //  min_framesize: 14,
+  //  max_framesize: 5408,
+  //  sampleRate: 44100,
+  //  channels: 2,
+  //  bitsPerSample: 16,
+  //  total_samples: 267776,
+  //  md5sum: &quot;50d4d469448e5ea75eb44ab6b7f111f4&quot;
+  //}
+  console.info('meta data: ', data);
+  metaData = data;
+}
+
+var flac_ok = 1;
+var status_decoder;
+if(!USE_OGG){
+  // decode from native FLAC container
+  status_decoder = Flac.init_decoder_stream(
+    flac_decoder,
+    read_callback_fn, write_callback_fn,     //required callbacks
+    error_callback_fn, metadata_callback_fn  //optional callbacks
+  );
+} else {
+  // decode from OGG container
+  status_decoder = Flac.init_decoder_ogg_stream(
+    flac_decoder,
+    read_callback_fn, write_callback_fn,     //required callbacks
+    error_callback_fn, metadata_callback_fn  //optional callbacks
+  );
+}
+flac_ok &= status_decoder == 0;
+
+if(flac_ok != 1){
+  return;
+}
+
+////////
+// [2] DECODE -> IN: FLAC audio data (see above, the read-callack)
+// ... repeat encoding step [2] as often as necessary
+
+var mode = 'v1';// 'v1' | 'v2'
+var state = 0;
+var flac_return = 1;
+
+if(mode == 'v1'){
+
+  // VARIANT 1: decode chunks of flac data, one-by-one
+
+  //request to decode data chunks until end-of-stream is reached:
+  while(state &lt;= 3 && flac_return != false){
+
+    flac_return &= Flac.FLAC__stream_decoder_process_single(flac_decoder);
+    state = Flac.FLAC__stream_decoder_get_state(flac_decoder);
+  }
+
+  flac_ok &= flac_return != false;
+
+} else if(mode == 'v2'){
+
+  // VARIANT 2: decode complete data stream, all-at-once
+  flac_return &= Flac.FLAC__stream_decoder_process_until_end_of_stream(flac_decoder);
+
+  //optionally: retrieve status
+  state = Flac.FLAC__stream_decoder_get_state(flac_decoder);
+}
+
+
+if (flac_return != true){
+  return;
+}
+
+////////
+// [3] FINISH DECODING
+
+// finish Decoding
+flac_ok &= Flac.FLAC__stream_decoder_finish(flac_decoder);
+
+//after usage: free up all resources for the decoder
+Flac.FLAC__stream_decoder_delete(flac_decoder);
+
+////////
+// [4] ... do something with the decoded data, e.g.
+//     merge &quot;decoded pieces&quot; in decBuffer into a single data stream and add WAV header...
+
+</code></pre>
+<h3>API</h3>
+<p>See the <a target='_blank' href="https://mmig.github.io/libflac.js/doc/">doc/index.html</a> for the API documentation.</p>
+<h2>Building</h2>
+<hr>
+<p>Building libflac.js requires that <a target='_blank' href="https://github.com/kripken/emscripten">emscripten</a> is installed and configured.</p>
+<p>See the <a target='_blank' href="https://kripken.github.io/emscripten-site/docs">documentation</a> and the <a target='_blank' href="https://kripken.github.io/emscripten-site">main site</a> for
+an introduction, tutorials etc.</p>
+<p>For changing the targeted libflac version, modify the <code>Makefile</code>:</p>
+<pre class="prettyprint source"><code>...
+FLAC_VERSION:=1.3.2
+...
+</code></pre>
+<h3>Build *nix (libflac 1.3.0)</h3>
+<p>Start build process by executing the <code>Makefile</code>:</p>
+<pre class="prettyprint source"><code>make
+</code></pre>
+<p>(build process was tested on Unbuntu 12.10)</p>
+<h3>Build Windows/VisualStudio 10 (libflac 1.3.0)</h3>
+<p><strong><em>EXPERIMENTAL</em></strong></p>
+<ul>
+<li><strong>Prerequisites:</strong>
+<ul>
+<li>VisualStudio 10</li>
+<li>Emscripten plugin <a target='_blank' href="https://kripken.github.io/emscripten-site/docs/getting_started/getting_started_with_emscripten_and_vs2010.html">vs-tool</a> (automatically installed, if Emscripten Installer was used)</li>
+<li>OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)</li>
+</ul>
+</li>
+</ul>
+<p>Open the solution file <code>FLAC.sln</code> and select the project <code>libFLAC_static</code>.</p>
+<p>In the <code>Configuration Manager</code>, for <code>libFLAC_static</code> select <code>&lt;New...&gt;</code>, and then <code>Emscripten</code> as platform (<code>vs-tool</code> needs to be installed for this); change option <code>Copy settings from:</code> to <code>&lt;Empty&gt;</code>, and the press <code>OK</code>.</p>
+<p>Then open the project settings for <code>libFLAC_static</code>, and modify settings for <code>Configuration</code>:</p>
+<ul>
+<li>
+<p><code>Clang C/C++</code>: <code>Additional Include Directories</code> add entries:</p>
+<pre class="prettyprint source"><code>.\include
+..\..\include
+</code></pre>
+</li>
+<li>
+<p><code>Clang C/C++</code> : <code>Preprocessor</code> add entries for <code>Preprocessor Definitions (-D)</code>:</p>
+<pre class="prettyprint source"><code>HAVE_SYS_PARAM_H
+HAVE_LROUND
+VERSION=&quot;1.3.0&quot;
+</code></pre>
+<pre class="prettyprint source"><code>DEBUG
+_LIB
+FLAC__HAS_OGG
+VERSION=&quot;1.3.0&quot;
+</code></pre>
+</li>
+<li>
+<p>modify project (if without OGG support): remove the source files (<em>.c) and headers (</em>.h) that start with <code>ogg*</code> from project (remove or &quot;Exclude from project&quot;); or include OGG library (cf. README of libflac for details)</p>
+</li>
+<li>
+<p>Modify sources file:</p>
+</li>
+<li>
+<p><code>flac-1.3.0\src\libFLAC\format.c</code> add the following at the beginning (e.g. after the <code>#include</code> statements):</p>
+<pre class="prettyprint source"><code></code></pre>
+</li>
+</ul>
+<p>#define VERSION &quot;1.3.0&quot;</p>
+<pre class="prettyprint source"><code>
+
+### Building *nix (libflac 1.3.2)
+
+For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.
+
+* in `flac-1.3.2/Makefile.in` at line 400, disable (or remove) the last entry `microbench` in the line, e.g. change to:
+</code></pre>
+<p>SUBDIRS = doc include m4 man src examples test build obj #microbench</p>
+<pre class="prettyprint source"><code>* in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
+
+</code></pre>
+<p>#elif defined <strong>GNUC</strong>
+uint32_t lo, hi;
+asm volatile (&quot;.byte 0x0f, 0x01, 0xd0&quot; : &quot;=a&quot;(lo), &quot;=d&quot;(hi) : &quot;c&quot; (0));
+return lo;
+```</p>
+<p>After these changes, continue compilation with</p>
+<pre class="prettyprint source"><code>make emmake
+</code></pre>
+<h3>Prerequisite: Building *nix (libogg 1.3.4)</h3>
+<p>Include libogg in libflac built by specifying</p>
+<pre><code>--with-ogg=&lt;libogg dir&gt;
+</code></pre>
+<p>for libfalc's <code>./congiure</code> process (where <code>&lt;libogg dir&gt;</code> is the <em>absolute</em> path
+to the libogg directory)</p>
+<p>Note that libflac build process expects the libogg headers at</p>
+<pre><code>&lt;libogg dir&gt;/include/**
+</code></pre>
+<p>and the compiled library at</p>
+<pre><code>&lt;libogg dir&gt;/lib/**
+</code></pre>
+<p>if necessary you can create symbolic links for these, that link to the
+actual location, e.g.</p>
+<pre><code>ln -sfn src/.libs lib
+ln -sfn include/ogg ogg
+</code></pre>
+<h3>Prerequisite: Building Windows/ViusalStudio 10 (libogg 1.3.2)</h3>
+<p><strong><em>EXPERIMENTAL</em></strong></p>
+<p>Build libogg for target platform <code>Emscripten</code>, and follow libflac's README
+for coyping the header files.</p>
+<p>In libfalc's build configuration (<code>Emcc Linker -&gt; Input -&gt; Additional Dependencies</code>),
+explicitly link the additional dependencies
+<code>framing.o</code> and <code>bitwise.o</code> from the libogg's built, something like</p>
+<pre><code>..\..\..\libogg-1.3.2\win32\VS2010\Emscripten\Release\framing.o;..\..\..\libogg-1.3.2\win32\VS2010\Emscripten\Release\bitwise.o
+</code></pre>
+<h3>Change Library API</h3>
+<p>The API for <em>libflac.js</em> (e.g. exported functions) are mainly specified in <code>libflac_post.js</code>.</p>
+<p>Functions that will be exported/used from the native <code>libflac</code> implementation need to be declared in
+the compile option <code>-s EXPORTED_FUNCTIONS='[...]'</code> (see variable <code>EMCC_OPTS:=...</code> in <code>Makefile</code>);
+note, when manually editing <code>EXPORTED_FUNCTIONS</code>, that the function-names must be prefixed with <code>_</code>, i.e. for
+function <code>the_function</code>, the string for the exported function would be <code>_the_function</code>.</p>
+<p>There is a <a href="tools/extract_EXPORTED_FUNCTIONS.js">helper script</a> that will try to extract the compile option from <code>libflac_post.js</code> (i.e. the list of functions that need to be declared).
+Run the script with <code>Node.js</code> in <code>tools/</code> (and copy&amp;paste the output value):</p>
+<pre class="prettyprint source"><code>node extract_EXPORTED_FUNCTIONS.js
+</code></pre>
+<p>IMPORTANT: the helper script extracts function names that are invoked by <code>Module.ccall()</code>
+or <code>Module.cwrap()</code>.
+If invoked dynamically (i.e. use variable instead of string), add a DEV comment
+where the function is explicitly stated as string, e.g.
+<code>javascript // Module.ccall('FLAC__stream_decoder_init_stream' // Module.ccall('FLAC__stream_decoder_init_ogg_stream' var func_name = test? 'FLAC__stream_decoder_init_stream' : 'FLAC__stream_decoder_init_ogg_stream'; Module.ccall( func_name,</code></p>
+<h2>Contributors</h2>
+<hr>
+<p>See <code>CONTRIBUTORS</code> for list of contributors.</p>
+<h2>Acknowledgments</h2>
+<hr>
+<p>This project was inspired by Krennmair's <a target='_blank' href="https://github.com/akrennmair/libmp3lame-js">libmp3lame-js</a> project for <a target='_blank' href="https://github.com/akrennmair/libmp3lame-js">JS mp3</a> encoding.</p>
+<h2>License</h2>
+<hr>
+<p>libflac.js is compiled from the reference implementation of FLAC (BSD license);
+the additional resources and wrapper-code of this project is published under the MIT license (see file LICENSE).</p></article>
+    </section>
+
+
+
+
+
+
+
+        
+
+        <footer>
+            Documentation generated by <a target='_blank' href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.3</a>
+        </footer>
+    </div>
+</div>
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+<script src="scripts/main.js"></script>
+</body>
+</html>

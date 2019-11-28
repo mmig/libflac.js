@@ -18,7 +18,9 @@ $(function () {
                 }
             });
         } else {
-            $el.find('.item, .itemMembers').show();
+            $el.find('.itemMembers').hide();
+            $el.find('.item').show();
+            showPageItem();
         }
 
         $el.find('.list').scrollTop(0);
@@ -29,6 +31,31 @@ $(function () {
         $(this).parent().find('.itemMembers').toggle();
     });
 
+    // Make the item related a current documentation visible
+    // param item: if specified, show this item & its .itemMembers,
+    //             otherwise revert default visibility for page item
+    //             i.e. show item & its itemMembers & all its members list-entries
+    //             (i.e. all its <li> elements)
+    var showPageItem = function(item){
+
+      var $currentItem = item, showAllMembers = false;
+      if(!item){
+        var filename = $('.page-title').data('filename').replace(/\.[a-z]+$/, '');
+        $currentItem = $('.navigation .item[data-name*="' + filename + '"]:eq(0)');
+        showAllMembers = true;
+      }
+
+      if ($currentItem.length) {
+          $currentItem
+              .show()
+              .find('.itemMembers').show();
+
+          if(showAllMembers){
+            $currentItem.find('li').show();
+          }
+      }
+    }
+
     // Show an item related a current documentation automatically
     var filename = $('.page-title').data('filename').replace(/\.[a-z]+$/, '');
     var $currentItem = $('.navigation .item[data-name*="' + filename + '"]:eq(0)');
@@ -36,10 +63,9 @@ $(function () {
     if ($currentItem.length) {
         $currentItem
             .remove()
-            .prependTo('.navigation .list')
-            .show()
-            .find('.itemMembers')
-                .show();
+            .prependTo('.navigation .list');
+
+        showPageItem($currentItem);
     }
 
     // Auto resizing on navigation

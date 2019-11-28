@@ -4,7 +4,7 @@
   "main": "index.js",
   "description": "FLAC data stream encoder and decoder compiled in JavaScript using emscripten.",
   "directories": {
-    "doc": "apidoc",
+    "doc": "doc",
     "bin": "dist",
     "example": "example"
   },

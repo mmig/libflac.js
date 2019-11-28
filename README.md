@@ -36,7 +36,7 @@ Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.
 _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).
 
 __API Documentation__  
-See [apidoc/index.html][16] for the API documentation.
+See [doc/index.html][16] for the API documentation.
 
 ----
 
@@ -801,6 +801,6 @@ the additional resources and wrapper-code of this project is published under the
 [13]: https://mmig.github.io/speech-to-flac/
 [14]: https://mmig.github.io/libflac.js/example/encode.html
 [15]: https://mmig.github.io/libflac.js/example/decode.html
-[16]: https://mmig.github.io/libflac.js/apidoc/
+[16]: https://mmig.github.io/libflac.js/doc/
 [17]: http://kripken.github.io/emscripten-site/docs/compiling/WebAssembly.html#webassembly
 [18]: https://xiph.org/ogg/
