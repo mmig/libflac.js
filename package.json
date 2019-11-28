@@ -16,5 +16,14 @@
   "bugs": {
     "url": "https://github.com/mmig/libflac.js/issues"
   },
-  "homepage": "https://github.com/mmig/libflac.js"
+  "homepage": "https://github.com/mmig/libflac.js",
+  "keywords": [
+    "flac",
+    "audio",
+    "codec",
+    "encode",
+    "decode",
+    "emscripten",
+    "stream"
+  ]
 }
