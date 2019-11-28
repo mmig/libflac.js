@@ -27,6 +27,14 @@ In order to build _libflac.js_, make sure you have _emscripten_ installed (with 
 On running `make`, the build process will download the sources for the
 FLAC and OGG libraries, extract them, and build the JavaScript version of libflac.
 
+----
+> __IMPORTANT__ changes for version `5.x`: simplified naming scheme and library location!  
+> * removed version information from library file names, e.g.  
+>   `libflac4-1.3.2.min.js -> libflac.min.js`
+> * moved all library files directly into `dist/`, i.e. there are _no_ sub-directories `dist/min/` and `dist/dev/` anymore
+----
+
+
 __Encoder Demo__  
 Try the [Encoding Demo][14] for encoding `*.wav` files to FLAC.
 Or try the [speech-to-flac][12] [demo][13] that encodes the audio stream from a microphone to FLAC.
