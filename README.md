@@ -40,33 +40,33 @@ See [apidoc/index.html][16] for the API documentation.
 
 ----
 
-<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
+<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:0 orderedList:0 -->
 
-	- [Usage](#usage)
-		- [Including libflac.js](#including-libflacjs)
-				- [Browser](#browser)
-				- [WebWorker](#webworker)
-				- [Node](#node)
-				- [React](#react)
-			- [Including Dynamically Loaded libflac.js](#including-dynamically-loaded-libflacjs)
-			- [Including Dynamically Loaded  libflac.js from Non-Default Location](#including-dynamically-loaded-libflacjs-from-non-default-location)
-		- [Library Variants](#library-variants)
-				- [Default Library:](#default-library)
-				- [Minified Library:](#minified-library)
-				- [Development Library:](#development-library)
-		- [Encoding with libflac.js](#encoding-with-libflacjs)
-		- [Decoding with libflac.js](#decoding-with-libflacjs)
-		- [API](#api)
-	- [Building](#building)
-		- [Build *nix (libflac 1.3.0)](#build-nix-libflac-130)
-		- [Build Windows/VisualStudio 10 (libflac 1.3.0)](#build-windowsvisualstudio-10-libflac-130)
-		- [Building *nix (libflac 1.3.2)](#building-nix-libflac-132)
-		- [Prerequisite: Building *nix (libogg 1.3.4)](#prerequisite-building-nix-libogg-134)
-		- [Prerequisite: Building Windows/ViusalStudio 10 (libogg 1.3.2)](#prerequisite-building-windowsviusalstudio-10-libogg-132)
-		- [Change Library API](#change-library-api)
-	- [Contributors](#contributors)
-	- [Acknowledgments](#acknowledgments)
-	- [License](#license)
+- [Usage](#usage)
+	- [Including libflac.js](#including-libflacjs)
+		- [Browser](#browser)
+		- [WebWorker](#webworker)
+		- [Node](#node)
+		- [React](#react)
+	- [Including Dynamically Loaded libflac.js](#including-dynamically-loaded-libflacjs)
+		- [Including Dynamically Loaded  libflac.js from Non-Default Location](#including-dynamically-loaded-libflacjs-from-non-default-location)
+	- [Library Variants](#library-variants)
+		- [Default Library:](#default-library)
+		- [Minified Library:](#minified-library)
+		- [Development Library:](#development-library)
+	- [Encoding with libflac.js](#encoding-with-libflacjs)
+	- [Decoding with libflac.js](#decoding-with-libflacjs)
+	- [API](#api)
+- [Building](#building)
+	- [Build *nix (libflac 1.3.0)](#build-nix-libflac-130)
+	- [Build Windows/VisualStudio 10 (libflac 1.3.0)](#build-windowsvisualstudio-10-libflac-130)
+	- [Building *nix (libflac 1.3.2)](#building-nix-libflac-132)
+	- [Prerequisite: Building *nix (libogg 1.3.4)](#prerequisite-building-nix-libogg-134)
+	- [Prerequisite: Building Windows/ViusalStudio 10 (libogg 1.3.2)](#prerequisite-building-windowsviusalstudio-10-libogg-132)
+	- [Change Library API](#change-library-api)
+- [Contributors](#contributors)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
 
 <!-- /TOC -->
 
@@ -75,19 +75,19 @@ See [apidoc/index.html][16] for the API documentation.
 
 ### Including libflac.js
 
-##### Browser
+#### Browser
 Include the library file, e.g.
 ```html
 <script src="libflac.js" type="text/javascript"></script>
 ```
 
-##### WebWorker
+#### WebWorker
 Import the library file, e.g.
 ```javascript
 importScripts('libflac.js');
 ```
 
-##### Node
+#### Node
 
 In `Node.js`:
 install with `npm`
@@ -116,7 +116,7 @@ Flac.on('ready', function(event){
   ...
 ```
 
-##### React
+#### React
 
 For `reactjs`:
 install with `npm` (see above), and `require()` the library directly, like
@@ -125,7 +125,7 @@ var Flac = require('libflacjs/dist/libflac.js');
 ```
 
 
-#### Including Dynamically Loaded libflac.js
+### Including Dynamically Loaded libflac.js
 
 Some variants of the `libflac.js` library are loaded asynchronously
 (e.g. minimized/optimized variants may load a separate binary file during initialization of the library).
@@ -277,7 +277,7 @@ NOTES for dynamically loaded library variants:
    * see also the section above for handling dynamically loaded library variants, and, if appropriate, the section for
      including dynamically loaded libraries from a sub-path/location
 
-##### Default Library:
+#### Default Library:
 _(see [`/dist`](dist))_
  * ASM.js Variant:
     * `libflac.js`
@@ -286,7 +286,7 @@ _(see [`/dist`](dist))_
     * `libflac.wasm.wasm` (**required**; will be loaded by the library)
     * `libflac.wasm.js.symbols` (optional; contains renaming information)
 
-##### Minified Library:
+#### Minified Library:
 _(see [`/dist`](dist))_
  * ASM.js Variant _(dynamically loaded)_:
      * `libflac.min.js`
@@ -297,7 +297,7 @@ _(see [`/dist`](dist))_
      * `libflac.min.wasm.wasm` (**required**; will be loaded by the library)
      * `libflac.min.wasm.js.symbols` (optional; contains renaming information)
 
-##### Development Library:
+#### Development Library:
 _(see [`/dist`](dist))_
  * ASM.js Variant:
    * `libflac.dev.js`
