@@ -1482,7 +1482,7 @@
     <div class="nameContainer">
         <h4 class="name" id="FLAC__stream_decoder_process_single">
             
-            FLAC__stream_decoder_process_single<span class="signature">(encoder)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{boolean}</span>
+            FLAC__stream_decoder_process_single<span class="signature">(decoder)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{boolean}</span>
         </h4>
 
         
@@ -1525,7 +1525,7 @@
 
         <tr>
             
-                <td class="name"><code>encoder</code></td>
+                <td class="name"><code>decoder</code></td>
             
 
             <td class="type">
@@ -1542,7 +1542,7 @@
 
             <td class="description last">
                 
-                the ID of the encoder instance</td>
+                the ID of the decoder instance</td>
         </tr>
 
     
@@ -1926,7 +1926,7 @@
 
     
     <div class="description">
-        Reset the decoder for reuse.
+        Reset the decoder for reuse.<p>NOTE: Needs to be re-initialized, before it can be used again
     </div>
     
 
@@ -2003,6 +2003,15 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#init_decoder_stream"><code>init_decoder_stream</code></a></li>
+        
+            <li><a href="Flac.html#init_decoder_ogg_stream"><code>init_decoder_ogg_stream</code></a></li>
+        </ul>
+    </dd>
     
 
     
@@ -2655,7 +2664,7 @@
     <div class="nameContainer">
         <h4 class="name" id="FLAC__stream_encoder_set_blocksize">
             
-            FLAC__stream_encoder_set_blocksize<span class="signature">()</span>
+            FLAC__stream_encoder_set_blocksize<span class="signature">(encoder, block_size)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{boolean}</span>
         </h4>
 
         
@@ -2666,10 +2675,85 @@
 <dd>
 
     
+    <div class="description">
+        Set the blocksize to use while encoding.The number of samples to use per frame. Use 0 to let the encoder estimate a blocksize; this is usually best.<p>NOTE: only use on un-initilized encoder instances!
+    </div>
+    
+
+    
 
     
 
     
+        
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>encoder</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the ID of the encoder instance</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>block_size</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the number of samples to use per frame</td>
+        </tr>
+
+    
+    </tbody>
+</table>
 
     
 
@@ -2694,6 +2778,13 @@
     
 
     
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#create_libflac_encoder"><code>create_libflac_encoder</code></a></li>
+        </ul>
+    </dd>
+    
 
     
 </dl>
@@ -2706,6 +2797,36 @@
     
 
     
+
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last"><code>false</code> if the encoder is already initialized, else <code>true</code></td>
+        </tr>
+    
+    </tbody>
+</table>
+
 
     
 
@@ -2718,7 +2839,7 @@
     <div class="nameContainer">
         <h4 class="name" id="FLAC__stream_encoder_set_compression_level">
             
-            FLAC__stream_encoder_set_compression_level<span class="signature">()</span>
+            FLAC__stream_encoder_set_compression_level<span class="signature">(encoder, compression_level)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{boolean}</span>
         </h4>
 
         
@@ -2729,10 +2850,85 @@
 <dd>
 
     
+    <div class="description">
+        Set the compression levelThe compression level is roughly proportional to the amount of effort the encoder expends to compress the file. A higher level usually means more computation but higher compression. The default level is suitable for most applications.Currently the levels range from 0 (fastest, least compression) to 8 (slowest, most compression). A value larger than 8 will be treated as 8.<p>NOTE: only use on un-initilized encoder instances!
+    </div>
+    
+
+    
 
     
 
     
+        
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>encoder</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the ID of the encoder instance</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>compression_level</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the desired Flac compression level: [0, 8]</td>
+        </tr>
+
+    
+    </tbody>
+</table>
 
     
 
@@ -2757,6 +2953,15 @@
     
 
     
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#create_libflac_encoder"><code>create_libflac_encoder</code></a></li>
+        
+            <li><a target='_blank' href="https://xiph.org/flac/api/group__flac__stream__encoder.html#gae49cf32f5256cb47eecd33779493ac85">FLAC API for FLAC__stream_encoder_set_compression_level()</a></li>
+        </ul>
+    </dd>
+    
 
     
 </dl>
@@ -2769,6 +2974,36 @@
     
 
     
+
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last"><code>false</code> if the encoder is already initialized, else <code>true</code></td>
+        </tr>
+    
+    </tbody>
+</table>
+
 
     
 
@@ -2781,7 +3016,7 @@
     <div class="nameContainer">
         <h4 class="name" id="FLAC__stream_encoder_set_verify">
             
-            FLAC__stream_encoder_set_verify<span class="signature">()</span>
+            FLAC__stream_encoder_set_verify<span class="signature">(encoder, is_verify)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{boolean}</span>
         </h4>
 
         
@@ -2792,10 +3027,85 @@
 <dd>
 
     
+    <div class="description">
+        Set the "verify" flag. If true, the encoder will verify it's own encoded output by feeding it through an internal decoder and comparing the original signal against the decoded signal. If a mismatch occurs, the process call will return false. Note that this will slow the encoding process by the extra time required for decoding and comparison.<p>NOTE: only use on un-initilized encoder instances!
+    </div>
+    
+
+    
 
     
 
     
+        
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>encoder</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the ID of the encoder instance</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>is_verify</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                enable/disable checksum verification during encoding</td>
+        </tr>
+
+    
+    </tbody>
+</table>
 
     
 
@@ -2820,6 +3130,13 @@
     
 
     
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#create_libflac_encoder"><code>create_libflac_encoder</code></a></li>
+        </ul>
+    </dd>
+    
 
     
 </dl>
@@ -2832,6 +3149,36 @@
     
 
     
+
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        boolean
+                        
+                    
+            </td>
+            <td class="description last"><code>false</code> if the encoder is already initialized, else <code>true</code></td>
+        </tr>
+    
+    </tbody>
+</table>
+
 
     
 
@@ -2967,7 +3314,7 @@
 
                     
                 
-                the callback for writing the decoded data:				<pre>write_callback_fn(data: TypedArray, frameInfo: Metadata)</pre></td>
+                the callback for writing the decoded data:				<pre>write_callback_fn(data: Uint8Array[], frameInfo: Metadata)</pre></td>
         </tr>
 
     
@@ -3029,7 +3376,7 @@
 
                     
                 
-                OPTIONAL				callback for receiving the metadata of the decoded PCM data:				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre></td>
+                OPTIONAL				callback for receiving the metadata of FLAC data that will be decoded:				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre></td>
         </tr>
 
     
@@ -3267,7 +3614,7 @@
 
                     
                 
-                the callback for writing the decoded data:				<pre>write_callback_fn(data: TypedArray, frameInfo: Metadata)</pre></td>
+                the callback for writing the decoded data:				<pre>write_callback_fn(data: Uint8Array[], frameInfo: Metadata)</pre></td>
         </tr>
 
     
@@ -3363,7 +3710,7 @@
 
                     
                 
-                OPTIONAL				if number or <code>true</code> is specified, the decoder will be initilized to				read from an OGG container, see <a href="Flac.html#init_decoder_ogg_stream"><code>init_decoder_ogg_stream</code></a>:				<code>true</code> will use the default serial number, if specified as number the				corresponding stream with the serial number from the ogg container will be used.</td>
+                OPTIONAL				if number or <code>true</code> is specified, the decoder will be initilized to				read from an OGG container, see <code>Flac.init_decoder_ogg_stream</code>:<br/>				<code>true</code> will use the default serial number, if specified as number the				corresponding stream with the serial number from the ogg container will be used.</td>
         </tr>
 
     
@@ -3846,7 +4193,7 @@
 
                     
                 
-                OPTIONAL				if number or <code>true</code> is specified, the encoder will be initialized to				write to an OGG container, see <a href="Flac.html#init_encoder_ogg_stream"><code>init_encoder_ogg_stream</code></a>:				<code>true</code> will set a default serial number (<code>1</code>),				if specified as number, it will be used as the stream's serial number within the ogg container.</td>
+                OPTIONAL				if number or <code>true</code> is specified, the encoder will be initialized to				write to an OGG container, see <code>Flac.init_encoder_ogg_stream</code>:				<code>true</code> will set a default serial number (<code>1</code>),				if specified as number, it will be used as the stream's serial number within the ogg container.</td>
         </tr>
 
     
@@ -7881,7 +8228,7 @@
         
 
         <footer>
-            Documentation generated by <a target='_blank' href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.3</a>
+            Documentation generated by <a target='_blank' href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.4</a>
         </footer>
     </div>
 </div>

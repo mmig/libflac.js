@@ -529,7 +529,8 @@ Flac.on('ready', function(event){
 install with <code>npm</code> (see above), and <code>require()</code> the library directly, like</p>
 <pre class="prettyprint source lang-javascript"><code>var Flac = require('libflacjs/dist/libflac.js');
 </code></pre>
-<h3>Including Dynamically Loaded libflac.js</h3>
+<h3>Async Initialization</h3>
+<p>Including dynamically loaded <code>libflac.js</code>:</p>
 <p>Some variants of the <code>libflac.js</code> library are loaded asynchronously
 (e.g. minimized/optimized variants may load a separate binary file during initialization of the library).</p>
 <p>In this case, you have to make sure, not to use <code>libflac.js</code> before it has been completely loaded / initialized.</p>
@@ -741,9 +742,28 @@ including dynamically loaded libraries from a sub-path/location</li>
 on how to encode a <code>WAV</code> file.</p>
 <p>For a larger example on how to encode audio data from the
 microphone see the <a target='_blank' href="https://github.com/mmig/speech-to-flac">Speech to FLAC</a> example.</p>
+<p>Basic steps for encoding:</p>
+<ol>
+<li>create encoder</li>
+</ol>
+<ul>
+<li>specify encoding parameters, like channels, sampling rate, compression level etc.</li>
+</ul>
+<ol start="2">
+<li>initialize encoder</li>
+</ol>
+<ul>
+<li>for native FLAC container or OGG container</li>
+<li>specify write callback and/or other optional callback(s)</li>
+</ul>
+<ol start="3">
+<li>encode data (chunks)</li>
+<li>finish encoding</li>
+<li>delete encoder</li>
+</ol>
 <p>Small usage example:</p>
 <pre class="prettyprint source lang-javascript"><code>
-//load libflac.js -> Flac object exported into global namespace
+//prerequisite: loaded libflac.js & available via variable Flac
 
 var flac_encoder,
     CHANNELS = 1,
@@ -757,7 +777,7 @@ var flac_encoder,
 
 
 ////////
-// [1] INIT -> IN: config { ... }
+// [1] CREATE -> IN param: config { ... } (encoding parameters)
 
 //overwrite default configuration from config object
 COMPRESSION = config.compression;
@@ -775,15 +795,22 @@ if (flac_encoder == 0){
   return;
 }
 
+////////
+// [2] INIT -> OUT: encBuffer (encoded data), metaData (OPTIONALLY, FLAC metadata)
+
 //for storing the encoded FLAC data
 var encBuffer = [];
 //for storing the encoding FLAC metadata summary
 var metaData;
 
+// [2] (a) setup writing (encoded) output data
+
 var write_callback_fn = function(encodedData /*Uint8Array*/, bytes, samples, current_frame){
   //store all encoded data &quot;pieces&quot; into a buffer
   encBuffer.push(encodedData);
 };
+
+// [2] (b) optional callback for receiving metadata
 
 function metadata_callback_fn(data){
   // data -> [example] {
@@ -801,23 +828,34 @@ function metadata_callback_fn(data){
   metaData = data;
 }
 
+// [2] (c) initialize to either write to native-FALC or to OGG container
+
 var status_encoder;
 if(!USE_OGG){
   // encode to native FLAC container
-  status_encoder = Flac.init_encoder_stream(flac_encoder, write_callback_fn, metadata_callback_fn);
+  status_encoder = Flac.init_encoder_stream(flac_encoder,
+    write_callback_fn,    //required callback(s)
+    metadata_callback_fn  //optional callback(s)
+  );
 } else {
   // encode to OGG container
-  status_encoder = Flac.init_encoder_ogg_stream(flac_encoder, write_callback_fn, metadata_callback_fn);
+  status_encoder = Flac.init_encoder_ogg_stream(flac_encoder,
+    write_callback_fn,    //required callback(s)
+    metadata_callback_fn  //optional callback(s)
+  );
 }
 flac_ok &= (status_encoder == 0);
 
 
 ////////
-// [2] ENCODE -> IN: PCM Float32 audio data (this example: mono stream)
-// ... repeat encoding step [2] as often as necessary
+// [3] ENCODE -> IN: for this example, a PCM Float32 audio, single channel (mono) stream
+//                   buffer (Float32Array)
+// ... repeat encoding step [3] as often as necessary
 
+//convert input data to signed int data, in correspondence to the bps setting (i.e. in this case int32)
+// see API docs on FLAC__stream_encoder_process_interleaved() for more details
 var buf_length = buffer.length;
-var buffer_i32 = new Uint32Array(buf_length);
+var buffer_i32 = new Int32Array(buf_length);
 var view = new DataView(buffer_i32.buffer);
 var volume = 1;
 var index = 0;
@@ -833,16 +871,20 @@ if (flac_return != true){
 
 
 ////////
-// [3] FINISH ENCODING
+// [4] FINISH ENCODING
 
 flac_ok &= Flac.FLAC__stream_encoder_finish(flac_encoder);
 console.log(&quot;flac finish: &quot; + flac_ok);
+
+
+////////
+// [5] DESTROY: delete encoder
 
 //after usage: free up all resources for the encoder
 Flac.FLAC__stream_encoder_delete(flac_encoder);
 
 ////////
-// [4] ... do something with the encoded data, e.g.
+// [6] ... do something with the encoded data, e.g.
 //     merge &quot;encoded pieces&quot; in encBuffer into one single Uint8Array...
 
 </code></pre>
@@ -860,15 +902,35 @@ Flac.FLAC__stream_encoder_delete(flac_encoder);
 </ul>
 <p>See <a href="example/decode.html">example/decode.html</a> for a small example,
 on how to decode a <code>FLAC</code> file.</p>
+<p>Basic steps for decoding:</p>
+<ol>
+<li>create decoder</li>
+</ol>
+<ul>
+<li>specify if checksum verification should be processed</li>
+</ul>
+<ol start="2">
+<li>initialize decoder</li>
+</ol>
+<ul>
+<li>specify if source is native FLAC container or OGG container</li>
+<li>specify read and write callback and/or other optional callback(s)</li>
+</ul>
+<ol start="3">
+<li>start decoding data (chunks)</li>
+<li>finish decoding</li>
+<li>delete decoder</li>
+</ol>
 <p>Small usage example:</p>
 <pre class="prettyprint source lang-javascript"><code>
+//prerequisite: loaded libflac.js & available via variable Flac
+
 var VERIFY = true,
   USE_OGG = false;
 
 
 ////////
-// [1] INIT -> IN: config { ... }
-//             IN: flacData Uint8Array (FLAC data)
+// [1] CREATE -> IN: config { ... } (decoding parameters)
 
 //overwrite default configuration from config object
 VERIFY = config.isVerify;//verification can be disabled for speeding up decoding process
@@ -884,7 +946,11 @@ if (flac_decoder == 0){
 }
 
 
-//[1] (a) setup reading input data
+////////
+// [2] INIT -> OUT: decBuffer (decoded data), metaData (OPTIONALLY, FLAC metadata)
+//             IN: flacData Uint8Array (FLAC data)
+
+// [2] (a) setup reading input data
 var currentDataOffset = 0;
 var size = flacData.buffer.byteLength;
 
@@ -911,7 +977,7 @@ function read_callback_fn(bufferSize){
 }
 
 
-//[1] (b) setup writing (decoded) output data
+// [2] (b) setup writing (decoded) output data
 
 //for &quot;buffering&quot; the decoded data:
 var decBuffer = [];
@@ -919,13 +985,13 @@ var decBuffer = [];
 var metaData;
 
 //function that will be called for decoded output data (WAV audio)
-function write_callback_fn(buffer){
-    // buffer is an Array of the decoded audio data (Uint8Array):
-    // the length of array corresponds to the channels, i.e. there is an Uint8Array for each channel)
-  decBuffer.push(buffer);
+function write_callback_fn(channelsBuffer){
+  // channelsBuffer is an Array of the decoded audio data (Uint8Array):
+  // the length of array corresponds to the channels, i.e. there is an Uint8Array for each channel
+  decBuffer.push(channelsBuffer);
 }
 
-//[1] (c) optional callbacks for receiving details about errors and/or metadata
+// [2] (c) optional callbacks for receiving details about errors and/or metadata
 
 function error_callback_fn(err, errMsg, client_data){
     console.error('decode error callback', err, errMsg);
@@ -947,21 +1013,22 @@ function metadata_callback_fn(data){
   metaData = data;
 }
 
+// [2] (d) intialize for reading from native-FLAC or from OGG container
 var flac_ok = 1;
 var status_decoder;
 if(!USE_OGG){
   // decode from native FLAC container
   status_decoder = Flac.init_decoder_stream(
     flac_decoder,
-    read_callback_fn, write_callback_fn,     //required callbacks
-    error_callback_fn, metadata_callback_fn  //optional callbacks
+    read_callback_fn, write_callback_fn,     //required callback(s)
+    error_callback_fn, metadata_callback_fn  //optional callback(s)
   );
 } else {
   // decode from OGG container
   status_decoder = Flac.init_decoder_ogg_stream(
     flac_decoder,
-    read_callback_fn, write_callback_fn,     //required callbacks
-    error_callback_fn, metadata_callback_fn  //optional callbacks
+    read_callback_fn, write_callback_fn,     //required callback(s)
+    error_callback_fn, metadata_callback_fn  //optional callback(s)
   );
 }
 flac_ok &= status_decoder == 0;
@@ -971,14 +1038,16 @@ if(flac_ok != 1){
 }
 
 ////////
-// [2] DECODE -> IN: FLAC audio data (see above, the read-callack)
-// ... repeat encoding step [2] as often as necessary
+// [3] DECODE -> IN: FLAC audio data (see above, the read-callack)
+// ... repeat encoding step [3] as often as necessary
 
-var mode = 'v1';// 'v1' | 'v2'
+// example for chunk-by-chunk (stream mode) or all-at-once decoding (file mode)
+var mode = 'stream';// 'stream' | 'file'
+
 var state = 0;
 var flac_return = 1;
 
-if(mode == 'v1'){
+if(mode == 'stream'){
 
   // VARIANT 1: decode chunks of flac data, one-by-one
 
@@ -991,7 +1060,7 @@ if(mode == 'v1'){
 
   flac_ok &= flac_return != false;
 
-} else if(mode == 'v2'){
+} else if(mode == 'file'){
 
   // VARIANT 2: decode complete data stream, all-at-once
   flac_return &= Flac.FLAC__stream_decoder_process_until_end_of_stream(flac_decoder);
@@ -1006,16 +1075,20 @@ if (flac_return != true){
 }
 
 ////////
-// [3] FINISH DECODING
+// [4] FINISH DECODING
 
 // finish Decoding
 flac_ok &= Flac.FLAC__stream_decoder_finish(flac_decoder);
+
+////////
+// [5] DESTROY: delete dencoder
+// alternatively reset the decoder, and then re-initialize for re-using the decoder instance
 
 //after usage: free up all resources for the decoder
 Flac.FLAC__stream_decoder_delete(flac_decoder);
 
 ////////
-// [4] ... do something with the decoded data, e.g.
+// [6] ... do something with the decoded data, e.g.
 //     merge &quot;decoded pieces&quot; in decBuffer into a single data stream and add WAV header...
 
 </code></pre>
@@ -1049,7 +1122,7 @@ FLAC_VERSION:=1.3.2
 </ul>
 <p>Open the solution file <code>FLAC.sln</code> and select the project <code>libFLAC_static</code>.</p>
 <p>In the <code>Configuration Manager</code>, for <code>libFLAC_static</code> select <code>&lt;New...&gt;</code>, and then <code>Emscripten</code> as platform (<code>vs-tool</code> needs to be installed for this); change option <code>Copy settings from:</code> to <code>&lt;Empty&gt;</code>, and the press <code>OK</code>.</p>
-<p>Then open the project settings for <code>libFLAC_static</code>, and modify settings for <code>Configuration</code>:</p>
+<p>Then open the project settings for <code>libFLAC_static</code>, and modify settings for <code>Configuration </code>:</p>
 <ul>
 <li>
 <p><code>Clang C/C++</code>: <code>Additional Include Directories</code> add entries:</p>
@@ -1082,6 +1155,7 @@ VERSION=&quot;1.3.0&quot;
 </li>
 </ul>
 <h3>Building *nix (libflac 1.3.2)</h3>
+<p><strong>NOTE:</strong> these changes are not neccessary anymore since <code>libflac.js</code> version 5.x, due to use of new <code>emscripten</code> toolchain</p>
 <p>For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.</p>
 <ul>
 <li>
@@ -1170,7 +1244,7 @@ the additional resources and wrapper-code of this project is published under the
         
 
         <footer>
-            Documentation generated by <a target='_blank' href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.3</a>
+            Documentation generated by <a target='_blank' href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.4</a>
         </footer>
     </div>
 </div>
