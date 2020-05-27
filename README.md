@@ -139,7 +139,9 @@ var Flac = require('libflacjs/dist/libflac.js');
 ```
 
 
-### Including Dynamically Loaded libflac.js
+### Async Initialization
+
+Including dynamically loaded `libflac.js`:
 
 Some variants of the `libflac.js` library are loaded asynchronously
 (e.g. minimized/optimized variants may load a separate binary file during initialization of the library).
@@ -361,10 +363,20 @@ on how to encode a `WAV` file.
 For a larger example on how to encode audio data from the
 microphone see the [Speech to FLAC][9] example.
 
+Basic steps for encoding:
+ 1. create encoder
+   * specify encoding parameters, like channels, sampling rate, compression level etc.
+ 2. initialize encoder
+   * for native FLAC container or OGG container
+   * specify write callback and/or other optional callback(s)
+ 3. encode data (chunks)
+ 4. finish encoding
+ 5. delete encoder
+
 Small usage example:
 ```javascript
 
-//load libflac.js -> Flac object exported into global namespace
+//prerequisite: loaded libflac.js & available via variable Flac
 
 var flac_encoder,
     CHANNELS = 1,
@@ -378,7 +390,7 @@ var flac_encoder,
 
 
 ////////
-// [1] INIT -> IN: config { ... }
+// [1] CREATE -> IN param: config { ... } (encoding parameters)
 
 //overwrite default configuration from config object
 COMPRESSION = config.compression;
@@ -396,15 +408,22 @@ if (flac_encoder == 0){
   return;
 }
 
+////////
+// [2] INIT -> OUT: encBuffer (encoded data), metaData (OPTIONALLY, FLAC metadata)
+
 //for storing the encoded FLAC data
 var encBuffer = [];
 //for storing the encoding FLAC metadata summary
 var metaData;
 
+// [2] (a) setup writing (encoded) output data
+
 var write_callback_fn = function(encodedData /*Uint8Array*/, bytes, samples, current_frame){
   //store all encoded data "pieces" into a buffer
   encBuffer.push(encodedData);
 };
+
+// [2] (b) optional callback for receiving metadata
 
 function metadata_callback_fn(data){
   // data -> [example] {
@@ -422,23 +441,34 @@ function metadata_callback_fn(data){
   metaData = data;
 }
 
+// [2] (c) initialize to either write to native-FALC or to OGG container
+
 var status_encoder;
 if(!USE_OGG){
   // encode to native FLAC container
-  status_encoder = Flac.init_encoder_stream(flac_encoder, write_callback_fn, metadata_callback_fn);
+  status_encoder = Flac.init_encoder_stream(flac_encoder,
+    write_callback_fn,    //required callback(s)
+    metadata_callback_fn  //optional callback(s)
+  );
 } else {
   // encode to OGG container
-  status_encoder = Flac.init_encoder_ogg_stream(flac_encoder, write_callback_fn, metadata_callback_fn);
+  status_encoder = Flac.init_encoder_ogg_stream(flac_encoder,
+    write_callback_fn,    //required callback(s)
+    metadata_callback_fn  //optional callback(s)
+  );
 }
 flac_ok &= (status_encoder == 0);
 
 
 ////////
-// [2] ENCODE -> IN: PCM Float32 audio data (this example: mono stream)
-// ... repeat encoding step [2] as often as necessary
+// [3] ENCODE -> IN: for this example, a PCM Float32 audio, single channel (mono) stream
+//                   buffer (Float32Array)
+// ... repeat encoding step [3] as often as necessary
 
+//convert input data to signed int data, in correspondence to the bps setting (i.e. in this case int32)
+// see API docs on FLAC__stream_encoder_process_interleaved() for more details
 var buf_length = buffer.length;
-var buffer_i32 = new Uint32Array(buf_length);
+var buffer_i32 = new Int32Array(buf_length);
 var view = new DataView(buffer_i32.buffer);
 var volume = 1;
 var index = 0;
@@ -454,16 +484,20 @@ if (flac_return != true){
 
 
 ////////
-// [3] FINISH ENCODING
+// [4] FINISH ENCODING
 
 flac_ok &= Flac.FLAC__stream_encoder_finish(flac_encoder);
 console.log("flac finish: " + flac_ok);
+
+
+////////
+// [5] DESTROY: delete encoder
 
 //after usage: free up all resources for the encoder
 Flac.FLAC__stream_encoder_delete(flac_encoder);
 
 ////////
-// [4] ... do something with the encoded data, e.g.
+// [6] ... do something with the encoded data, e.g.
 //     merge "encoded pieces" in encBuffer into one single Uint8Array...
 
 ```
@@ -484,16 +518,28 @@ Supported source containers:
 See [example/decode.html][11] for a small example,
 on how to decode a `FLAC` file.
 
+
+Basic steps for decoding:
+ 1. create decoder
+   * specify if checksum verification should be processed
+ 2. initialize decoder
+   * specify if source is native FLAC container or OGG container
+   * specify read and write callback and/or other optional callback(s)
+ 3. start decoding data (chunks)
+ 4. finish decoding
+ 5. delete decoder
+
 Small usage example:
 ```javascript
+
+//prerequisite: loaded libflac.js & available via variable Flac
 
 var VERIFY = true,
   USE_OGG = false;
 
 
 ////////
-// [1] INIT -> IN: config { ... }
-//             IN: flacData Uint8Array (FLAC data)
+// [1] CREATE -> IN: config { ... } (decoding parameters)
 
 //overwrite default configuration from config object
 VERIFY = config.isVerify;//verification can be disabled for speeding up decoding process
@@ -509,7 +555,11 @@ if (flac_decoder == 0){
 }
 
 
-//[1] (a) setup reading input data
+////////
+// [2] INIT -> OUT: decBuffer (decoded data), metaData (OPTIONALLY, FLAC metadata)
+//             IN: flacData Uint8Array (FLAC data)
+
+// [2] (a) setup reading input data
 var currentDataOffset = 0;
 var size = flacData.buffer.byteLength;
 
@@ -536,7 +586,7 @@ function read_callback_fn(bufferSize){
 }
 
 
-//[1] (b) setup writing (decoded) output data
+// [2] (b) setup writing (decoded) output data
 
 //for "buffering" the decoded data:
 var decBuffer = [];
@@ -544,13 +594,13 @@ var decBuffer = [];
 var metaData;
 
 //function that will be called for decoded output data (WAV audio)
-function write_callback_fn(buffer){
-    // buffer is an Array of the decoded audio data (Uint8Array):
-    // the length of array corresponds to the channels, i.e. there is an Uint8Array for each channel)
-  decBuffer.push(buffer);
+function write_callback_fn(channelsBuffer){
+  // channelsBuffer is an Array of the decoded audio data (Uint8Array):
+  // the length of array corresponds to the channels, i.e. there is an Uint8Array for each channel
+  decBuffer.push(channelsBuffer);
 }
 
-//[1] (c) optional callbacks for receiving details about errors and/or metadata
+// [2] (c) optional callbacks for receiving details about errors and/or metadata
 
 function error_callback_fn(err, errMsg, client_data){
     console.error('decode error callback', err, errMsg);
@@ -572,21 +622,22 @@ function metadata_callback_fn(data){
   metaData = data;
 }
 
+// [2] (d) intialize for reading from native-FLAC or from OGG container
 var flac_ok = 1;
 var status_decoder;
 if(!USE_OGG){
   // decode from native FLAC container
   status_decoder = Flac.init_decoder_stream(
     flac_decoder,
-    read_callback_fn, write_callback_fn,     //required callbacks
-    error_callback_fn, metadata_callback_fn  //optional callbacks
+    read_callback_fn, write_callback_fn,     //required callback(s)
+    error_callback_fn, metadata_callback_fn  //optional callback(s)
   );
 } else {
   // decode from OGG container
   status_decoder = Flac.init_decoder_ogg_stream(
     flac_decoder,
-    read_callback_fn, write_callback_fn,     //required callbacks
-    error_callback_fn, metadata_callback_fn  //optional callbacks
+    read_callback_fn, write_callback_fn,     //required callback(s)
+    error_callback_fn, metadata_callback_fn  //optional callback(s)
   );
 }
 flac_ok &= status_decoder == 0;
@@ -596,14 +647,16 @@ if(flac_ok != 1){
 }
 
 ////////
-// [2] DECODE -> IN: FLAC audio data (see above, the read-callack)
-// ... repeat encoding step [2] as often as necessary
+// [3] DECODE -> IN: FLAC audio data (see above, the read-callack)
+// ... repeat encoding step [3] as often as necessary
 
-var mode = 'v1';// 'v1' | 'v2'
+// example for chunk-by-chunk (stream mode) or all-at-once decoding (file mode)
+var mode = 'stream';// 'stream' | 'file'
+
 var state = 0;
 var flac_return = 1;
 
-if(mode == 'v1'){
+if(mode == 'stream'){
 
   // VARIANT 1: decode chunks of flac data, one-by-one
 
@@ -616,7 +669,7 @@ if(mode == 'v1'){
 
   flac_ok &= flac_return != false;
 
-} else if(mode == 'v2'){
+} else if(mode == 'file'){
 
   // VARIANT 2: decode complete data stream, all-at-once
   flac_return &= Flac.FLAC__stream_decoder_process_until_end_of_stream(flac_decoder);
@@ -631,16 +684,20 @@ if (flac_return != true){
 }
 
 ////////
-// [3] FINISH DECODING
+// [4] FINISH DECODING
 
 // finish Decoding
 flac_ok &= Flac.FLAC__stream_decoder_finish(flac_decoder);
+
+////////
+// [5] DESTROY: delete dencoder
+// alternatively reset the decoder, and then re-initialize for re-using the decoder instance
 
 //after usage: free up all resources for the decoder
 Flac.FLAC__stream_decoder_delete(flac_decoder);
 
 ////////
-// [4] ... do something with the decoded data, e.g.
+// [6] ... do something with the decoded data, e.g.
 //     merge "decoded pieces" in decBuffer into a single data stream and add WAV header...
 
 ```
@@ -717,6 +774,8 @@ Then open the project settings for `libFLAC_static`, and modify settings for `Co
 
 
 ### Building *nix (libflac 1.3.2)
+
+__NOTE:__ these changes are not neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
 
 For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.
 
