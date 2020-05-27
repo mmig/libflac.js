@@ -12,15 +12,15 @@
     "url": "https://github.com/mmig/libflacjs"
   },
   "devDependencies": {
-    "@types/fs-extra": "^8.0.0",
+    "@types/fs-extra": "^9.0.1",
     "@types/gulp": "^4.0.6",
-    "@types/webpack": "^4.39.1",
+    "@types/webpack": "^4.41.13",
     "del": "^5.1.0",
-    "fs-extra": "^8.1.0",
+    "fs-extra": "^9.0.0",
     "gulp": "^4.0.2",
-    "gulp-jsdoc3": "^2.0.0",
+    "gulp-jsdoc3": "^3.0.0",
     "jaguarjs-jsdoc": "git+https://github.com/mmig/jaguarjs-jsdoc.git#patched",
-    "jsdoc": "^3.6.3"
+    "jsdoc": "^3.6.4"
   },
   "scripts": {
     "doc": "gulp"
