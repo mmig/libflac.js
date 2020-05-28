@@ -190,6 +190,10 @@ function isFunctionVar(el){
 	return el.kind === 'function' && el.defaultvalue;
 }
 
+function isFunctionTypeDef(el){
+	return el.kind === 'typedef' && toTypeList(el.type).join(' | ') === 'Function';
+}
+
 function generateFunctionSigCode(paramList, returns, isType){
 	var params = [];
 	if(paramList){
@@ -232,7 +236,7 @@ function generateEnumCode(el, indent){
 
 function generateTypeCode(el, usePropName){
 
-	if(el.kind === 'function'){
+	if(el.kind === 'function' || isFunctionTypeDef(el)){
 		return ' = ' + generateFunctionSigCode(el.params, el.returns, true);
 	}
 	return ' = ' + (!el.properties? 'any' : el.properties.map(function(prop){
@@ -267,8 +271,8 @@ function indentStr(indent){
 
 
 function testRun(){
-	var inFileName = '../doc/docs_explain.json';
-	var outFileName = '../index.d.ts';
+	var inFileName = '../temp/libflac_jsdoc.json';
+	var outFileName = '../temp/test_index.d.ts';
 	generateDeclarationFromFile(inFileName, outFileName, function(){
 		log('finished!');
 	});
