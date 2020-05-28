@@ -599,12 +599,13 @@ var _exported = {
 	 *
 	 * @memberOf Flac#
 	 * @function
+	 * @param {Flac.event:ReadyEvent} event the ready-event object
 	 * @see #isReady
 	 * @see #on
 	 * @default undefined
 	 * @example
 	 *  // [1] if Object.defineProperty() IS supported:
-	 *  Flac.onready = function(){
+	 *  Flac.onready = function(event){
 	 *     //gets executed when library becomes ready, or immediately, if it already is ready...
 	 *	   doSomethingWithFlac();
 	 *  };
@@ -613,7 +614,7 @@ var _exported = {
 	 *	// do check Flac.isReady(), and only set handler, if not ready yet
 	 *  // (otherwise immediately excute handler code)
 	 *  if(!Flac.isReady()){
-	 *    Flac.onready = function(){
+	 *    Flac.onready = function(event){
 	 *       //gets executed when library becomes ready...
 	 *		 doSomethingWithFlac();
 	 *    };
@@ -655,6 +656,7 @@ var _exported = {
 	 * @function
 	 * @see #off
 	 * @see #onready
+	 * @see Flac.event:ReadyEvent
 	 * @example
 	 *  Flac.on('ready', function(event){
 	 *     //gets executed when library is ready, or becomes ready...
