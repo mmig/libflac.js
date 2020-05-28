@@ -1,5 +1,4 @@
 
-var path = require('path');
 var fs = require('fs');
 
 var typeArrayStr = 'Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array';// | BigInt64Array | BigUint64Array';
@@ -7,7 +6,7 @@ var typeArrayStr = 'Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Ui
 var handleEnumAsTypeDef = true;
 
 function getJsonConfig(fileName) {
-	return JSON.parse(fs.readFileSync(filePath));
+	return JSON.parse(fs.readFileSync(fileName));
 }
 
 function logDefault() {
@@ -23,7 +22,7 @@ var log = logDefault;
 
 function generateDeclarationFromFile(inFileName, outFileName, callback) {
 	var jsdocJson = getJsonConfig(inFileName);
-	generateDeclaration(inFileName, outFileName, callback)
+	generateDeclaration(jsdocJson, outFileName, callback)
 }
 
 

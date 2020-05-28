@@ -154,7 +154,7 @@ var genJsDoc = function(includePrivate, generateJsonOutput, callback) {
 
 	var srcDocFile = path.resolve(getFlacJoinedWrapperPath(), flacJoinedWrapperFile);
 
-	var g = gulp.src([srcDocFile], {read: false})
+	gulp.src([srcDocFile], {read: false})
 				.pipe(jsdoc(config, callback));
 };
 
