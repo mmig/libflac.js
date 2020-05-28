@@ -23,6 +23,10 @@
     "jsdoc": "^3.6.4"
   },
   "scripts": {
-    "doc": "gulp"
+    "build": "gulp jsdoc_and_typings",
+    "doc": "gulp",
+    "doc:json": "gulp jsdoc_json",
+    "doc:all": "gulp jsdoc_all",
+    "build:typings": "gulp gen_typings"
   }
 }

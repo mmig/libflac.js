@@ -6,17 +6,22 @@ var gulp = require('gulp');
 var jsdoc = require('gulp-jsdoc3');
 var del = require('del');
 
+var dtsGen = require('../typings-gen');
+
 var outDir = '../../doc';
 var outAllDir = './doc-all';
 var jaguarTemplateId = 'jaguarjs-jsdoc';
 // var docstrapTemplateId = 'ink-docstrap';
+var targetTypingsDir = '../../dist';
 
 var preFile = 'libflac_pre.js';
 var postFile = 'libflac_post.js';
 var flacJoinedWrapperFile = 'libflac_pre-post.js';
+var flacJsDocJsonFile = 'libflac_jsdoc.json';
+var typingsFile = 'index.d.ts';
 
 var getFlacJoinedWrapperPath = function(){
-	return path.normalize(path.join(__dirname, '..'));
+	return path.normalize(path.join(__dirname, '..', 'temp'));
 };
 
 var getSourceDir = function(){
@@ -40,12 +45,66 @@ var getJsonConfig = function(fileName) {
 	return JSON.parse(fs.readFileSync(filePath));
 }
 
+var writeJsDocJsonToFile = function(callback){
+	var jsonData = [];
+	var handleJsonOutput = function(data){
+		jsonData.push(data);
+	};
+	var writeJsonOutput = function(dataList, cb){
+		var filePath = path.resolve(getFlacJoinedWrapperPath(), flacJsDocJsonFile);
+		var ws = fs.createWriteStream(filePath);
+		ws.on('finish', cb);
+		ws.on('error', cb);
+		var d;
+		for(var i=0, size = dataList.length; i < size; ++i){
+			d = dataList[i]
+			try {
+				//NOTE jsdoc prints the JSON to stdout, so only write data that
+				//    is parseble as JSON to file, otherwise just ignore
+				JSON.parse(d);
+				ws.write(d);
+			} catch(e){}
+		}
+		ws.end();
+	};
+
+	var __cb = callback;
+	callback = function(){
+		var args = Array.from(arguments);
+		process.stdout.write = __write;
+		writeJsonOutput(jsonData, function(err){
+			if(err){
+				return __cb(err);
+			}
+			__cb.apply(null, args);
+		});
+	}
+	var __write = process.stdout.write;
+	function write() {
+		__write.apply(process.stdout, arguments);
+		handleJsonOutput.apply(null, arguments);
+	}
+	process.stdout.write = write;
+
+	return callback;
+}
+
+var generateTypings = function(callback){
+
+	var jsDocJsonPath = path.resolve(getFlacJoinedWrapperPath(), flacJsDocJsonFile);
+	var jsDocJson = getJsonConfig(jsDocJsonPath);
+	var typingsPath = path.resolve(getFlacJoinedWrapperPath(), typingsFile);
+
+	dtsGen.generateDeclaration(jsDocJson, typingsPath, callback);
+};
+
 var createJoinedWrapperFile = function(sourceDir, callback){
 	var preScript = path.resolve(sourceDir, preFile);
 	var postScript = path.resolve(sourceDir, postFile);
 	var targetFile = path.resolve(getFlacJoinedWrapperPath(), flacJoinedWrapperFile);
 
 	Promise.all([
+		fs.ensureDir(path.resolve(getFlacJoinedWrapperPath())),
 		fs.readFile(preScript, 'utf8'),
 		fs.readFile(postScript, 'utf8')
 	]).then(function(fileContents){
@@ -64,7 +123,7 @@ var cleanJsDoc = function(callback){
 	});
 };
 
-var genJsDoc = function(includePrivate, callback) {
+var genJsDoc = function(includePrivate, generateJsonOutput, callback) {
 
 	var config = getJsonConfig('conf-jsdoc3.json');
 
@@ -83,14 +142,19 @@ var genJsDoc = function(includePrivate, callback) {
 	config.opts.private = !!includePrivate;
 	config.opts.template = templatePath;
 	config.opts.readme = readmeFile;
+	config.opts.explain = !!generateJsonOutput;
 	// config.opts.package = packageJsonFile;//DISABLED: will force writing to directory hierarchy <package name>/<version>/<docs>
 
 	config.templates.openGraph.title += ' ' + pkgInfo.version;
 	config.templates.meta.title += ' ' + pkgInfo.version;
 
+	if(generateJsonOutput){
+		callback = writeJsDocJsonToFile(callback);
+	}
+
 	var srcDocFile = path.resolve(getFlacJoinedWrapperPath(), flacJoinedWrapperFile);
 
-	gulp.src([srcDocFile], {read: false})
+	var g = gulp.src([srcDocFile], {read: false})
 				.pipe(jsdoc(config, callback));
 };
 
@@ -102,12 +166,17 @@ gulp.task('create_joined_wrapper', function(callback) {
 
 gulp.task('gen_jsdoc', gulp.series('create_joined_wrapper', function(callback) {
 
-	genJsDoc(false, callback);
+	genJsDoc(false, false, callback);
 }));
 
 gulp.task('gen_jsdoc_private', gulp.series('create_joined_wrapper', function(callback) {
 
-	genJsDoc(true, callback);
+	genJsDoc(true, false, callback);
+}));
+
+gulp.task('gen_jsdoc_json', gulp.series('create_joined_wrapper', function(callback) {
+
+	genJsDoc(false, true, callback);
 }));
 
 gulp.task('clean_jsdoc', function(callback) {
@@ -115,6 +184,23 @@ gulp.task('clean_jsdoc', function(callback) {
 	cleanJsDoc(callback);
 });
 
-gulp.task('jsdoc', gulp.series('clean_jsdoc', gulp.parallel(['gen_jsdoc', 'gen_jsdoc_private'])));
+gulp.task('gen_typings', gulp.series('gen_jsdoc_json', function(callback) {
 
-gulp.task('default', gulp.series('clean_jsdoc', 'gen_jsdoc'));
+	generateTypings(function(err){
+		if(err){
+			return callback(err);
+		}
+		var genTypingsFile = path.resolve(getFlacJoinedWrapperPath(), typingsFile);
+		fs.copy(genTypingsFile, path.resolve(targetTypingsDir, typingsFile), callback)
+	});
+}));
+
+gulp.task('jsdoc_all', gulp.series('clean_jsdoc', gulp.parallel(['gen_jsdoc', 'gen_jsdoc_private', 'gen_jsdoc_json'])));
+
+gulp.task('jsdoc', gulp.series('clean_jsdoc', 'gen_jsdoc'));
+
+gulp.task('jsdoc_and_json', gulp.parallel(['jsdoc', 'gen_jsdoc_json']));
+
+gulp.task('jsdoc_and_typings', gulp.parallel(['jsdoc', 'gen_typings']))
+
+gulp.task('default', gulp.series('jsdoc'));

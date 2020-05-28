@@ -1,0 +1,21 @@
+{
+  "name": "libflacjs-typings-gen",
+  "version": "0.1.0",
+  "description": "typings generation for libFLAC.js",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmig/libflacjs.git"
+  },
+  "keywords": [
+    "typings",
+    "libflac.js"
+  ],
+  "author": "russa",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mmig/libflacjs/issues"
+  },
+  "homepage": "https://github.com/mmig/libflacjs#readme"
+}
