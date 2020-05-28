@@ -291,13 +291,13 @@ export function init_libflac_decoder(): void;
  * @param {number} samples the number of samples encoded in data
  * @param {number} currentFrame the number of the (current) encoded frame in data
  */
-export type encoder_write_callback_fn = any;
+export type encoder_write_callback_fn = (data: Uint8Array, numberOfBytes: number, samples: number, currentFrame: number) => void;
 /**
  * the callback for the metadata of the encoded/decoded Flac data.
  * @callback Flac~metadata_callback_fn
  * @param {Flac.StreamMetadata} metadata the FLAC meta data
  */
-export type metadata_callback_fn = any;
+export type metadata_callback_fn = (metadata: StreamMetadata) => void;
 /**
  * FLAC meta data
  * @interface Metadata
@@ -439,7 +439,7 @@ export interface ReadResult {
  * @param {number} numberOfBytes the maximal number of bytes that the read callback can return
  * @returns {Flac.ReadResult} the result of the reading action/request
  */
-export type decoder_read_callback_fn = any;
+export type decoder_read_callback_fn = (numberOfBytes: number) => ReadResult;
 /**
  * The callback for writing the decoded FLAC data.
  *
@@ -447,7 +447,7 @@ export type decoder_read_callback_fn = any;
  * @param {Uint8Array[]} data array of the channels with the decoded PCM data as <code>Uint8Array</code>s
  * @param {Flac.BlockMetadata} frameInfo the metadata information for the decoded data
  */
-export type decoder_write_callback_fn = any;
+export type decoder_write_callback_fn = (data: Array<Uint8Array>, frameInfo: BlockMetadata) => void;
 /**
  * The callback for reporting decoding errors.
  *
@@ -455,7 +455,7 @@ export type decoder_write_callback_fn = any;
  * @param {number} errorCode the error code
  * @param {Flac.FLAC__StreamDecoderErrorStatus} errorDescription the string representation / description of the error
  */
-export type decoder_error_callback_fn = any;
+export type decoder_error_callback_fn = (errorCode: number, errorDescription: FLAC__StreamDecoderErrorStatus) => void;
 /**
  * FLAC block meta data
  * @interface BlockMetadata
