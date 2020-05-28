@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>libflac.js 5.0.0</title>
+    <title>libflac.js 5.1.0</title>
     
     
     
@@ -11,7 +11,7 @@
     
     
     
-    <meta property="og:title" content="libflac.js API 5.0.0"/>
+    <meta property="og:title" content="libflac.js API 5.1.0"/>
     <meta property="og:type" content="website"/>
     <meta property="og:image" content=""/>
     <meta property="og:site_name" content="libflac.js"/>
@@ -29,7 +29,7 @@
 
     
     <script>
-    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.0.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.0.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
+    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.1.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.1.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
     </script>
     
 
@@ -411,7 +411,7 @@ files for the <code>libflac.js</code> JavaScript library, as well as a minified 
 <blockquote>
 <p>Complied from <code>libFLAC</code> (static <code>C</code> library) version: 1.3.2<br>
 Used library <code>libogg</code> (static <code>C</code> library) version: 1.3.4<br>
-Used compiler <code>Emscripten</code> version: 1.39.2<br>
+Used compiler <code>Emscripten</code> version: 1.39.3<br>
 Used compiler <code>Emscripten</code> toolchain: LLVM (upstream)</p>
 </blockquote>
 <p>In order to build <em>libflac.js</em>, make sure you have <em>emscripten</em> installed (with toolchain <code>LLVM/upstream</code>; default since version 1.39.x).</p>
@@ -445,21 +445,22 @@ See <a target='_blank' href="https://mmig.github.io/libflac.js/doc/">doc/index.h
 <li><a href="#browser">Browser</a></li>
 <li><a href="#webworker">WebWorker</a></li>
 <li><a href="#node">Node</a></li>
+<li><a href="#reactwebpack">React/webpack</a></li>
+<li><a href="#angularwebpack">Angular/webpack</a></li>
+<li><a href="#webworker-with-webpack">WebWorker with webpack</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a href="#install-from-npm">install from npm</a></li>
-<li><a href="#install-latest-from-master-branch">install latest from master branch</a>
-- <a href="#reactwebpack">React/webpack</a>
+<li><a href="#async-initialization">Async Initialization</a>
 <ul>
-<li><a href="#including-dynamically-loaded-libflacjs">Including Dynamically Loaded libflac.js</a>
-<ul>
-<li><a href="#including-dynamically-loaded-libflacjs-from-non-default-location">Including Dynamically Loaded  libflac.js from Non-Default Location</a></li>
+<li><a href="#including-dynamically-loaded-libflacjs-from-non-default-location">Including Dynamically Loaded libflac.js from Non-Default Location</a></li>
 </ul>
 </li>
 <li><a href="#library-variants">Library Variants</a>
 <ul>
+<li><a href="#default-vs-min-vs-dev"><em>default</em> vs <code>min</code> vs <code>dev</code></a></li>
+<li><a href="#asmjs-vs-wasm"><code>asm.js</code> vs <code>WASM</code></a></li>
+<li><a href="#example-wasm-feature-detection">Example <code>WASM</code> Feature Detection</a></li>
+<li><a href="#variants-and-notes">Variants and Notes</a></li>
 <li><a href="#default-library">Default Library:</a></li>
 <li><a href="#minified-library">Minified Library:</a></li>
 <li><a href="#development-library">Development Library:</a></li>
@@ -499,10 +500,10 @@ See <a target='_blank' href="https://mmig.github.io/libflac.js/doc/">doc/index.h
 <h4>Node</h4>
 <p>In <code>Node.js</code>:
 install with <code>npm</code></p>
-<pre class="prettyprint source lang-bash"><code>#install from npm
+<pre class="prettyprint source lang-bash"><code> # install from npm
 npm install --save libflacjs
 
-#install latest from master branch
+ # install latest from master branch
 npm install --save git+https://github.com/mmig/libflac.js.git
 </code></pre>
 <p>then, use factory method for loading one of the library variants:</p>
@@ -528,6 +529,82 @@ Flac.on('ready', function(event){
 <p>For <code>reactjs</code>:
 install with <code>npm</code> (see above), and <code>require()</code> the library directly, like</p>
 <pre class="prettyprint source lang-javascript"><code>var Flac = require('libflacjs/dist/libflac.js');
+</code></pre>
+<h4>Angular/webpack</h4>
+<p>For <code>Angular</code> (<code>TypeScript</code>):
+install with <code>npm</code> (see above), and <code>import</code> the library directly, like</p>
+<pre class="prettyprint source lang-typescript"><code>import * as Flac from 'libflacjs/dist/libflac';
+</code></pre>
+<p><strong>NOTE</strong> unfortunately, current typings do not allow to set <code>Flac.onready</code> when imported this way.
+This limitation can be worked around by casting to <code>any</code>, i.e.</p>
+<pre class="prettyprint source lang-typescript"><code>(Flac.onready as any) = (evt: Flac.ReadyEvent) => console.log('Flac is ready now: ', evt.target);
+</code></pre>
+<p>Or use <code>Flac.on('ready', ...</code> instead, or import with <code>require</code> statement, e.g. like</p>
+<pre class="prettyprint source lang-typescript"><code>import * as FlacModule from 'libflacjs/dist/index.d';//import declaration file for typings
+
+declare var require: Function;//NOTE most likely, the require function needs to be explicitly declared, if other envorinments than node are targeted
+
+const Flac: typeof FlacModule = require('libflacjs/dist/libflac.js');
+</code></pre>
+<h4>WebWorker with webpack</h4>
+<p>When using <code>libflac.js</code> from a WebWorker in a <code>webpack</code> project, the <code>worker-loader</code> plugin is required, e.g. install with</p>
+<pre class="prettyprint source lang-bash"><code>npm install --save-dev worker-loader
+</code></pre>
+<p>Then include a rule in the <code>webpack</code> configuration, so that the file with the <code>WebWorker</code> implementation will be built as a seperate script:<br>
+in the <code>module.rules</code> array add an entry, e.g. if the file name is <code>flacworker.js</code> something similar to</p>
+<pre class="prettyprint source lang-javascript"><code>{
+  //this must match the file-name of the worker script:
+  test:  /\bflacworker\.js$/i,
+  use: {
+    loader: 'worker-loader',
+    options: { name: 'worker-[name].[hash].js' }
+  }
+},
+</code></pre>
+<p>If in addition a library variant with binary files (e.g. <em>min</em> variant wiht <code>*.mem</code> files or <em>wasm</em> variant with <code>*.wasm</code> files) is targeted,
+then in addition the <code>file-loader</code> plugin for <code>webpack</code> is required, e.g. install with</p>
+<pre class="prettyprint source"><code>npm install --save-dev file-loader
+</code></pre>
+<p>Then include a rule in the <code>webpack</code> configuration, so that the file with the binary files will be included with the correct file names that <code>libflac.js</code> expects:<br>
+in the <code>module.rules</code> array add an entry, e.g. if the file name is <code>flacworker.js</code> something similar to</p>
+<pre class="prettyprint source lang-javascript"><code>{
+  test: /\.(wasm|mem)$/i,
+  use: {
+    loader: 'file-loader',
+    options: {
+      //NOTE binary file must be included with its original file name,
+      //     so that libflac.js lib can find it:
+      name: function(file) {
+        return path.basename(file)
+      }
+    }
+  },
+},
+</code></pre>
+<p><em>Alterantively to using the exact file name of the binary files, <code>FLAC_SCRIPT_LOCATION</code> could be configured to use the file name generated by <code>file-loader</code> plugin, see details below for configuring <code>FLAC_SCRIPT_LOCATION</code></em></p>
+<p>Then for creating the WebWorker instance use something like</p>
+<pre class="prettyprint source lang-javascript"><code>// var flacWorker = new Worker('flacworker.js'); //&lt;- normal way to create a WebWorker instance
+var flacWorker = require('./flacworker.js')();   //&lt;- create a WebWorker instance with webpack worker-loader plugin
+
+flacWorker.onmessage = function(event) {
+ console.log('received message from flacWorker ', event.data);
+}
+
+flacWorker.postMessage(...
+</code></pre>
+<p>In the WebWorker script itself, do load the <code>libflac.js</code> library like</p>
+<pre class="prettyprint source lang-javascript"><code>//importScripts('libflac.js');//&lt;- normal way to load a script within a WebWorker
+
+// for including a &quot;single file variant&quot; of libflac.js, e.g. the standard version:
+var Flac = require('libflacjs/dist/libflac.js');
+
+// OR for including a .wasm variant, e.g standard-wasm (for binary of min-version include its *.mem file):
+require.resolve('libflacjs/dist/libflac.wasm.wasm') // &lt;- force webpack to include the binary file
+var Flac = require('libflacjs/dist/libflac.wasm.js')
+
+self.onmessage = function(event) {
+ console.log('received message from main thread ', event.data);
+}
 </code></pre>
 <h3>Async Initialization</h3>
 <p>Including dynamically loaded <code>libflac.js</code>:</p>
@@ -581,7 +658,7 @@ has been initialized before assigning it to <code>Flac.onready</code> (i.e. when
 In this case, you should check <code>Flac.isReady()</code> and provide alternative code
 execution to the <code>onready()</code> function, in case <code>Flac.isReady()</code> is <code>true</code>
 (or use <code>Flac.on('ready', ...)</code> instead).</p>
-<h4>Including Dynamically Loaded  libflac.js from Non-Default Location</h4>
+<h4>Including Dynamically Loaded libflac.js from Non-Default Location</h4>
 <p>Variants of the <code>libflac.js</code> library that are loaded asynchronously do usually also load some additional files.</p>
 <p>If the library-file is not loaded from the default location (&quot;page root&quot;), but from a sub-directory/-path, you need to
 let the library know, so that it searches for the additional files, that it needs to load, in that sub-directory/-path.</p>
@@ -609,9 +686,14 @@ FLAC_SCRIPT_LOCATION = {
 </code></pre>
 <p>Or example for specifying the path/location at <code>libs/</code> in Node.js script:</p>
 <pre class="prettyprint source lang-javascript"><code>  process.env.FLAC_SCRIPT_LOCATION = './libs/';
-  process.env.FLAC_UMD_MODE = true;//&lt;- OPTIONAL: avoid export to global namespace
   var Flac = require('./libs/libflac.js');
 </code></pre>
+<blockquote>
+<p>NOTE: setting <code>FLAC_UMD_MODE</code> has no effect since v5.0.1:
+automatic export to global namespace has been dropped in case of loading as AMD or CommonJS module,
+i.e. setting <code>process.env.FLAC_UMD_MODE = true</code> when running in Node.js will have no effect anymore,
+instead set manually, e.g. with <code>global.Flac = require('libflacjs')</code>.</p>
+</blockquote>
 <p>Example for specifying custom path and file-name via mapping (<code>originalFileName -&gt; &lt;newPath/newFileName&gt;</code>):<br>
 in this case, the file-name(s) of the additionally required files (e.g. <code>*.mem</code> or <code>.wasm</code> files)
 need to be mapped to the custom path/file-name(s), that is,
@@ -1105,8 +1187,25 @@ FLAC_VERSION:=1.3.2
 ...
 </code></pre>
 <h3>Build *nix (libflac 1.3.0)</h3>
+<p>If necessary, activate the appropriate <code>emscripten</code> toolchain (e.g. <code>llvm</code> or the older <code>fastcomp</code> toolchain)</p>
+<pre class="prettyprint source lang-bash"><code> # list versions
+emsdk list
+
+ # activate a specific version with llvm toolchain
+ # NOTE update Makefile if necessary with selected toolchain
+ #   TOOL_CHAIN:=$(TOOL_CHAIN_LLVM)
+emsdk activate &lt;version>
+
+
+ # activate a specific version with fastcomp toolchain
+ # NOTE update Makefile if necessary with selected toolchain
+ #   TOOL_CHAIN:=$(TOOL_CHAIN_FASTCOMP)
+emsdk activate &lt;version>-fastcomp
+</code></pre>
+<p>NOTE when activating a toolchain, <code>emsdk</code> will print some information on how to set the correct enviornment variables, e.g.
+<code>     ...      To conveniently access the selected set of tools from the command line,      consider adding the following directories to PATH,      or call 'source &lt;path&gt;/emsc/emsdk_env.sh' to do this for you.      ...     </code></p>
 <p>Start build process by executing the <code>Makefile</code>:</p>
-<pre class="prettyprint source"><code>make
+<pre class="prettyprint source lang-bash"><code>make
 </code></pre>
 <p>(build process was tested on Unbuntu 12.10)</p>
 <h3>Build Windows/VisualStudio 10 (libflac 1.3.0)</h3>
@@ -1179,7 +1278,7 @@ VERSION=&quot;1.3.0&quot;
 <p>Include libogg in libflac built by specifying</p>
 <pre><code>--with-ogg=&lt;libogg dir&gt;
 </code></pre>
-<p>for libfalc's <code>./congiure</code> process (where <code>&lt;libogg dir&gt;</code> is the <em>absolute</em> path
+<p>for libfalc's <code>./conigure</code> process (where <code>&lt;libogg dir&gt;</code> is the <em>absolute</em> path
 to the libogg directory)</p>
 <p>Note that libflac build process expects the libogg headers at</p>
 <pre><code>&lt;libogg dir&gt;/include/**

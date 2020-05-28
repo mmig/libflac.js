@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>libflac.js 5.0.0</title>
+    <title>libflac.js 5.1.0</title>
     
     
     
@@ -11,7 +11,7 @@
     
     
     
-    <meta property="og:title" content="libflac.js API 5.0.0"/>
+    <meta property="og:title" content="libflac.js API 5.1.0"/>
     <meta property="og:type" content="website"/>
     <meta property="og:image" content=""/>
     <meta property="og:site_name" content="libflac.js"/>
@@ -29,7 +29,7 @@
 
     
     <script>
-    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.0.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.0.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
+    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.1.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.1.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
     </script>
     
 
@@ -4778,6 +4778,8 @@
             <li><a href="Flac.html#off"><code>off</code></a></li>
         
             <li><a href="Flac.html#onready"><code>onready</code></a></li>
+        
+            <li><a href="Flac.html#.event:ReadyEvent">Flac.event:ReadyEvent</a></li>
         </ul>
     </dd>
     
@@ -4814,7 +4816,7 @@
     <div class="nameContainer">
         <h4 class="name" id="onready">
             
-            onready<span class="signature">()</span>
+            onready<span class="signature">(event)</span>
         </h4>
 
         
@@ -4833,6 +4835,53 @@
     
 
     
+
+    
+        
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>event</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.html#.event:ReadyEvent">Flac.event:ReadyEvent</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the ready-event object</td>
+        </tr>
+
+    
+    </tbody>
+</table>
 
     
 
@@ -4889,7 +4938,7 @@
         
 
     
-    <pre class="prettyprint"><code>// [1] if Object.defineProperty() IS supported: Flac.onready = function(){    //gets executed when library becomes ready, or immediately, if it already is ready...	   doSomethingWithFlac(); }; // [2] if Object.defineProperty() is NOT supported:	// do check Flac.isReady(), and only set handler, if not ready yet // (otherwise immediately excute handler code) if(!Flac.isReady()){   Flac.onready = function(){      //gets executed when library becomes ready...		 doSomethingWithFlac();   }; } else {		// Flac is already ready: immediately start processing		doSomethingWithFlac();	}</code></pre>
+    <pre class="prettyprint"><code>// [1] if Object.defineProperty() IS supported: Flac.onready = function(event){    //gets executed when library becomes ready, or immediately, if it already is ready...	   doSomethingWithFlac(); }; // [2] if Object.defineProperty() is NOT supported:	// do check Flac.isReady(), and only set handler, if not ready yet // (otherwise immediately excute handler code) if(!Flac.isReady()){   Flac.onready = function(event){      //gets executed when library becomes ready...		 doSomethingWithFlac();   }; } else {		// Flac is already ready: immediately start processing		doSomethingWithFlac();	}</code></pre>
     
 
 
