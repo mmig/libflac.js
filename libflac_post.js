@@ -1506,6 +1506,9 @@ if(typeof Object.defineProperty === 'function'){
 	console.warn('WARN: note that setting Flac.onready handler after Flac.isReady() is already true, will have no effect, that is, the handler function will not be triggered!');
 }
 
+if(expLib && expLib.exports){
+	expLib.exports = _exported;
+}
 return _exported;
 
 }));//END: UMD wrapper

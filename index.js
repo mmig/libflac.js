@@ -3,9 +3,6 @@ var path = require('path');
 
 // confiuration for loading libflac.js:
 
-// avoid export to global namespace, i.e. export as module only:
-process.env.FLAC_UMD_MODE = true;
-
 //optimization variants:
 var optVariant = {
 	default: '',

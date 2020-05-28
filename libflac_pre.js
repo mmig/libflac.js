@@ -3,40 +3,23 @@
 
 (function (root, factory) {
 
-	var lib, env;
 	if (typeof define === 'function' && define.amd) {
 		// AMD. Register as an anonymous module.
-		define(['require'], function (req) {
-			lib = factory(root, req);
-			return lib;
-		});
+		define(['module', 'require'], factory.bind(null, root));
 	} else if (typeof module === 'object' && module.exports) {
 		// Node. Does not work with strict CommonJS, but
 		// only CommonJS-like environments that support module.exports,
 		// like Node.
 
 		// use process.env (if available) for reading Flac environment settings:
-		env = typeof process !== 'undefined' && process && process.env? process.env : root;
-		lib = factory(env, module.require);
-		module.exports = lib;
+		var env = typeof process !== 'undefined' && process && process.env? process.env : root;
+		factory(env, module, module.require);
 	} else {
 		// Browser globals
-		lib = factory(root);
-		root.Flac = lib;
+		root.Flac = factory(root);
 	}
 
-	//non-UMD mode: "classic mode" exports library to global variable Flac regardless of environment.
-	// -> for backwards compatibility: by default, always export library to global variable Flac
-	//                                 except in case UMD mode is explicitly activated.
-	var umdMode = env? env.FLAC_UMD_MODE : root.FLAC_UMD_MODE;
-	if(/false/.test(umdMode)){//<- normalize "true" | "false" | true | false -> BOOLEAN
-
-		// if in Node environment, use Node's global (if available) as global/root namespace:
-		root = env && env !== root && typeof global !== 'undefined' && global? global : root;
-		root.Flac = lib;
-	}
-
-}(typeof self !== 'undefined' ? self : typeof window !== 'undefined' ? window : this, function (global, require) {
+}(typeof self !== 'undefined' ? self : typeof window !== 'undefined' ? window : this, function (global, expLib, require) {
 'use strict';
 
 var Module = Module || {};
