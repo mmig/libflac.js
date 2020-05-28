@@ -25,40 +25,23 @@ var Module = typeof Module !== 'undefined' ? Module : {};
 
 (function (root, factory) {
 
-	var lib, env;
 	if (typeof define === 'function' && define.amd) {
 		// AMD. Register as an anonymous module.
-		define(['require'], function (req) {
-			lib = factory(root, req);
-			return lib;
-		});
+		define(['module', 'require'], factory.bind(null, root));
 	} else if (typeof module === 'object' && module.exports) {
 		// Node. Does not work with strict CommonJS, but
 		// only CommonJS-like environments that support module.exports,
 		// like Node.
 
 		// use process.env (if available) for reading Flac environment settings:
-		env = typeof process !== 'undefined' && process && process.env? process.env : root;
-		lib = factory(env, module.require);
-		module.exports = lib;
+		var env = typeof process !== 'undefined' && process && process.env? process.env : root;
+		factory(env, module, module.require);
 	} else {
 		// Browser globals
-		lib = factory(root);
-		root.Flac = lib;
+		root.Flac = factory(root);
 	}
 
-	//non-UMD mode: "classic mode" exports library to global variable Flac regardless of environment.
-	// -> for backwards compatibility: by default, always export library to global variable Flac
-	//                                 except in case UMD mode is explicitly activated.
-	var umdMode = env? env.FLAC_UMD_MODE : root.FLAC_UMD_MODE;
-	if(/false/.test(umdMode)){//<- normalize "true" | "false" | true | false -> BOOLEAN
-
-		// if in Node environment, use Node's global (if available) as global/root namespace:
-		root = env && env !== root && typeof global !== 'undefined' && global? global : root;
-		root.Flac = lib;
-	}
-
-}(typeof self !== 'undefined' ? self : typeof window !== 'undefined' ? window : this, function (global, require) {
+}(typeof self !== 'undefined' ? self : typeof window !== 'undefined' ? window : this, function (global, expLib, require) {
 'use strict';
 
 var Module = Module || {};
@@ -35941,12 +35924,13 @@ var _exported = {
 	 *
 	 * @memberOf Flac#
 	 * @function
+	 * @param {Flac.event:ReadyEvent} event the ready-event object
 	 * @see #isReady
 	 * @see #on
 	 * @default undefined
 	 * @example
 	 *  // [1] if Object.defineProperty() IS supported:
-	 *  Flac.onready = function(){
+	 *  Flac.onready = function(event){
 	 *     //gets executed when library becomes ready, or immediately, if it already is ready...
 	 *	   doSomethingWithFlac();
 	 *  };
@@ -35955,7 +35939,7 @@ var _exported = {
 	 *	// do check Flac.isReady(), and only set handler, if not ready yet
 	 *  // (otherwise immediately excute handler code)
 	 *  if(!Flac.isReady()){
-	 *    Flac.onready = function(){
+	 *    Flac.onready = function(event){
 	 *       //gets executed when library becomes ready...
 	 *		 doSomethingWithFlac();
 	 *    };
@@ -35997,6 +35981,7 @@ var _exported = {
 	 * @function
 	 * @see #off
 	 * @see #onready
+	 * @see Flac.event:ReadyEvent
 	 * @example
 	 *  Flac.on('ready', function(event){
 	 *     //gets executed when library is ready, or becomes ready...
@@ -36014,15 +35999,67 @@ var _exported = {
 	 */
 	off: remove_event_listener,
 
-	/**@memberOf Flac#
+	/**
+	 * Set the "verify" flag. If true, the encoder will verify it's own encoded output by feeding it through an internal decoder and comparing the original signal against the decoded signal. If a mismatch occurs, the process call will return false. Note that this will slow the encoding process by the extra time required for decoding and comparison.
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized encoder instances!
+	 *
+	 * @param {number} encoder
+	 * 				the ID of the encoder instance
+	 *
+	 * @param {boolean} is_verify enable/disable checksum verification during encoding
+	 *
+	 * @returns {boolean} <code>false</code> if the encoder is already initialized, else <code>true</code>
+	 *
+	 * @see #create_libflac_encoder
+	 *
+	 * @memberOf Flac#
 	 * @function
 	 */
 	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number', 'number' ]),
-	/**@memberOf Flac#
+	/**
+	 * Set the compression level
+	 *
+	 * The compression level is roughly proportional to the amount of effort the encoder expends to compress the file. A higher level usually means more computation but higher compression. The default level is suitable for most applications.
+	 *
+	 * Currently the levels range from 0 (fastest, least compression) to 8 (slowest, most compression). A value larger than 8 will be treated as 8.
+	 *
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized encoder instances!
+	 *
+	 * @param {number} encoder
+	 * 				the ID of the encoder instance
+	 *
+	 * @param {number} compression_level the desired Flac compression level: [0, 8]
+	 *
+	 * @returns {boolean} <code>false</code> if the encoder is already initialized, else <code>true</code>
+	 *
+	 * @see #create_libflac_encoder
+	 * @see <a href="https://xiph.org/flac/api/group__flac__stream__encoder.html#gae49cf32f5256cb47eecd33779493ac85">FLAC API for FLAC__stream_encoder_set_compression_level()</a>
+	 *
+	 * @memberOf Flac#
 	 * @function
 	 */
 	FLAC__stream_encoder_set_compression_level: Module.cwrap('FLAC__stream_encoder_set_compression_level', 'number', [ 'number', 'number' ]),
-	/**@memberOf Flac#
+	/**
+	 * Set the blocksize to use while encoding.
+	 * The number of samples to use per frame. Use 0 to let the encoder estimate a blocksize; this is usually best.
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized encoder instances!
+	 *
+	 * @param {number} encoder
+	 * 				the ID of the encoder instance
+	 *
+	 * @param {number} block_size  the number of samples to use per frame
+	 *
+	 * @returns {boolean} <code>false</code> if the encoder is already initialized, else <code>true</code>
+	 *
+	 * @see #create_libflac_encoder
+	 *
+	 * @memberOf Flac#
 	 * @function
 	 */
 	FLAC__stream_encoder_set_blocksize: Module.cwrap('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number']),
@@ -36281,7 +36318,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 *
 	 * @param {number|boolean} [ogg_serial_number] OPTIONAL
 	 * 				if number or <code>true</code> is specified, the encoder will be initialized to
-	 * 				write to an OGG container, see {@link #init_encoder_ogg_stream}:
+	 * 				write to an OGG container, see {@link Flac.init_encoder_ogg_stream}:
 	 * 				<code>true</code> will set a default serial number (<code>1</code>),
 	 * 				if specified as number, it will be used as the stream's serial number within the ogg container.
 	 *
@@ -36359,26 +36396,13 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	/**
 	 * Initialize the encoder for writing to an OGG container.
 	 *
-	 * @param {number} encoder
-	 * 				the ID of the encoder instance that has not been initialized (or has been reset)
-	 *
-	 * @param {Flac~encoder_write_callback_fn} write_callback_fn
-	 * 				the callback for writing the encoded Flac data:
-	 * 				<pre>write_callback_fn(data: Uint8Array, numberOfBytes: Number, samples: Number, currentFrame: Number)</pre>
-	 *
-	 * @param {Flac~metadata_callback_fn} [metadata_callback_fn] OPTIONAL
-	 * 				the callback for the metadata of the encoded Flac data:
-	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
-	 *
 	 * @param {number} [ogg_serial_number] OPTIONAL
 	 * 				the serial number for the stream in the OGG container
 	 * 				DEFAULT: <code>1</code>
 	 *
-	 * @returns {number} the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>),
-	 * 					 see {@link Flac.FLAC__StreamEncoderInitStatus}
-	 *
 	 * @memberOf Flac#
 	 * @function
+	 * @copydoc #init_encoder_stream
 	 */
 	init_encoder_ogg_stream: function(encoder, write_callback_fn, metadata_callback_fn, ogg_serial_number, client_data){
 
@@ -36393,25 +36417,25 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @interface ReadResult
 	 * @memberOf Flac
 	 * @property {TypedArray}  buffer  a TypedArray (e.g. Uint8Array) with the read data
-	 * @property {number}  readDataLength the number of read data bytes. A number of 0 (zero) indicates that the end-of-stream is reached.
-	 * @property {boolean}  error <code>true</code> indicates that an error occured (decoding will be aborted)
+	 * @property {number}  readDataLength the number of read data bytes. A number of <code>0</code> (zero) indicates that the end-of-stream is reached.
+	 * @property {boolean}  [error] OPTIONAL value of <code>true</code> indicates that an error occured (decoding will be aborted)
 	 */
 	/**
-	 * the callback for writing the encoded FLAC data.
+	 * The callback for reading the FLAC data that will be decoded.
 	 *
 	 * @callback Flac~decoder_read_callback_fn
 	 * @param {number} numberOfBytes the maximal number of bytes that the read callback can return
 	 * @returns {Flac.ReadResult} the result of the reading action/request
 	 */
 	/**
-	 * the callback for writing the encoded FLAC data.
+	 * The callback for writing the decoded FLAC data.
 	 *
 	 * @callback Flac~decoder_write_callback_fn
-	 * @param {Uint8Array} data the decoded PCM data as Uint8Array
+	 * @param {Uint8Array[]} data array of the channels with the decoded PCM data as <code>Uint8Array</code>s
 	 * @param {Flac.BlockMetadata} frameInfo the metadata information for the decoded data
 	 */
 	/**
-	 * the callback for reporting decoding errors.
+	 * The callback for reporting decoding errors.
 	 *
 	 * @callback Flac~decoder_error_callback_fn
 	 * @param {number} errorCode the error code
@@ -36440,19 +36464,19 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 *
 	 * @param {Flac~decoder_write_callback_fn} write_callback_fn
 	 * 				the callback for writing the decoded data:
-	 * 				<pre>write_callback_fn(data: TypedArray, frameInfo: Metadata)</pre>
+	 * 				<pre>write_callback_fn(data: Uint8Array[], frameInfo: Metadata)</pre>
 	 *
 	 * @param {Flac~decoder_error_callback_fn} [error_callback_fn] OPTIONAL
 	 * 				the error callback:
 	 * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
 	 *
 	 * @param {Flac~metadata_callback_fn} [metadata_callback_fn] OPTIONAL
-	 * 				callback for receiving the metadata of the decoded PCM data:
+	 * 				callback for receiving the metadata of FLAC data that will be decoded:
 	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
 	 *
 	 * @param {number|boolean} [ogg_serial_number] OPTIONAL
 	 * 				if number or <code>true</code> is specified, the decoder will be initilized to
-	 * 				read from an OGG container, see {@link #init_decoder_ogg_stream}:
+	 * 				read from an OGG container, see {@link Flac.init_decoder_ogg_stream}:<br/>
 	 * 				<code>true</code> will use the default serial number, if specified as number the
 	 * 				corresponding stream with the serial number from the ogg container will be used.
 	 *
@@ -36529,34 +36553,13 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	/**
 	 * Initialize the decoder for writing to an OGG container.
 	 *
-	 * @param {number} decoder
-	 * 				the ID of the decoder instance that has not been initialized (or has been reset)
-	 *
-	 * @param {Flac~decoder_read_callback_fn} read_callback_fn
-	 * 				the callback for reading the Flac data that should get decoded:
-	 * 				<pre>read_callback_fn(numberOfBytes: Number) : {buffer: ArrayBuffer, readDataLength: number, error: boolean}</pre>
-	 *
-	 * @param {Flac~decoder_write_callback_fn} write_callback_fn
-	 * 				the callback for writing the decoded data:
-	 * 				<pre>write_callback_fn(data: TypedArray, frameInfo: Metadata)</pre>
-	 *
-	 * @param {Flac~decoder_error_callback_fn} [error_callback_fn] OPTIONAL
-	 * 				the error callback:
-	 * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
-	 *
-	 * @param {Flac~metadata_callback_fn} [metadata_callback_fn] OPTIONAL
-	 * 				callback for receiving the metadata of the decoded PCM data:
-	 * 				<pre>metadata_callback_fn(metadata: StreamMetadata)</pre>
-	 *
 	 * @param {number} [ogg_serial_number] OPTIONAL
 	 * 				the serial number for the stream in the OGG container that should be decoded.<br/>
 	 * 				The default behavior is to use the serial number of the first Ogg page. Setting a serial number here will explicitly specify which stream is to be decoded.
 	 *
-	 * @returns {number} the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>),
-	 * 					 see {@link Flac.FLAC__StreamDecoderInitStatus}
-	 *
 	 * @memberOf Flac#
 	 * @function
+	 * @copydoc #init_decoder_stream
 	 */
 	init_decoder_ogg_stream: function(decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, ogg_serial_number, client_data){
 
@@ -36619,8 +36622,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 *
 	 * To check decoding progress, use {@link #FLAC__stream_decoder_get_state}.
 	 *
-	 * @param {number} encoder
-	 * 				the ID of the encoder instance
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
 	 *
 	 * @returns {boolean} FALSE if an error occurred
 	 *
@@ -36765,10 +36768,16 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	/**
 	 * Reset the decoder for reuse.
 	 *
+	 * <p>
+	 * NOTE: Needs to be re-initialized, before it can be used again
+	 *
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
 	 * @returns {boolean} true if successful
+	 *
+	 * @see #init_decoder_stream
+	 * @see #init_decoder_ogg_stream
 	 *
 	 * @memberOf Flac#
 	 * @function
@@ -36824,6 +36833,9 @@ if(typeof Object.defineProperty === 'function'){
 	console.warn('WARN: note that setting Flac.onready handler after Flac.isReady() is already true, will have no effect, that is, the handler function will not be triggered!');
 }
 
+if(expLib && expLib.exports){
+	expLib.exports = _exported;
+}
 return _exported;
 
 }));//END: UMD wrapper
