@@ -1,4 +1,8 @@
 
+# Version 5.1.1
+
+ * provide specific typings for function type definitions
+
 # Version 5.1.0
 
  * [BREAKING CHANGE] removed support for exporting library to global namespace *when loaded as module*, that is, in case it is loaded as AMD or CommonJS module
