@@ -18,7 +18,10 @@
 	 -->
 	<script src="util/check-params.js" type="text/javascript"></script>
 	<script src="util/check-support.js" type="text/javascript"></script>
+	<script src="util/load-script.js" type="text/javascript"></script>
 	<script type="text/javascript">
+
+		var demoType = 'encode';
 
 		var global = window;
 
@@ -39,13 +42,14 @@
 		}
 		var libFile = global.FLAC_SCRIPT_LOCATION.replace('//','/') + lib;
 
-		// create the script tag for loading the libflac.js library (i.e. load the library):
-		global.document.write('<'+'script src="'+libFile+'" type="text/javascript"'+'><'+'/script'+'>');
+		// load libflac.js library variant and demo scripts after document was loaded:
+		global.onload = function(){
+			loadScripts([libFile, demoType+'-func.js', 'util/data-util.js', 'util/file-handler.js', 'app-'+demoType+'.js'], function(err){
+				console[err? 'error' : 'info'](err? 'encountered error '+err : 'scripts initialized successfully');
+			});
+		};
 
 	</script>
-
-	<script src="encode-func.js" type="text/javascript"></script>
-	<script src="util/data-util.js" type="text/javascript"></script>
 
 		<style>
 		.project-link {
@@ -176,9 +180,6 @@
 
 	<!--input type="button" id="files_button" value="process file"-->
 	<output id="list"></output>
-
-	<script src="util/file-handler.js" type="text/javascript"></script>
-	<script src="app-encode.js" type="text/javascript"></script>
 
 </body>
 
