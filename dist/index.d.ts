@@ -290,8 +290,10 @@ export function init_libflac_decoder(): void;
  * @param {number} numberOfBytes the number of bytes in data
  * @param {number} samples the number of samples encoded in data
  * @param {number} currentFrame the number of the (current) encoded frame in data
+ * @returns {undefined | false} returning <code>false</code> indicates that an
+ * 								unrecoverable error occurred and decoding should be aborted
  */
-export type encoder_write_callback_fn = (data: Uint8Array, numberOfBytes: number, samples: number, currentFrame: number) => void;
+export type encoder_write_callback_fn = (data: Uint8Array, numberOfBytes: number, samples: number, currentFrame: number) => undefined | false;
 /**
  * the callback for the metadata of the encoded/decoded Flac data.
  * @callback Flac~metadata_callback_fn
