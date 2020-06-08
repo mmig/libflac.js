@@ -3,8 +3,8 @@ libflac.js
 
 [![npm](https://img.shields.io/npm/v/libflacjs)](https://www.npmjs.com/package/libflacjs)
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/mmig/libflac.js/master)
-[![emscripten version](https://img.shields.io/badge/emscripten-1.39.3-green)][1]
-[![libFLAC version](https://img.shields.io/badge/libFLAC-1.3.2-yellow)][6]
+[![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/emscripten-core/emscripten?color=green&label=emscripten%40latest)][1]
+[![libFLAC version](https://img.shields.io/badge/libFLAC-1.3.3-yellow)][6]
 [![libogg version](https://img.shields.io/badge/libogg-1.3.4-yellow)][18]
 
 [FLAC][6] data stream encoder and decoder compiled in JavaScript using _emscripten_.
@@ -17,9 +17,9 @@ __Features__
 For immediate use, the `/dist` sub-directory contains the compiled
 files for the `libflac.js` JavaScript library, as well as a minified version.
 
-> Complied from `libFLAC` (static `C` library) version: 1.3.2\
+> Complied from `libFLAC` (static `C` library) version: 1.3.3\
 > Used library `libogg` (static `C` library) version: 1.3.4\
-> Used compiler `Emscripten` version: 1.39.3\
+> Used compiler `Emscripten` version: 1.39.11\
 > Used compiler `Emscripten` toolchain: LLVM (upstream)
 
 In order to build _libflac.js_, make sure you have _emscripten_ installed (with toolchain `LLVM/upstream`; default since version 1.39.x).
@@ -72,12 +72,13 @@ See [doc/index.html][16] for the API documentation.
 	- [Decoding with libflac.js](#decoding-with-libflacjs)
 	- [API](#api)
 - [Building](#building)
-	- [Build *nix (libflac 1.3.0)](#build-nix-libflac-130)
+	- [Build *nix (libflac 1.3.0 or later)](#build-nix-libflac-130-or-later)
 	- [Build Windows/VisualStudio 10 (libflac 1.3.0)](#build-windowsvisualstudio-10-libflac-130)
 	- [Building *nix (libflac 1.3.2)](#building-nix-libflac-132)
+	- [Building *nix (libflac 1.3.3)](#building-nix-libflac-133)
 	- [Prerequisite: Building *nix (libogg 1.3.4)](#prerequisite-building-nix-libogg-134)
 	- [Prerequisite: Building Windows/ViusalStudio 10 (libogg 1.3.2)](#prerequisite-building-windowsviusalstudio-10-libogg-132)
-	- [Change Library API](#change-library-api)
+	- [Changing The Library API](#changing-the-library-api)
 - [Contributors](#contributors)
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
@@ -674,7 +675,6 @@ var size = flacData.buffer.byteLength;
 //function that will be called for reading the input (FLAC) data:
 function read_callback_fn(bufferSize){
 
-    var start = currentDataOffset;
     var end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
 
     var _buffer;
@@ -829,9 +829,9 @@ FLAC_VERSION:=1.3.2
 ...
 ```
 
-### Build *nix (libflac 1.3.0)
+### Build *nix (libflac 1.3.0 or later)
 
-If necessary, activate the appropriate `emscripten` toolchain (e.g. `llvm` or the older `fastcomp` toolchain)
+If necessary, activate the appropriate `emscripten` toolchain (e.g. `llvm` or the older `fastcomp` toolchain; default is `llvm`)
 ```bash
  # list versions
 emsdk list
@@ -848,14 +848,16 @@ emsdk activate <version>
 emsdk activate <version>-fastcomp
 ```
 
-NOTE when activating a toolchain, `emsdk` will print some information on how to set the correct enviornment variables, e.g.
-     ```
-     ...
-     To conveniently access the selected set of tools from the command line,
-     consider adding the following directories to PATH,
-     or call 'source <path>/emsc/emsdk_env.sh' to do this for you.
-     ...
-     ```
+> NOTE when activating a toolchain, `emsdk` will print some information on how to set the correct enviornment variables, e.g.
+> ```
+>   ...
+>   To conveniently access the selected set of tools from the command line,
+>   consider adding the following directories to PATH,
+>   or call 'source <path>/emsc/emsdk_env.sh' to do this for you.
+>   ...
+> ```
+> _even when not changing a toolset via `emsdk activate ...` you may need to update/export
+> the variables for the emsdk toolchain_
 
 
 Start build process by executing the `Makefile`:
@@ -932,7 +934,17 @@ After these changes, continue compilation with
 make emmake
 ```
 
+
+### Building *nix (libflac 1.3.3)
+
+No additional changes are neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
+
+See general instrucitions in section _Building *nix (libflac 1.3.0 and later)_.
+
+
 ### Prerequisite: Building *nix (libogg 1.3.4)
+
+__NOTE:__ these changes are not neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
 
 Include libogg in libflac built by specifying
 
@@ -968,7 +980,7 @@ explicitly link the additional dependencies
 
     ..\..\..\libogg-1.3.2\win32\VS2010\Emscripten\Release\framing.o;..\..\..\libogg-1.3.2\win32\VS2010\Emscripten\Release\bitwise.o
 
-### Change Library API
+### Changing The Library API
 
 The API for _libflac.js_ (e.g. exported functions) are mainly specified in `libflac_post.js`.
 
