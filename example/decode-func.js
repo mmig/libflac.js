@@ -14,9 +14,8 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 	/** @memberOf decode */
 	function read_callback_fn(bufferSize){
 
-		console.log('decode read callback, buffer bytes max=', bufferSize);
+		console.log('  decode read callback, buffer bytes max=', bufferSize);
 
-		var start = currentDataOffset;
 		var end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
 
 		var _buffer;
@@ -48,7 +47,7 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 	}
 
 	/** @memberOf decode */
-	function error_callback_fn(err, errMsg, client_data){
+	function error_callback_fn(err, errMsg){
 		console.log('decode error callback', err, errMsg);
 	}
 
