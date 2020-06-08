@@ -36,15 +36,22 @@ function mergeBuffers(channelBuffer, recordingLength){
  */
 function interleave(recBuffers, channels, bitsPerSample){
 
+	var byteLen = bitsPerSample / 8;
+
+	//NOTE 24-bit samples are padded with 1 byte
+	var pad8 = bitsPerSample === 24? 1 : 0;
+	if(pad8){
+		byteLen += pad8;
+	}
+
 	//calculate total length for interleaved data
 	var dataLength = 0;
 	for(var i=0; i < channels; ++i){
-		dataLength += getLengthFor(recBuffers, i);
+		dataLength += getLengthFor(recBuffers, i, byteLen, pad8);
 	}
 
 	var result = new Uint8Array(dataLength);
 
-	var byteLen = bitsPerSample / 8;
 	var buff = null,
 		buffLen = 0,
 		index = 0,
@@ -58,6 +65,7 @@ function interleave(recBuffers, channels, bitsPerSample){
 		buff = recBuffers[arrNum];
 		buffLen = buff[0].length;
 		inputIndex = 0;
+		pad_i = false;
 
 		//interate over buffer
 		while(inputIndex < buffLen){
@@ -66,8 +74,19 @@ function interleave(recBuffers, channels, bitsPerSample){
 			for(ch_i=0; ch_i < channels; ++ch_i){
 				//write sample-length
 				for(b_i=0; b_i < byteLen; ++b_i){
-					//write data & update target-index
-					result[index++] = buff[ch_i][inputIndex + b_i];
+					// write data & update target-index
+					if(pad8) {
+						pad_i = pad8 && b_i === byteLen - pad8;
+						if(pad_i){
+							if(buff[ch_i][inputIndex + b_i] !== 0 && buff[ch_i][inputIndex + b_i] !== 255){
+								console.error('[ERROR] mis-aligned padding: ignoring non-padding value (padding should be 0 or 255) at '+(inputIndex + b_i)+' -> ', buff[ch_i][inputIndex + b_i]);
+							}
+						} else {
+							result[index++] = buff[ch_i][inputIndex + b_i];
+						}
+					} else {
+						result[index++] = buff[ch_i][inputIndex + b_i];
+					}
 				}
 			}
 			//update source-index
@@ -133,15 +152,23 @@ function getLength(recBuffers){
  * @param recBuffers {Array<Array<TypedArray>>}
  * @param index {Number}
  * 			selects the Array<TypedArray> within the outer Array, for which the byte-length should be calculated
+ * @param [sampleBytes] {Number} number of bytes per sample (required if bytePadding is specified)
+ * @param [bytePadding] {Number} number of padding bytes per sample that will get removed from the raw data (i.e. returned size will be reduced accordingly)
  * @returns {Number}
  * 			the byte-length
  */
-function getLengthFor(recBuffers, index){
+function getLengthFor(recBuffers, index, sampleBytes, bytePadding){
 
 	//get length
-	var recLength = 0;
+	var recLength = 0, blen;
+	var decrFac = bytePadding > 0? bytePadding / sampleBytes : 0;//<- factor do decrease size in case of padding bytes
 	for(var i=recBuffers.length - 1; i >= 0; --i){
-		recLength += recBuffers[i][index].byteLength;
+		blen = recBuffers[i][index].byteLength;
+		if(bytePadding > 0){
+			recLength += blen - (decrFac * blen);
+		} else {
+			recLength += blen;
+		}
 	}
 	return recLength;
 }

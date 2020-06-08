@@ -36,7 +36,7 @@ PREFILE:=libflac_pre.js
 POSTFILE:=libflac_post.js
 
 LIB_VERSION:=4
-FLAC_VERSION:=1.3.2
+FLAC_VERSION:=1.3.3
 FLAC:=flac-$(FLAC_VERSION)
 FLAC_URL:="http://downloads.xiph.org/releases/flac/$(FLAC).tar.xz"
 FLAC_MAKEFILE:=$(FLAC)/Makefile

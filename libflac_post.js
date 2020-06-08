@@ -137,17 +137,23 @@ function _readFrameHdr(p_frame){
  * 				the offset for the data on HEAPU8
  * @param {Uint8Array} newBuffer
  * 				the target buffer into which the data should be written -- with the correct (block) size
+ * @param {number} padding
+ * 				number of padding bytes
  */
-function __fix_write_buffer(heapOffset, newBuffer){
+function __fix_write_buffer(heapOffset, newBuffer, padding){
 
 	var dv = new DataView(newBuffer.buffer);
 	var targetSize = newBuffer.length;
 
-	var increase = 2;//<- for FIX/workaround
+	var increase = padding > 0? 1 : 2;//<- for FIX/workaround, NOTE: if padding occurres, there is no fix/increase needed (more details comment below)
 	var buffer = HEAPU8.subarray(heapOffset, heapOffset + targetSize * increase);
 
-	//FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated"
-	//		HACK for now: remove/"over-read" 2 of the values, for each of these triplets
+	// FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated",
+	//		or inserted "doubled" which should be ignored, i.e.
+	//		x x x	-> x
+	//		x x		-> <ignored>
+	//		where x is 0 or 255
+	// -> HACK for now: remove/"over-read" 2 of the values, for each of these triplets/doublications
 	var jump, isPrint;
 	for(var i=0, j=0, size = buffer.length; i < size && j < targetSize; ++i, ++j){
 
@@ -157,7 +163,8 @@ function __fix_write_buffer(heapOffset, newBuffer){
 			size = buffer.length;
 		}
 
-		if(buffer[i] === 0 || buffer[i] === 255){
+		// NOTE if padding occurres, there does not seem to be no duplication/triplication of 255 or 0, so must not try to fix!
+		if(padding === 0 && (buffer[i] === 0 || buffer[i] === 255)){
 
 			jump = 0;
 			isPrint = true;
@@ -388,6 +395,13 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 	var channels = frameInfo.channels;
 	var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
 
+	//take padding bits into account for calculating buffer size
+	//FIXME do this gererically(?) ... for now hard-coded handling for 24-bit which is padded with 1 extra bit
+	var padding = frameInfo.bitsPerSample === 24? 1 : 0;
+	if(padding > 0){
+		block_size += frameInfo.blocksize * padding;
+	}
+
 	var data = [];//<- array for the data of each channel
 	var bufferOffset, heapView, _buffer;
 
@@ -397,18 +411,18 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 
 		_buffer = new Uint8Array(block_size);
 		//FIXME HACK for "strange" data (see helper function __fix_write_buffer)
-		__fix_write_buffer(bufferOffset, _buffer);
+		__fix_write_buffer(bufferOffset, _buffer, padding);
 
 		data.push(_buffer.subarray(0, block_size));
 	}
 
 	var write_callback_fn = getCallback(p_decoder, 'write');
-	write_callback_fn(data, frameInfo);//, clientData);
+	var res = write_callback_fn(data, frameInfo);//, clientData);
 
 	// FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE	The write was OK and decoding can continue.
 	// FLAC__STREAM_DECODER_WRITE_STATUS_ABORT     	An unrecoverable error occurred. The decoder will return from the process call.
 
-	return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
+	return res !== false? FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE : FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
 }, 'iiiii');
 
 /**
@@ -951,6 +965,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} numberOfBytes the number of bytes in data
 	 * @param {number} samples the number of samples encoded in data
 	 * @param {number} currentFrame the number of the (current) encoded frame in data
+	 * @returns {undefined | false} returning <code>false</code> indicates that an
+	 * 								unrecoverable error occurred and decoding should be aborted
 	 */
 	/**
 	 * the callback for the metadata of the encoded/decoded Flac data.
