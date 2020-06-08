@@ -1,4 +1,12 @@
 
+# Version 5.2.0-beta.1
+
+ * extended interface for encoding write callback `encoder_write_callback_fn(..)`:  
+   if returns `false`, encoding will be aborted (any other or no value returned will continue encoding)
+ * compile based on `libFLAC` v1.3.3
+ * recompiled with `emscripten` v1.39.16 (llvm toolchain)
+ * BUGFIX for decoding: handle padded 24-bit samples correctly
+
 # Version 5.1.1
 
  * provide specific typings for function type definitions
