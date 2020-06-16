@@ -70,9 +70,10 @@ function _readMd5(p_md5){
  * HELPER: read frame data
  *
  * @param {POINTER} p_frame
+ * @param {CodingOptions} [enc_opt]
  * @returns FrameHeader
  */
-function _readFrameHdr(p_frame){
+function _readFrameHdr(p_frame, enc_opt){
 
 	/*
 	typedef struct {
@@ -115,18 +116,218 @@ function _readFrameHdr(p_frame){
 
 	var crc = Module.getValue(p_frame+36,'i8');
 
-	//TODO read subframe
-	//TODO read footer
+	var subframes;
+	if(enc_opt && enc_opt.analyseSubframes){
+		var subOffset = {offset: 40};
+		subframes = [];
+		for(var i=0; i < channels; ++i){
+			subframes.push(_readSubFrameHdr(p_frame, subOffset, blocksize, enc_opt));
+		}
+		//TODO read footer
+		// console.log('  footer crc ', Module.getValue(p_frame + subOffset.offset,'i16'));
+	}
 
 	return {
 		blocksize: blocksize,
 		sampleRate: sample_rate,
 		channels: channels,
+		channelAssignment: channel_assignment,
 		bitsPerSample: bits_per_sample,
 		number: number,
 		numberType: numberType,
-		crc: crc
+		crc: crc,
+		subframes: subframes
 	};
+}
+
+
+function _readSubFrameHdr(p_subframe, subOffset, block_size, enc_opt){
+	/*
+	FLAC__SubframeType 	type
+	union {
+	   FLAC__Subframe_Constant   constant
+	   FLAC__Subframe_Fixed   fixed
+	   FLAC__Subframe_LPC   lpc
+	   FLAC__Subframe_Verbatim   verbatim
+	} 	data
+	unsigned 	wasted_bits
+	*/
+
+	var type = Module.getValue(p_subframe + subOffset.offset, 'i32');
+	subOffset.offset += 4;
+
+	var data;
+	switch(type){
+		case 0:	//FLAC__SUBFRAME_TYPE_CONSTANT
+			data = {value: Module.getValue(p_subframe + subOffset.offset, 'i32')};
+			subOffset.offset += 4;
+			// offset += 4;
+			break;
+		case 1:	//FLAC__SUBFRAME_TYPE_VERBATIM
+			data = Module.getValue(p_subframe + subOffset.offset, 'i32');
+			subOffset.offset += 4;
+			// offset += 4;
+			break;
+		case 2:	//FLAC__SUBFRAME_TYPE_FIXED
+			data = _readSubFrameHdrFixedData(p_subframe, subOffset, block_size, false, enc_opt);
+			break;
+		case 3:	//FLAC__SUBFRAME_TYPE_LPC
+			data = _readSubFrameHdrFixedData(p_subframe, subOffset, block_size, true, enc_opt);
+			break;
+	}
+
+	var offset =  subOffset.offset;
+	var wasted_bits = Module.getValue(p_subframe + offset, 'i32');
+	subOffset.offset += 4;
+
+	return {
+		type: type,//['CONSTANT', 'VERBATIM', 'FIXED', 'LPC'][type],
+		data: data,
+		wastedBits: wasted_bits
+	}
+}
+
+function _readSubFrameHdrFixedData(p_subframe_data, subOffset, block_size, is_lpc, enc_opt){
+
+	var offset = subOffset.offset;
+
+	var data = {order: -1, contents: {parameters: []}};//, rawBits: []}};
+	//FLAC__Subframe_Fixed:
+	// FLAC__EntropyCodingMethod 	entropy_coding_method
+	// unsigned 	order
+	// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER]
+	// const FLAC__int32 * 	residual
+
+	//FLAC__EntropyCodingMethod:
+	// FLAC__EntropyCodingMethodType 	type
+	// union {
+	//    FLAC__EntropyCodingMethod_PartitionedRice   partitioned_rice
+	// } 	data
+
+	//FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE	0		Residual is coded by partitioning into contexts, each with it's own 4-bit Rice parameter.
+	//FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2 1	Residual is coded by partitioning into contexts, each with it's own 5-bit Rice parameter.
+	var entropyType = Module.getValue(p_subframe_data, 'i32');
+	offset += 4;
+
+	//FLAC__EntropyCodingMethod_PartitionedRice:
+	//	unsigned 	order
+	var entropyOrder = Module.getValue(p_subframe_data + offset, 'i32');
+	data.order = entropyOrder;
+	offset += 4;
+
+	//FLAC__EntropyCodingMethod_PartitionedRice:
+	//	FLAC__EntropyCodingMethod_PartitionedRiceContents * 	contents
+	var partitions = 1 << entropyOrder, params = data.contents.parameters;//, raws = data.contents.rawBits;
+	var ppart = Module.getValue(p_subframe_data + offset, 'i32');
+	var pparams = Module.getValue(ppart, 'i32'), param;
+	// var praw = Module.getValue(ppart + 4, 'i32');//TODO rad raw if necessary
+	for(var i=0; i < partitions; ++i){
+		param = Module.getValue(pparams + (i*4), 'i32');
+		params.push(param);
+
+		//TODO IFF params[i] === (FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2_ESCAPE_PARAMETER : FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE_ESCAPE_PARAMETER)
+		//FLAC__EntropyCodingMethod_PartitionedRiceContents
+		// unsigned * 	parameters
+		// unsigned * 	raw_bits
+		// unsigned 	capacity_by_order
+		//if(...) raws.push(...)
+	}
+	offset += 4;
+
+	//FLAC__Subframe_Fixed:
+	//	unsigned 	order
+	var order = Module.getValue(p_subframe_data + offset, 'i32');
+	offset += 4;
+
+	var warmup = [], res;
+
+	if(is_lpc){
+		//FLAC__Subframe_LPC
+
+		// unsigned 	qlp_coeff_precision
+		var qlp_coeff_precision = Module.getValue(p_subframe_data + offset, 'i32');
+		offset += 4;
+		// int 	quantization_level
+		var quantization_level = Module.getValue(p_subframe_data + offset, 'i32');
+		offset += 4;
+
+		//FLAC__Subframe_LPC :
+		// FLAC__int32 	qlp_coeff [FLAC__MAX_LPC_ORDER]
+		var qlp_coeff = [];
+		for(var i=0; i < order; ++i){
+			qlp_coeff.push(Module.getValue(p_subframe_data + offset, 'i32'));
+			offset += 4;
+		}
+		data.qlp_coeff = qlp_coeff;
+		data.qlp_coeff_precision = qlp_coeff_precision;
+		data.quantization_level = quantization_level;
+
+		// console.log('lpc data: qlp_coeff_precision', qlp_coeff_precision, 'quantization_level', quantization_level, 'qlp_coeff', qlp_coeff);
+
+		//FLAC__Subframe_LPC:
+		// const FLAC__int32 * 	residual
+		if(enc_opt && enc_opt.analyseResiduals){
+			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size);
+		}
+
+		//FLAC__Subframe_LPC:
+		// FLAC__int32 	warmup [FLAC__MAX_LPC_ORDER]
+		offset += 120;//FIXME calc offset
+		offset = _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order);
+
+		offset += 124;//FIXME calc offset
+
+	} else {
+
+
+		//FLAC__Subframe_Fixed:
+		// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER]
+		offset = _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order);
+
+		//FLAC__Subframe_Fixed:
+		// const FLAC__int32 * 	residual
+		offset += 8 + (order%2) * 4;//TODO verify if calc'ed offset is really correct
+		if(enc_opt && enc_opt.analyseResiduals){
+			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size, order);
+		}
+
+		offset += 252;//FIXME calc offset
+	}
+
+	subOffset.offset = offset;
+	return {
+		partition: {
+			type: entropyType,
+			data: data
+		},
+		order: order,
+		warmup: warmup,
+		residual: res
+	}
+}
+
+
+function _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order){
+
+	// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER | FLAC__MAX_LPC_ORDER]
+	for(var i=0; i < order; ++i){
+		warmup.push(Module.getValue(p_subframe_data + offset, 'i32'));
+		offset += 4;
+	}
+	return offset;
+}
+
+
+function _readSubFrameHdrResidual(p_subframe_data_res, block_size, order){
+	// const FLAC__int32 * 	residual
+	var pres = Module.getValue(p_subframe_data_res, 'i32');
+	var res = [];//Module.getValue(pres, 'i32');
+	//TODO read residual all values(?)
+	// -> "The residual signal, length == (blocksize minus order) samples.
+	for(var i=0, size = block_size - order; i < size; ++i){
+		res.push(Module.getValue(pres + (i*4), 'i32'));
+	}
+	return res;
 }
 
 
@@ -330,6 +531,39 @@ function setCallback(p_coder, func_type, callback){
 	coders[p_coder][func_type] = callback;
 }
 
+/**
+ * Get coding options for the encoder / decoder instance:
+ * returns FALSY when not set.
+ *
+ * @param {Number} p_coder
+ * 			the encoder/decoder pointer (ID)
+ * @returns {CodingOptions} the coding options
+ * @private
+ * @memberOf Flac
+ */
+function _getOptions(p_coder){
+	if(coders[p_coder]){
+		return coders[p_coder]["options"];
+	}
+}
+
+/**
+ * Set coding options for an encoder / decoder instance (will / should be deleted, when finish()/delete())
+ *
+ * @param {Number} p_coder
+ * 			the encoder/decoder pointer (ID)
+ * @param {CodingOptions} options
+ * 			the coding options
+ * @private
+ * @memberOf Flac
+ */
+function _setOptions(p_coder, options){
+	if(!coders[p_coder]){
+		coders[p_coder] = {};
+	}
+	coders[p_coder]["options"] = options;
+}
+
 //(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data)
 // -> FLAC__StreamEncoderWriteStatus
 var enc_write_fn_ptr = addFunction(function(p_encoder, buffer, bytes, samples, current_frame, p_client_data){
@@ -388,7 +622,8 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 	// var dec = Module.getValue(p_decoder,'i32');
 	// var clientData = Module.getValue(p_client_data,'i32');
 
-	var frameInfo = _readFrameHdr(p_frame);
+	var dec_opts = _getOptions(p_decoder);
+	var frameInfo = _readFrameHdr(p_frame, dec_opts);
 
 //	console.log(frameInfo);//DEBUG
 
@@ -548,7 +783,7 @@ var remove_event_listener = function (eventName, listener){
  * HELPER: fire an event
  * @param  {string} eventName
  * 										the event name
- * @param  {Array<any>} [args] OPITIONAL
+ * @param  {any[]} [args] OPITIONAL
  * 										the arguments when triggering the listeners
  * @param  {boolean} [isPersist] OPTIONAL (positinal argument!)
  * 										if TRUE, handlers for this event that will be registered after this will get triggered immediately
@@ -595,6 +830,29 @@ var _exported = {
 	_clear_dec_cb: function(dec_ptr){//internal function: remove reference to decoder instance and its callbacks
 		delete coders[dec_ptr];
 	},
+	/**
+	 * Additional options for encoding or decoding
+	 * @interface CodingOptions
+	 * @memberOf Flac
+	 * @property {boolean}  [analyseSubframes] for decoding: include subframes metadata in write-callback metadata, DEFAULT: false
+	 * @property {boolean}  [analyseResiduals] for decoding: include residual data in subframes metadata in write-callback metadata, NOTE {@link #analyseSubframes} muste also be enabled, DEFAULT: false
+	 *
+	 * @see Flac#setOptions
+	 */
+	/**
+	 * @function
+	 * @public
+	 * @memberOf Flac#
+	 * @copydoc Flac._setOptions
+	 */
+	setOptions: _setOptions,
+	/**
+	 * @function
+	 * @public
+	 * @memberOf Flac#
+	 * @copydoc Flac._getOptions
+	 */
+	getOptions: _getOptions,
 	/**
 	 * Returns if Flac has been initialized / is ready to be used.
 	 *
@@ -1144,7 +1402,99 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @property {number}  blocksize the block size (bytes)
 	 * @property {number}  number the number of the decoded samples or frames
 	 * @property {string}  numberType the type to which <code>number</code> refers to: either <code>"frames"</code> or <code>"samples"</code>
+	 * @property {Flac.FLAC__ChannelAssignment} channelAssignment the channel assignment
 	 * @property {string}  crc the MD5 checksum for the decoded data, if validation is enabled
+	 * @property {Flac.SubFrameMetadata[]}  [subframes] the metadata of the subframes. The array length corresponds to the number of channels. NOTE will only be included if {@link Flac.CodingOptions CodingOptions.analyseSubframes} is enabled for the decoder.
+	 *
+	 * @see Flac.CodingOptions
+	 * @see Flac#setOptions
+	 */
+	/**
+	 * FLAC subframe metadata
+	 * @interface SubFrameMetadata
+	 * @memberOf Flac
+	 *
+	 * @property {Flac.FLAC__SubframeType}  type the type of the subframe
+	 * @property {number|Flac.FixedSubFrameData|Flac.LPCSubFrameData}  data the type specific metadata for subframe
+	 * @property {number}  wastedBits the wasted bits-per-sample
+	 */
+	/**
+	 * metadata for FIXED subframe type
+	 * @interface FixedSubFrameData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The polynomial order.
+	 * @property {number[]}  warmup  Warmup samples to prime the predictor, length == order.
+	 * @property {Flac.SubFramePartition}  partition  The residual coding method.
+	 * @property {number[]}  [residual]  The residual signal, length == (blocksize minus order) samples.
+	 * 									NOTE will only be included if {@link Flac.CodingOptions CodingOptions.analyseSubframes} is enabled for the decoder.
+	 */
+	/**
+	 * metadata for LPC subframe type
+	 * @interface LPCSubFrameData
+	 * @augments Flac.FixedSubFrameData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The FIR order.
+	 * @property {number[]}  qlp_coeff  FIR filter coefficients.
+	 * @property {number}  qlp_coeff_precision  Quantized FIR filter coefficient precision in bits.
+	 * @property {number}  quantization_level The qlp coeff shift needed.
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partitions
+	 * @interface SubFramePartition
+	 * @memberOf Flac
+	 *
+	 * @property {Flac.FLAC__EntropyCodingMethodType}  type  the entropy coding method
+	 * @property {Flac.SubFramePartitionData}  data  metadata for a Rice partitioned residual
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partition data
+	 * @interface SubFramePartitionData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The partition order, i.e. # of contexts = 2 ^ order.
+	 * @property {Flac.SubFramePartitionContent}  contents  The context's Rice parameters and/or raw bits.
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partition data content
+	 * @interface SubFramePartitionContent
+	 * @memberOf Flac
+	 *
+	 * @property {number[]}  parameters  The Rice parameters for each context.
+	 * @property {number[]}  [rawBits]  Widths for escape-coded partitions. Will be non-zero for escaped partitions and zero for unescaped partitions.
+	 * @property {number}  [capacityByOrder]  The capacity of the parameters and raw_bits arrays specified as an order, i.e. the number of array elements allocated is 2 ^ capacity_by_order.
+	 */
+	/**
+	 * The types for FLAC subframes
+	 *
+	 * @interface FLAC__SubframeType
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__SUBFRAME_TYPE_CONSTANT"} 	0	constant signal
+	 * @property {"FLAC__SUBFRAME_TYPE_VERBATIM"} 	1	uncompressed signal
+	 * @property {"FLAC__SUBFRAME_TYPE_FIXED"} 	2	fixed polynomial prediction
+	 * @property {"FLAC__SUBFRAME_TYPE_LPC"} 	3	linear prediction
+	 */
+	/**
+	 * The channel assignment for the (decoded) frame.
+	 *
+	 * @interface FLAC__ChannelAssignment
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_INDEPENDENT"} 		0	independent channels
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_LEFT_SIDE"}  		1	left+side stereo
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_RIGHT_SIDE"} 		2	right+side stereo
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_MID_SIDE"}			3	mid+side stereo
+	 */
+	/**
+	 * entropy coding methods
+	 *
+	 * @interface FLAC__EntropyCodingMethodType
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE"} 	0	Residual is coded by partitioning into contexts, each with it's own 4-bit Rice parameter.
+	 * @property {"FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2"} 	1	Residual is coded by partitioning into contexts, each with it's own 5-bit Rice parameter.
 	 */
 	/**
 	 * Initialize the decoder.
