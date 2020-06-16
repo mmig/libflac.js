@@ -39,7 +39,7 @@ function interleave(recBuffers, channels, bitsPerSample){
 	var byteLen = bitsPerSample / 8;
 
 	//NOTE 24-bit samples are padded with 1 byte
-	var pad8 = bitsPerSample === 24? 1 : 0;
+	var pad8 = (bitsPerSample === 24 || bitsPerSample === 8)? 1 : 0;
 	if(pad8){
 		byteLen += pad8;
 	}
@@ -57,7 +57,8 @@ function interleave(recBuffers, channels, bitsPerSample){
 		index = 0,
 		inputIndex = 0,
 		ch_i = 0,
-		b_i = 0;
+		b_i = 0
+		ord = false;
 
 	for(var arrNum = 0, arrCount = recBuffers.length; arrNum < arrCount; ++arrNum){
 
@@ -66,6 +67,7 @@ function interleave(recBuffers, channels, bitsPerSample){
 		buffLen = buff[0].length;
 		inputIndex = 0;
 		pad_i = false;
+		ord = false;
 
 		//interate over buffer
 		while(inputIndex < buffLen){
@@ -76,13 +78,19 @@ function interleave(recBuffers, channels, bitsPerSample){
 				for(b_i=0; b_i < byteLen; ++b_i){
 					// write data & update target-index
 					if(pad8) {
-						pad_i = pad8 && b_i === byteLen - pad8;
+						pad_i = pad8 && (b_i === byteLen - pad8);
 						if(pad_i){
 							if(buff[ch_i][inputIndex + b_i] !== 0 && buff[ch_i][inputIndex + b_i] !== 255){
 								console.error('[ERROR] mis-aligned padding: ignoring non-padding value (padding should be 0 or 255) at '+(inputIndex + b_i)+' -> ', buff[ch_i][inputIndex + b_i]);
 							}
 						} else {
-							result[index++] = buff[ch_i][inputIndex + b_i];
+							if(bitsPerSample === 8){
+								ord = buff[ch_i][inputIndex + b_i + 1] === 0;
+								result[index++] = ord? buff[ch_i][inputIndex + b_i] | 128 : buff[ch_i][inputIndex + b_i] & 127;
+							} else {
+								result[index++] = buff[ch_i][inputIndex + b_i];
+							}
+
 						}
 					} else {
 						result[index++] = buff[ch_i][inputIndex + b_i];
