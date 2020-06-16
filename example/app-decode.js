@@ -13,7 +13,7 @@ function onFlacLoad(evt) {
 
 	var arrayBuffer = new Uint8Array(this.result);
 
-	var isOgg = /\.ogg$/i.test(evt.fileName);
+	var isOgg = /\.og(g|a)$/i.test(evt.fileName);
 	var decData = [];
 	var result = decodeFlac(arrayBuffer, decData, isVerify(), isOgg || isUseOgg());
 	console.log('decoded data array: ', decData);
