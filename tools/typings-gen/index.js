@@ -4,6 +4,8 @@ var fs = require('fs');
 var typeArrayStr = 'Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array';// | BigInt64Array | BigUint64Array';
 
 var handleEnumAsTypeDef = true;
+var ignorePrivateElements = true;
+var reProcessComments = true;
 
 function getJsonConfig(fileName) {
 	return JSON.parse(fs.readFileSync(fileName));
@@ -34,9 +36,16 @@ function generateDeclaration(jsdocJson, outFileName, callback) {
 	var code = `export as namespace Flac;\r\n`;
 	Object.values(rootDict).forEach(function(el){
 
+		if(ignorePrivateElements && el.access === "private"){
+			return;
+		}
+
 		// code += `${indentComment(el.comment, '')}\ndeclare class ${el.name.replace(/^Flac$/, 'FlacClass')} {\r\n`;
 		if(el.children){
 			el.children.forEach(function(ch){
+				if(ignorePrivateElements && ch.access === "private"){
+					return;
+				}
 				code += generateCode(ch, 0, 'all');//'members');
 			})
 		}
@@ -92,15 +101,66 @@ function indentComment(comment, indentStr){
 	return comment.replace(/(\r?\n)\s*( \*)/gm, '$1'+indentStr+'$2');
 }
 
-function descriptionToComment(description, indentStr){
-	return '/**\r\n'+indentStr+' * ' + description.replace(/(\r?\n)/gm, '$1'+indentStr+' * ') + '\r\n'+indentStr+' */';
+function descriptionToComment(description, indentStr, omitClosing){
+	return '/**\r\n'+indentStr+' * ' + toCommentLineBreak(description, indentStr) + '\r\n'+indentStr+(omitClosing? '' : ' */');
+}
+
+function toCommentLineBreak(description, indentStr){
+	if(!description){
+		return '';
+	}
+	return description.replace(/(\r?\n)/gm, '$1'+indentStr+' * ').replace(/(\r)/gm, '$1'+indentStr+' * ');
+}
+
+function generateComment(el, indentStr){
+	var comment = el.comment;
+	if(reProcessComments){
+		// to try to insert/replace information from params, returns, and description field(s) into the raw comment string
+		// TODO generated "clean" comment by using *all* the annotations etc.
+
+		if(el.description && comment.replace(/$\s*\*(\s|\s+)?/gm, '').replace(/\r|\r?\n/g, '').indexOf(el.description.replace(/\r|\r?\n/g, '')) === -1){
+			comment = comment.replace(/^\s*\/\*\*/, descriptionToComment(el.description, '', true) + ' * \r\n');
+		}
+		var list = [];
+		if(Array.isArray(el.params)){
+			el.params.forEach(function(p){
+				comment = doAddCommentInfo(comment, p, 'param', list);
+			});
+		}
+		if(Array.isArray(el.returns)){
+			el.returns.forEach(function(p){
+				comment = doAddCommentInfo(comment, p, 'returns', list);
+			});
+		}
+		if(list.length > 0){
+			comment = comment.replace(/(\r?\n\s*)?\*\//, '\r\n * \r\n * ' +  list.join('\r\n * ') + '\r\n */');
+		}
+	}
+	return indentComment(comment, indentStr);
+}
+
+function doAddCommentInfo(comment, p, infoTag, list){
+	var name = p.name || '';
+	var tagName = infoTag.replace(/s$/, '') + 's';
+	var re = new RegExp('@'+tagName+'?\\s+(\\{[^}]+\\}\\s+)?(\\[\s*)?'+name, 'ig'), m;
+	if(p.description && (m = re.exec(comment))){
+		var re2 = new RegExp(/@(?!link)|\*\/|$/, 'g');
+		re2.lastIndex = m.index + m[0].length;
+		var m2 = re2.exec(comment);
+		comment = comment.substring(0, m.index) + comment.substring(m2.index);
+	}
+	if(name && p.optional){
+		name = '['+name+']';
+	}
+	list.push('@'+infoTag+' {' + toTypeList(p.type).join(' | ') + '} ' + (name? name + ' ' : '') + toCommentLineBreak(p.description, ''));
+	return comment;
 }
 
 function generateCode(el, indent, genType){
 	var ist = indentStr(indent);
 	var kind = getKind(el);
 	var kindStr = genType === 'members'? 'public' : 'export ' + (handleEnumAsTypeDef && kind === 'enum'? 'type' : kind);
-	var code = `${ist}${indentComment(el.comment, ist)}\r\n${ist}${kindStr} ${el.name}`;
+	var code = `${ist}${generateComment(el, ist)}\r\n${ist}${kindStr} ${el.name}`;
 	if(kind === 'function'){
 		if(genType === 'types'){
 			return '';
