@@ -40,7 +40,8 @@ FLAC_VERSION:=1.3.3
 FLAC:=flac-$(FLAC_VERSION)
 FLAC_URL:="http://downloads.xiph.org/releases/flac/$(FLAC).tar.xz"
 FLAC_MAKEFILE:=$(FLAC)/Makefile
-FLAC_LIB:=$(FLAC)/src/libFLAC/.libs/libFLAC-static.a
+FLAC_LIB_SRC:=$(FLAC)/src/libFLAC
+FLAC_LIB:=$(FLAC_LIB_SRC)/.libs/libFLAC-static.a
 
 OGG_VERSION:=1.3.4
 OGG:=libogg-$(OGG_VERSION)
@@ -51,7 +52,7 @@ OGG_LIB:=$(OGG)/src/lib/libogg.a
 all: release_libs min_libs dev_libs
 
 # release builds
-release_libs: makeflac dist/libflac.js dist/libflac.wasm.js
+release_libs: $(FLAC_LIB) dist/libflac.js dist/libflac.wasm.js
 
 ## asm.js release build
 dist/libflac.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
@@ -62,7 +63,7 @@ dist/libflac.wasm.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
 
 
 # min builds
-min_libs: makeflac dist/libflac.min.js dist/libflac.min.wasm.js
+min_libs: $(FLAC_LIB) dist/libflac.min.js dist/libflac.min.wasm.js
 
 ## asm.js min build
 dist/libflac.min.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
@@ -73,7 +74,7 @@ dist/libflac.min.wasm.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
 
 
 # dev builds
-dev_libs: makeflac dist/libflac.dev.js dist/libflac.dev.wasm.js
+dev_libs: $(FLAC_LIB) dist/libflac.dev.js dist/libflac.dev.wasm.js
 
 ## asm.js dev build
 dist/libflac.dev.js: $(FLAC_LIB) $(PREFILE) $(POSTFILE)
@@ -108,12 +109,11 @@ $(FLAC): $(FLAC).tar.xz
 
 $(FLAC_MAKEFILE): $(FLAC)
 	cd $(FLAC) && \
-	$(EMCONFIGURE) ./configure --host=asmjs --with-ogg=$(shell readlink -f $(OGG)) --disable-asm-optimizations --disable-altivec --disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs
+	$(EMCONFIGURE) ./configure --host=asmjs --with-ogg=$(shell readlink -f $(OGG)) \
+		--disable-asm-optimizations --disable-altivec --disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs --disable-examples
 
-$(FLAC_LIB): makeflac
-
-makeflac: $(OGG_LIB) $(FLAC_MAKEFILE)
-	cd $(FLAC) && \
+$(FLAC_LIB): $(OGG_LIB) $(FLAC_MAKEFILE)
+	cd $(FLAC_LIB_SRC) && \
 	$(EMMAKE) make
 
 clean:
