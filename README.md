@@ -19,7 +19,7 @@ files for the `libflac.js` JavaScript library, as well as a minified version.
 
 > Complied from `libFLAC` (static `C` library) version: 1.3.3\
 > Used library `libogg` (static `C` library) version: 1.3.4\
-> Used compiler `Emscripten` version: 1.39.11\
+> Used compiler `Emscripten` version: 1.39.18\
 > Used compiler `Emscripten` toolchain: LLVM (upstream)
 
 In order to build _libflac.js_, make sure you have _emscripten_ installed (with toolchain `LLVM/upstream`; default since version 1.39.x).
@@ -138,18 +138,28 @@ Flac.on('ready', function(event){
 #### React/webpack
 
 For `reactjs`:
-install with `npm` (see above), and `require()` the library directly, like
+install with `npm` (see above), and `require()` the library file directly, like
 ```javascript
+// for example:
 var Flac = require('libflacjs/dist/libflac.js');
+// or
+var Flac = require('libflacjs/dist/libflac.wasm.js');
 ```
+
+> NOTE `min` and `wasm` variants will most likely require
+>   additional configuration of the build system, see also
+>   section about `webpack` integration
 
 
 #### Angular/webpack
 
 For `Angular` (`TypeScript`):
-install with `npm` (see above), and `import` the library directly, like
+install with `npm` (see above), and `import` the library file directly, like
 ```typescript
+// for example:
 import * as Flac from 'libflacjs/dist/libflac';
+// or
+import * as Flac from 'libflacjs/dist/libflac.wasm';
 ```
 
 __NOTE__ unfortunately, current typings do not allow to set `Flac.onready` when imported this way.
@@ -166,6 +176,9 @@ __NOTE__ unfortunately, current typings do not allow to set `Flac.onready` when 
    const Flac: typeof FlacModule = require('libflacjs/dist/libflac.js');
    ```
 
+> NOTE `min` and `wasm` variants will most likely require
+>   additional configuration of the build system, see also
+>   section about `webpack` integration
 
 #### WebWorker with webpack
 
@@ -702,9 +715,24 @@ var decBuffer = [];
 var metaData;
 
 //function that will be called for decoded output data (WAV audio)
-function write_callback_fn(channelsBuffer){
+function write_callback_fn(channelsBuffer, frameHeader){
   // channelsBuffer is an Array of the decoded audio data (Uint8Array):
   // the length of array corresponds to the channels, i.e. there is an Uint8Array for each channel
+
+  // frameHeader -> [example] {
+  //   bitsPerSample: 8
+  //   blocksize: 4096
+  //   channelAssignment: 0
+  //   channels: 2
+  //   crc: 0
+  //   number: 204800
+  //   numberType: "samples"
+  //   sampleRate: 44100
+  //   subframes: undefined // -> needs to be enabled via
+  //                       //     Flac.setOptions(flac_decoder, {analyseSubframes: true})
+  //                       // -> see API documentation
+  //}
+
   decBuffer.push(channelsBuffer);
 }
 
@@ -864,7 +892,7 @@ Start build process by executing the `Makefile`:
 ```bash
 make
 ```
-(build process was tested on Unbuntu 12.10)
+(build process was tested on Unbuntu 18.04)
 
 
 ### Build Windows/VisualStudio 10 (libflac 1.3.0)
