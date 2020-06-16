@@ -137,15 +137,16 @@ function _readFrameHdr(p_frame){
  * 				the offset for the data on HEAPU8
  * @param {Uint8Array} newBuffer
  * 				the target buffer into which the data should be written -- with the correct (block) size
- * @param {number} padding
- * 				number of padding bytes
+ * @param {boolean} applyFix
+ * 				whether or not to apply the data repair heuristics
+ * 				(handling duplicated/triplicated values in raw data)
  */
-function __fix_write_buffer(heapOffset, newBuffer, padding){
+function __fix_write_buffer(heapOffset, newBuffer, applyFix){
 
 	var dv = new DataView(newBuffer.buffer);
 	var targetSize = newBuffer.length;
 
-	var increase = padding > 0? 1 : 2;//<- for FIX/workaround, NOTE: if padding occurres, there is no fix/increase needed (more details comment below)
+	var increase = !applyFix? 1 : 2;//<- for FIX/workaround, NOTE: e.g. if 24-bit padding occurres, there is no fix/increase needed (more details comment below)
 	var buffer = HEAPU8.subarray(heapOffset, heapOffset + targetSize * increase);
 
 	// FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated",
@@ -163,8 +164,8 @@ function __fix_write_buffer(heapOffset, newBuffer, padding){
 			size = buffer.length;
 		}
 
-		// NOTE if padding occurres, there does not seem to be no duplication/triplication of 255 or 0, so must not try to fix!
-		if(padding === 0 && (buffer[i] === 0 || buffer[i] === 255)){
+		// NOTE if e.g. 24-bit padding occurres, there does not seem to be no duplication/triplication of 255 or 0, so must not try to fix!
+		if(applyFix && (buffer[i] === 0 || buffer[i] === 255)){
 
 			jump = 0;
 			isPrint = true;
@@ -332,7 +333,6 @@ function setCallback(p_coder, func_type, callback){
 //(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data)
 // -> FLAC__StreamEncoderWriteStatus
 var enc_write_fn_ptr = addFunction(function(p_encoder, buffer, bytes, samples, current_frame, p_client_data){
-	var arraybuf = new ArrayBuffer(buffer);
 	var retdata = new Uint8Array(bytes);
 	retdata.set(HEAPU8.subarray(buffer, buffer + bytes));
 	var write_callback_fn = getCallback(p_encoder, 'write');
@@ -342,7 +342,7 @@ var enc_write_fn_ptr = addFunction(function(p_encoder, buffer, bytes, samples, c
 		console.error(err);
 		return FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR;
 	}
-	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK
+	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK;
 }, 'iiiiiii');
 
 //(const FLAC__StreamDecoder *decoder, FLAC__byte buffer[], size_t *bytes, void *client_data)
@@ -395,15 +395,18 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 	var channels = frameInfo.channels;
 	var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
 
+	//whether or not to apply data fixing heuristics (e.g. not needed for 24-bit samples)
+	var isFix = frameInfo.bitsPerSample !== 24;
+
 	//take padding bits into account for calculating buffer size
-	//FIXME do this gererically(?) ... for now hard-coded handling for 24-bit which is padded with 1 extra bit
-	var padding = frameInfo.bitsPerSample === 24? 1 : 0;
+	// -> seems to be done for uneven byte sizes, i.e. 1 (8 bits) and 3 (24 bits)
+	var padding = (frameInfo.bitsPerSample / 8)%2;
 	if(padding > 0){
 		block_size += frameInfo.blocksize * padding;
 	}
 
 	var data = [];//<- array for the data of each channel
-	var bufferOffset, heapView, _buffer;
+	var bufferOffset, _buffer;
 
 	for(var i=0; i < channels; ++i){
 
@@ -411,7 +414,7 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 
 		_buffer = new Uint8Array(block_size);
 		//FIXME HACK for "strange" data (see helper function __fix_write_buffer)
-		__fix_write_buffer(bufferOffset, _buffer, padding);
+		__fix_write_buffer(bufferOffset, _buffer, isFix);
 
 		data.push(_buffer.subarray(0, block_size));
 	}
