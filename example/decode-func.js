@@ -4,6 +4,8 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 	var flac_decoder,
 		VERIFY = true,
 		flac_ok = 1,
+		analyse_frames = false,
+		analyse_residuals = false,
 		meta_data;
 
 	var currentDataOffset = 0;
@@ -34,9 +36,10 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 	}
 
 	/** @memberOf decode */
-	function write_callback_fn(buffer){
+	function write_callback_fn(buffer, frameHdr){
 		// buffer is the decoded audio data, Uint8Array
 //	    console.log('decode write callback', buffer);
+		console.log('  write frame metadata: ', frameHdr);
 		decData.push(buffer);
 	}
 
@@ -48,7 +51,7 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 
 	/** @memberOf decode */
 	function error_callback_fn(err, errMsg){
-		console.log('decode error callback', err, errMsg);
+		console.error('decode error callback', err, errMsg);
 	}
 
 	// check: is file a compatible flac-file?
@@ -62,6 +65,7 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 
 	if (flac_decoder != 0){
 		var init_status = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, isOgg);
+		Flac.setOptions(flac_decoder, {analyseSubframes: analyse_frames, analyseResiduals: analyse_residuals});
 		flac_ok &= init_status == 0;
 		console.log("flac init     : " + flac_ok);//DEBUG
 	} else {
