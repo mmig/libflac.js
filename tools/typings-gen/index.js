@@ -109,7 +109,7 @@ function toCommentLineBreak(description, indentStr){
 	if(!description){
 		return '';
 	}
-	return description.replace(/(\r?\n)/gm, '$1'+indentStr+' * ').replace(/(\r)/gm, '$1'+indentStr+' * ');
+	return description.replace(/\r?\n/gm, '\r\n'+indentStr+' * ').replace(/\r/gm, '\r\n'+indentStr+' * ');
 }
 
 function generateComment(el, indentStr){
