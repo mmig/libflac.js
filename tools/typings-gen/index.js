@@ -32,7 +32,7 @@ var reProcessComments = true;
  * anew from the element's metadata.
  * @type {Boolean}
  */
-var generateCommentByModifyingRaw = true;
+var generateCommentByModifyingRaw = false;
 
 
 function getJsonConfig(fileName) {
