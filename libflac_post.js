@@ -160,13 +160,11 @@ function _readSubFrameHdr(p_subframe, subOffset, block_size, enc_opt){
 	switch(type){
 		case 0:	//FLAC__SUBFRAME_TYPE_CONSTANT
 			data = {value: Module.getValue(p_subframe + subOffset.offset, 'i32')};
-			subOffset.offset += 4;
-			// offset += 4;
+			subOffset.offset += 284;//4;
 			break;
 		case 1:	//FLAC__SUBFRAME_TYPE_VERBATIM
 			data = Module.getValue(p_subframe + subOffset.offset, 'i32');
-			subOffset.offset += 4;
-			// offset += 4;
+			subOffset.offset += 284;//4;
 			break;
 		case 2:	//FLAC__SUBFRAME_TYPE_FIXED
 			data = _readSubFrameHdrFixedData(p_subframe, subOffset, block_size, false, enc_opt);
@@ -260,23 +258,19 @@ function _readSubFrameHdrFixedData(p_subframe_data, subOffset, block_size, is_lp
 		data.qlp_coeff_precision = qlp_coeff_precision;
 		data.quantization_level = quantization_level;
 
-		// console.log('lpc data: qlp_coeff_precision', qlp_coeff_precision, 'quantization_level', quantization_level, 'qlp_coeff', qlp_coeff);
+		//FLAC__Subframe_LPC:
+		// FLAC__int32 	warmup [FLAC__MAX_LPC_ORDER]
+		offset = subOffset.offset + 152;
+		offset = _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order);
 
 		//FLAC__Subframe_LPC:
 		// const FLAC__int32 * 	residual
 		if(enc_opt && enc_opt.analyseResiduals){
-			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size);
+			offset = subOffset.offset + 280;
+			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size, order);
 		}
 
-		//FLAC__Subframe_LPC:
-		// FLAC__int32 	warmup [FLAC__MAX_LPC_ORDER]
-		offset += 120;//FIXME calc offset
-		offset = _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order);
-
-		offset += 124;//FIXME calc offset
-
 	} else {
-
 
 		//FLAC__Subframe_Fixed:
 		// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER]
@@ -284,15 +278,13 @@ function _readSubFrameHdrFixedData(p_subframe_data, subOffset, block_size, is_lp
 
 		//FLAC__Subframe_Fixed:
 		// const FLAC__int32 * 	residual
-		offset += 8 + (order%2) * 4;//TODO verify if calc'ed offset is really correct
+		offset = subOffset.offset + 32;
 		if(enc_opt && enc_opt.analyseResiduals){
 			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size, order);
 		}
-
-		offset += 252;//FIXME calc offset
 	}
 
-	subOffset.offset = offset;
+	subOffset.offset += 284;
 	return {
 		partition: {
 			type: entropyType,
