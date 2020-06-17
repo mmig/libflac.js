@@ -191,7 +191,7 @@ function _readSubFrameHdrFixedData(p_subframe_data, subOffset, block_size, is_lp
 
 	var offset = subOffset.offset;
 
-	var data = {order: -1, contents: {parameters: []}};//, rawBits: []}};
+	var data = {order: -1, contents: {parameters: [], rawBits: []}};
 	//FLAC__Subframe_Fixed:
 	// FLAC__EntropyCodingMethod 	entropy_coding_method
 	// unsigned 	order
@@ -217,20 +217,18 @@ function _readSubFrameHdrFixedData(p_subframe_data, subOffset, block_size, is_lp
 
 	//FLAC__EntropyCodingMethod_PartitionedRice:
 	//	FLAC__EntropyCodingMethod_PartitionedRiceContents * 	contents
-	var partitions = 1 << entropyOrder, params = data.contents.parameters;//, raws = data.contents.rawBits;
+	var partitions = 1 << entropyOrder, params = data.contents.parameters, raws = data.contents.rawBits;
+	//FLAC__EntropyCodingMethod_PartitionedRiceContents
+	// unsigned * 	parameters
+	// unsigned * 	raw_bits
+	// unsigned 	capacity_by_order
 	var ppart = Module.getValue(p_subframe_data + offset, 'i32');
-	var pparams = Module.getValue(ppart, 'i32'), param;
-	// var praw = Module.getValue(ppart + 4, 'i32');//TODO rad raw if necessary
+	var pparams = Module.getValue(ppart, 'i32');
+	var praw = Module.getValue(ppart + 4, 'i32');
+	data.contents.capacityByOrder = Module.getValue(ppart + 8, 'i32');
 	for(var i=0; i < partitions; ++i){
-		param = Module.getValue(pparams + (i*4), 'i32');
-		params.push(param);
-
-		//TODO IFF params[i] === (FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2_ESCAPE_PARAMETER : FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE_ESCAPE_PARAMETER)
-		//FLAC__EntropyCodingMethod_PartitionedRiceContents
-		// unsigned * 	parameters
-		// unsigned * 	raw_bits
-		// unsigned 	capacity_by_order
-		//if(...) raws.push(...)
+		params.push(Module.getValue(pparams + (i*4), 'i32'));
+		raws.push(Module.getValue(praw + (i*4), 'i32'));
 	}
 	offset += 4;
 
@@ -1461,8 +1459,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @memberOf Flac
 	 *
 	 * @property {number[]}  parameters  The Rice parameters for each context.
-	 * @property {number[]}  [rawBits]  Widths for escape-coded partitions. Will be non-zero for escaped partitions and zero for unescaped partitions.
-	 * @property {number}  [capacityByOrder]  The capacity of the parameters and raw_bits arrays specified as an order, i.e. the number of array elements allocated is 2 ^ capacity_by_order.
+	 * @property {number[]}  rawBits  Widths for escape-coded partitions. Will be non-zero for escaped partitions and zero for unescaped partitions.
+	 * @property {number}  capacityByOrder  The capacity of the parameters and raw_bits arrays specified as an order, i.e. the number of array elements allocated is 2 ^ capacity_by_order.
 	 */
 	/**
 	 * The types for FLAC subframes
