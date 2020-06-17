@@ -1,10 +1,24 @@
 
+# Version 5.2.0
+
+ * added emitting of life cycle events when encoder or decoder instances are created and destroyed
+   * e.g. `Flac.on('created', function(evt){console.log('created '+evt.target.type+' with id '+evt.target.id)})`
+ * added experimental support for getting metadata for subframes (in decoding write callback); needs to be explicitly enabled (see `Flac.setOptions()`)
+ * added functions `Flac.setOptions(p_coder, options)` and `Flac.getOptions(p_coder)`:  
+   set additional encoding/decoding options
+   * supported options:
+     * `analyseSubframes`: for decoding: include subframes metadata in write-callback metadata, DEFAULT: `false`
+     * `analyseResiduals`: for decoding: include residual data in subframes metadata in write-callback metadata (`analyseSubframes` must also be enabled), DEFAULT: `false`
+ * FIX decoding for standard bit depth values 8 and 24
+ * recompiled with `emscripten` v1.39.18 (llvm toolchain)
+ * improved generation for typings/documentation
+
 # Version 5.2.0-beta.1
 
  * extended interface for encoding write callback `encoder_write_callback_fn(..)`:  
    if returns `false`, encoding will be aborted (any other or no value returned will continue encoding)
  * compile based on `libFLAC` v1.3.3
- * recompiled with `emscripten` v1.39.16 (llvm toolchain)
+ * recompiled with `emscripten` v1.39.11 (llvm toolchain)
  * BUGFIX for decoding: handle padded 24-bit samples correctly
 
 # Version 5.1.1
