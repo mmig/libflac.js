@@ -2,7 +2,12 @@
 # Version 5.2.0
 
  * added emitting of life cycle events when encoder or decoder instances are created and destroyed
-   * e.g. `Flac.on('created', function(evt){console.log('created '+evt.target.type+' with id '+evt.target.id)})`
+   * e.g.
+     ```
+     Flac.on('created', function(evt){
+       console.log('created '+evt.target.type+' with id '+evt.target.id)
+     });
+     ```
  * added experimental support for getting metadata for subframes (in decoding write callback); needs to be explicitly enabled (see `Flac.setOptions()`)
  * added functions `Flac.setOptions(p_coder, options)` and `Flac.getOptions(p_coder)`:  
    set additional encoding/decoding options
