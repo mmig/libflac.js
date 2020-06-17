@@ -899,11 +899,44 @@ var _exported = {
 	 * @event ReadyEvent
 	 * @memberOf Flac
 	 * @type {object}
-	 * @property {string} type 	the type of the event <code>"ready"</code>
+	 * @property {"ready"} type 	the type of the event <code>"ready"</code>
 	 * @property {Flac} target 	the initalized FLAC library instance
 	 *
 	 * @see #isReady
 	 * @see #on
+	 */
+	/**
+	 * Created event: is fired when an encoder or decoder was created.
+	 *
+	 * @event CreatedEvent
+	 * @memberOf Flac
+	 * @type {object}
+	 * @property {"created"} type 	the type of the event <code>"created"</code>
+	 * @property {Flac.CoderChangedEventData} target 	the information for the created encoder or decoder
+	 *
+	 * @see #on
+	 */
+	/**
+	 * Destroyed event: is fired when an encoder or decoder was destroyed.
+	 *
+	 * @event DestroyedEvent
+	 * @memberOf Flac
+	 * @type {object}
+	 * @property {"destroyed"} type 	the type of the event <code>"destroyed"</code>
+	 * @property {Flac.CoderChangedEventData} target 	the information for the destroyed encoder or decoder
+	 *
+	 * @see #on
+	 */
+	/**
+	 * Life cycle event data for signaling life cycle changes of encoder or decoder instances
+	 * @interface CoderChangedEventData
+	 * @memberOf Flac
+	 * @property {number}  id  the ID for the encoder or decoder instance
+	 * @property {"encoder" | "decoder"}  type  signifies whether the event is for an encoder or decoder instance
+	 * @property {any}  [data]  specific data for the life cycle change
+	 *
+	 * @see Flac.event:CreatedEvent
+	 * @see Flac.event:DestroyedEvent
 	 */
 	/**
 	 * Add an event listener for module-events.
@@ -911,6 +944,10 @@ var _exported = {
 	 * <ul>
 	 *  <li> <code>"ready"</code> &rarr; {@link Flac.event:ReadyEvent}: emitted when module is ready for usage (i.e. {@link #isReady} is true)<br/>
 	 *             <em>NOTE listener will get immediately triggered if module is already <code>"ready"</code></em>
+	 *  </li>
+	 *  <li> <code>"created"</code> &rarr; {@link Flac.event:CreatedEvent}: emitted when an encoder or decoder instance was created<br/>
+	 *  </li>
+	 *  <li> <code>"destroyed"</code> &rarr; {@link Flac.event:DestroyedEvent}: emitted when an encoder or decoder instance was destroyed<br/>
 	 *  </li>
 	 * </ul>
 	 *
@@ -922,6 +959,8 @@ var _exported = {
 	 * @see #off
 	 * @see #onready
 	 * @see Flac.event:ReadyEvent
+	 * @see Flac.event:CreatedEvent
+	 * @see Flac.event:DestroyedEvent
 	 * @example
 	 *  Flac.on('ready', function(event){
 	 *     //gets executed when library is ready, or becomes ready...
@@ -1163,6 +1202,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		ok &= Module.ccall('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number'], [ encoder, block_size ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_total_samples_estimate', 'number', ['number', 'number'], [ encoder, total_samples ]);
 		if (ok){
+			do_fire_event('created', [{type: 'created', target: {id: encoder, type: 'encoder'}}], false);
 			return encoder;
 		}
 		return 0;
@@ -1195,6 +1235,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		var decoder = Module.ccall('FLAC__stream_decoder_new', 'number', [ ], [ ]);
 		ok &= Module.ccall('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number'], [ decoder, is_verify ]);
 		if (ok){
+			do_fire_event('created', [{type: 'created', target: {id: decoder, type: 'decoder'}}], false);
 			return decoder;
 		}
 		return 0;
@@ -1824,7 +1865,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 */
 	FLAC__stream_encoder_delete: function(encoder){
 		this._clear_enc_cb(encoder);//<- remove callback references
-		return Module.ccall('FLAC__stream_encoder_delete', 'number', [ 'number' ], [encoder]);
+		Module.ccall('FLAC__stream_encoder_delete', 'number', [ 'number' ], [encoder]);
+		do_fire_event('destroyed', [{type: 'destroyed', target: {id: encoder, type: 'encoder'}}], false);
 	},
 	/**
 	 * Delete the decoder instance, and free up its resources.
@@ -1837,7 +1879,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 */
 	FLAC__stream_decoder_delete: function(decoder){
 		this._clear_dec_cb(decoder);//<- remove callback references
-		return Module.ccall('FLAC__stream_decoder_delete', 'number', [ 'number' ], [decoder]);
+		Module.ccall('FLAC__stream_decoder_delete', 'number', [ 'number' ], [decoder]);
+		do_fire_event('destroyed', [{type: 'destroyed', target: {id: decoder, type: 'decoder'}}], false);
 	}
 
 };//END: var _exported = {
