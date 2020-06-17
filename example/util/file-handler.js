@@ -170,14 +170,16 @@ function isUseOgg(){
 
 function getFileName(srcName, targetExt){
 
-	var isCompressed = /(flac|ogg)/i.test(targetExt);
+	var flacExts = ['flac', 'ogg', 'oga'];
+	var isCompressed = new RegExp(flacExts.join('|'), 'i').test(targetExt);
 	var containerExt = /ogg/i.test(targetExt)? 'ogg' : 'flac';
-	var source = isCompressed? 'wav' : containerExt;
+	var source = isCompressed? 'wav' : '(' + containerExt + '|' + flacExts.join('|') + ')';
 	var target = isCompressed? containerExt : 'wav';
 
 	var reSrc = new RegExp('\.'+source+'$', 'i');
 	var reTarget = new RegExp('\.'+target+'$', 'i');
-	var fileName = srcName.replace(reSrc, '.'+target);
+	var targetExtStr = /^\(?(\w+)/.exec(target)[1];// <- select first extension alternative (if there are multiple)
+	var fileName = srcName.replace(reSrc, '.'+ targetExtStr);
 	if(!reTarget.test(fileName)){
 		fileName += '.'+target;
 	}
