@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>libflac.js 5.1.0</title>
+    <title>libflac.js 5.2.0</title>
     
     
     
@@ -11,7 +11,7 @@
     
     
     
-    <meta property="og:title" content="libflac.js API 5.1.0"/>
+    <meta property="og:title" content="libflac.js API 5.2.0"/>
     <meta property="og:type" content="website"/>
     <meta property="og:image" content=""/>
     <meta property="og:site_name" content="libflac.js"/>
@@ -29,7 +29,7 @@
 
     
     <script>
-    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.1.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.1.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
+    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.2.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.2.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
     </script>
     
 
@@ -79,6 +79,16 @@
                 
                     <li data-name="Flac.BlockMetadata"><a href="Flac.BlockMetadata.html">BlockMetadata</a></li>
                 
+                    <li data-name="Flac.CoderChangedEventData"><a href="Flac.CoderChangedEventData.html">CoderChangedEventData</a></li>
+                
+                    <li data-name="Flac.CodingOptions"><a href="Flac.CodingOptions.html">CodingOptions</a></li>
+                
+                    <li data-name="Flac.FixedSubFrameData"><a href="Flac.FixedSubFrameData.html">FixedSubFrameData</a></li>
+                
+                    <li data-name="Flac.FLAC__ChannelAssignment"><a href="Flac.FLAC__ChannelAssignment.html">FLAC__ChannelAssignment</a></li>
+                
+                    <li data-name="Flac.FLAC__EntropyCodingMethodType"><a href="Flac.FLAC__EntropyCodingMethodType.html">FLAC__EntropyCodingMethodType</a></li>
+                
                     <li data-name="Flac.FLAC__StreamDecoderErrorStatus"><a href="Flac.FLAC__StreamDecoderErrorStatus.html">FLAC__StreamDecoderErrorStatus</a></li>
                 
                     <li data-name="Flac.FLAC__StreamDecoderInitStatus"><a href="Flac.FLAC__StreamDecoderInitStatus.html">FLAC__StreamDecoderInitStatus</a></li>
@@ -89,11 +99,23 @@
                 
                     <li data-name="Flac.FLAC__StreamEncoderState"><a href="Flac.FLAC__StreamEncoderState.html">FLAC__StreamEncoderState</a></li>
                 
+                    <li data-name="Flac.FLAC__SubframeType"><a href="Flac.FLAC__SubframeType.html">FLAC__SubframeType</a></li>
+                
+                    <li data-name="Flac.LPCSubFrameData"><a href="Flac.LPCSubFrameData.html">LPCSubFrameData</a></li>
+                
                     <li data-name="Flac.Metadata"><a href="Flac.Metadata.html">Metadata</a></li>
                 
                     <li data-name="Flac.ReadResult"><a href="Flac.ReadResult.html">ReadResult</a></li>
                 
                     <li data-name="Flac.StreamMetadata"><a href="Flac.StreamMetadata.html">StreamMetadata</a></li>
+                
+                    <li data-name="Flac.SubFrameMetadata"><a href="Flac.SubFrameMetadata.html">SubFrameMetadata</a></li>
+                
+                    <li data-name="Flac.SubFramePartition"><a href="Flac.SubFramePartition.html">SubFramePartition</a></li>
+                
+                    <li data-name="Flac.SubFramePartitionContent"><a href="Flac.SubFramePartitionContent.html">SubFramePartitionContent</a></li>
+                
+                    <li data-name="Flac.SubFramePartitionData"><a href="Flac.SubFramePartitionData.html">SubFramePartitionData</a></li>
                 
                 </ul>
                 <ul class="methods itemMembers">
@@ -134,6 +156,8 @@
                 
                     <li data-name="Flac#FLAC__stream_encoder_set_verify"><a href="Flac.html#FLAC__stream_encoder_set_verify">FLAC__stream_encoder_set_verify</a></li>
                 
+                    <li data-name="Flac#getOptions"><a href="Flac.html#getOptions">getOptions</a></li>
+                
                     <li data-name="Flac#init_decoder_ogg_stream"><a href="Flac.html#init_decoder_ogg_stream">init_decoder_ogg_stream</a></li>
                 
                     <li data-name="Flac#init_decoder_stream"><a href="Flac.html#init_decoder_stream">init_decoder_stream</a></li>
@@ -154,10 +178,16 @@
                 
                     <li data-name="Flac#onready"><a href="Flac.html#onready">onready</a></li>
                 
+                    <li data-name="Flac#setOptions"><a href="Flac.html#setOptions">setOptions</a></li>
+                
                 </ul>
                 <ul class="events itemMembers">
                 
                 <span class="subtitle">Events</span>
+                
+                    <li data-name="Flac.event:CreatedEvent"><a href="Flac.html#.event:CreatedEvent">CreatedEvent</a></li>
+                
+                    <li data-name="Flac.event:DestroyedEvent"><a href="Flac.html#.event:DestroyedEvent">DestroyedEvent</a></li>
                 
                     <li data-name="Flac.event:ReadyEvent"><a href="Flac.html#.event:ReadyEvent">ReadyEvent</a></li>
                 
@@ -170,6 +200,116 @@
             <li class="item" data-name="Flac.BlockMetadata.html">
                 <span class="title">
                     <a href="Flac.BlockMetadata.html">BlockMetadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.CoderChangedEventData.html">
+                <span class="title">
+                    <a href="Flac.CoderChangedEventData.html">CoderChangedEventData</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.CodingOptions.html">
+                <span class="title">
+                    <a href="Flac.CodingOptions.html">CodingOptions</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FixedSubFrameData.html">
+                <span class="title">
+                    <a href="Flac.FixedSubFrameData.html">FixedSubFrameData</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__ChannelAssignment.html">
+                <span class="title">
+                    <a href="Flac.FLAC__ChannelAssignment.html">FLAC__ChannelAssignment</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__EntropyCodingMethodType.html">
+                <span class="title">
+                    <a href="Flac.FLAC__EntropyCodingMethodType.html">FLAC__EntropyCodingMethodType</a>
                     
                 </span>
                 <ul class="members itemMembers">
@@ -299,6 +439,50 @@
                 </ul>
             </li>
         
+            <li class="item" data-name="Flac.FLAC__SubframeType.html">
+                <span class="title">
+                    <a href="Flac.FLAC__SubframeType.html">FLAC__SubframeType</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.LPCSubFrameData.html">
+                <span class="title">
+                    <a href="Flac.LPCSubFrameData.html">LPCSubFrameData</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
             <li class="item" data-name="Flac.Metadata.html">
                 <span class="title">
                     <a href="Flac.Metadata.html">Metadata</a>
@@ -346,6 +530,94 @@
             <li class="item" data-name="Flac.StreamMetadata.html">
                 <span class="title">
                     <a href="Flac.StreamMetadata.html">StreamMetadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.SubFrameMetadata.html">
+                <span class="title">
+                    <a href="Flac.SubFrameMetadata.html">SubFrameMetadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.SubFramePartition.html">
+                <span class="title">
+                    <a href="Flac.SubFramePartition.html">SubFramePartition</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.SubFramePartitionContent.html">
+                <span class="title">
+                    <a href="Flac.SubFramePartitionContent.html">SubFramePartitionContent</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.SubFramePartitionData.html">
+                <span class="title">
+                    <a href="Flac.SubFramePartitionData.html">SubFramePartitionData</a>
                     
                 </span>
                 <ul class="members itemMembers">
@@ -1335,7 +1607,7 @@
     <div class="nameContainer">
         <h4 class="name" id="FLAC__stream_decoder_get_state">
             
-            FLAC__stream_decoder_get_state<span class="signature">(decoder)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{number}</span>
+            FLAC__stream_decoder_get_state<span class="signature">(decoder)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{<a href="Flac.FLAC__StreamDecoderState.html">Flac.FLAC__StreamDecoderState</a>}</span>
         </h4>
 
         
@@ -1421,13 +1693,6 @@
     
 
     
-    <dt class="tag-see">See:</dt>
-    <dd class="tag-see">
-        <ul>
-            <li><a href="Flac.FLAC__StreamDecoderState.html"><code>FLAC__StreamDecoderState</code></a></li>
-        </ul>
-    </dd>
-    
 
     
 </dl>
@@ -1460,11 +1725,11 @@
             
             <td class="type">
             
-                        number
+                        <a href="Flac.FLAC__StreamDecoderState.html">Flac.FLAC__StreamDecoderState</a>
                         
                     
             </td>
-            <td class="description last">the decoder state, see <a href="Flac.FLAC__StreamDecoderState.html"><code>Flac.FLAC__StreamDecoderState</code></a></td>
+            <td class="description last">the decoder state</td>
         </tr>
     
     </tbody>
@@ -2325,7 +2590,7 @@
     <div class="nameContainer">
         <h4 class="name" id="FLAC__stream_encoder_get_state">
             
-            FLAC__stream_encoder_get_state<span class="signature">(encoder)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{number}</span>
+            FLAC__stream_encoder_get_state<span class="signature">(encoder)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{<a href="Flac.FLAC__StreamEncoderState.html">Flac.FLAC__StreamEncoderState</a>}</span>
         </h4>
 
         
@@ -2411,13 +2676,6 @@
     
 
     
-    <dt class="tag-see">See:</dt>
-    <dd class="tag-see">
-        <ul>
-            <li><a href="Flac.FLAC__StreamEncoderState.html">Flac.FLAC__StreamEncoderState</a></li>
-        </ul>
-    </dd>
-    
 
     
 </dl>
@@ -2450,11 +2708,11 @@
             
             <td class="type">
             
-                        number
+                        <a href="Flac.FLAC__StreamEncoderState.html">Flac.FLAC__StreamEncoderState</a>
                         
                     
             </td>
-            <td class="description last">the encoder state, see <a href="Flac.FLAC__StreamEncoderState.html"><code>Flac.FLAC__StreamEncoderState</code></a></td>
+            <td class="description last">the encoder state</td>
         </tr>
     
     </tbody>
@@ -3189,9 +3447,153 @@
             
 <dt>
     <div class="nameContainer">
+        <h4 class="name" id="getOptions">
+            
+            getOptions<span class="signature">(p_coder)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{CodingOptions}</span>
+        </h4>
+
+        
+    </div>
+
+    
+</dt>
+<dd>
+
+    
+    <div class="description">
+        Get coding options for the encoder / decoder instance:returns FALSY when not set.
+    </div>
+    
+
+    
+
+    
+
+    
+        
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>p_coder</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number">Number</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the encoder/decoder pointer (ID)</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+    
+
+    
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+
+    
+
+    
+
+    
+
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        CodingOptions
+                        
+                    
+            </td>
+            <td class="description last">the coding options</td>
+        </tr>
+    
+    </tbody>
+</table>
+
+
+    
+
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
         <h4 class="name" id="init_decoder_ogg_stream">
             
-            init_decoder_ogg_stream<span class="signature">(decoder, read_callback_fn, write_callback_fn, <span class="optional">error_callback_fn</span>, <span class="optional">metadata_callback_fn</span>, <span class="optional">ogg_serial_number</span>)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{number}</span>
+            init_decoder_ogg_stream<span class="signature">(decoder, read_callback_fn, write_callback_fn, <span class="optional">error_callback_fn</span>, <span class="optional">metadata_callback_fn</span>, <span class="optional">ogg_serial_number</span>)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{<a href="Flac.FLAC__StreamDecoderInitStatus.html">Flac.FLAC__StreamDecoderInitStatus</a>}</span>
         </h4>
 
         
@@ -3469,11 +3871,11 @@
             
             <td class="type">
             
-                        number
+                        <a href="Flac.FLAC__StreamDecoderInitStatus.html">Flac.FLAC__StreamDecoderInitStatus</a>
                         
                     
             </td>
-            <td class="description last">the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>),					 see <a href="Flac.FLAC__StreamDecoderInitStatus.html"><code>Flac.FLAC__StreamDecoderInitStatus</code></a></td>
+            <td class="description last">the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>)</td>
         </tr>
     
     </tbody>
@@ -3491,7 +3893,7 @@
     <div class="nameContainer">
         <h4 class="name" id="init_decoder_stream">
             
-            init_decoder_stream<span class="signature">(decoder, read_callback_fn, write_callback_fn, <span class="optional">error_callback_fn</span>, <span class="optional">metadata_callback_fn</span>, <span class="optional">ogg_serial_number</span>)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{number}</span>
+            init_decoder_stream<span class="signature">(decoder, read_callback_fn, write_callback_fn, <span class="optional">error_callback_fn</span>, <span class="optional">metadata_callback_fn</span>, <span class="optional">ogg_serial_number</span>)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{<a href="Flac.FLAC__StreamDecoderInitStatus.html">Flac.FLAC__StreamDecoderInitStatus</a>}</span>
         </h4>
 
         
@@ -3772,11 +4174,11 @@
             
             <td class="type">
             
-                        number
+                        <a href="Flac.FLAC__StreamDecoderInitStatus.html">Flac.FLAC__StreamDecoderInitStatus</a>
                         
                     
             </td>
-            <td class="description last">the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>),					 see <a href="Flac.FLAC__StreamDecoderInitStatus.html"><code>Flac.FLAC__StreamDecoderInitStatus</code></a></td>
+            <td class="description last">the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>)</td>
         </tr>
     
     </tbody>
@@ -3794,7 +4196,7 @@
     <div class="nameContainer">
         <h4 class="name" id="init_encoder_ogg_stream">
             
-            init_encoder_ogg_stream<span class="signature">(encoder, write_callback_fn, <span class="optional">metadata_callback_fn</span>, <span class="optional">ogg_serial_number</span>)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{number}</span>
+            init_encoder_ogg_stream<span class="signature">(encoder, write_callback_fn, <span class="optional">metadata_callback_fn</span>, <span class="optional">ogg_serial_number</span>)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{<a href="Flac.FLAC__StreamEncoderInitStatus.html">Flac.FLAC__StreamEncoderInitStatus</a>}</span>
         </h4>
 
         
@@ -4012,11 +4414,11 @@
             
             <td class="type">
             
-                        number
+                        <a href="Flac.FLAC__StreamEncoderInitStatus.html">Flac.FLAC__StreamEncoderInitStatus</a>
                         
                     
             </td>
-            <td class="description last">the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>),					 see <a href="Flac.FLAC__StreamEncoderInitStatus.html"><code>Flac.FLAC__StreamEncoderInitStatus</code></a></td>
+            <td class="description last">the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>)</td>
         </tr>
     
     </tbody>
@@ -4034,7 +4436,7 @@
     <div class="nameContainer">
         <h4 class="name" id="init_encoder_stream">
             
-            init_encoder_stream<span class="signature">(encoder, write_callback_fn, <span class="optional">metadata_callback_fn</span>, <span class="optional">ogg_serial_number</span>)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{number}</span>
+            init_encoder_stream<span class="signature">(encoder, write_callback_fn, <span class="optional">metadata_callback_fn</span>, <span class="optional">ogg_serial_number</span>)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{<a href="Flac.FLAC__StreamEncoderInitStatus.html">Flac.FLAC__StreamEncoderInitStatus</a>}</span>
         </h4>
 
         
@@ -4255,11 +4657,11 @@
             
             <td class="type">
             
-                        number
+                        <a href="Flac.FLAC__StreamEncoderInitStatus.html">Flac.FLAC__StreamEncoderInitStatus</a>
                         
                     
             </td>
-            <td class="description last">the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>),					 see <a href="Flac.FLAC__StreamEncoderInitStatus.html"><code>Flac.FLAC__StreamEncoderInitStatus</code></a></td>
+            <td class="description last">the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>)</td>
         </tr>
     
     </tbody>
@@ -4670,7 +5072,7 @@
 
     
     <div class="description">
-        Add an event listener for module-events.Supported events:<ul> <li> <code>"ready"</code> &rarr; <a href="Flac.html#.event:ReadyEvent"><code>Flac.event:ReadyEvent</code></a>: emitted when module is ready for usage (i.e. <a href="Flac.html#isReady"><code>isReady</code></a> is true)<br/>            <em>NOTE listener will get immediately triggered if module is already <code>"ready"</code></em> </li></ul>
+        Add an event listener for module-events.Supported events:<ul> <li> <code>"ready"</code> &rarr; <a href="Flac.html#.event:ReadyEvent"><code>Flac.event:ReadyEvent</code></a>: emitted when module is ready for usage (i.e. <a href="Flac.html#isReady"><code>isReady</code></a> is true)<br/>            <em>NOTE listener will get immediately triggered if module is already <code>"ready"</code></em> </li> <li> <code>"created"</code> &rarr; <a href="Flac.html#.event:CreatedEvent"><code>Flac.event:CreatedEvent</code></a>: emitted when an encoder or decoder instance was created<br/> </li> <li> <code>"destroyed"</code> &rarr; <a href="Flac.html#.event:DestroyedEvent"><code>Flac.event:DestroyedEvent</code></a>: emitted when an encoder or decoder instance was destroyed<br/> </li></ul>
     </div>
     
 
@@ -4780,6 +5182,10 @@
             <li><a href="Flac.html#onready"><code>onready</code></a></li>
         
             <li><a href="Flac.html#.event:ReadyEvent">Flac.event:ReadyEvent</a></li>
+        
+            <li><a href="Flac.html#.event:CreatedEvent">Flac.event:CreatedEvent</a></li>
+        
+            <li><a href="Flac.html#.event:DestroyedEvent">Flac.event:DestroyedEvent</a></li>
         </ul>
     </dd>
     
@@ -4941,6 +5347,144 @@
     <pre class="prettyprint"><code>// [1] if Object.defineProperty() IS supported: Flac.onready = function(event){    //gets executed when library becomes ready, or immediately, if it already is ready...	   doSomethingWithFlac(); }; // [2] if Object.defineProperty() is NOT supported:	// do check Flac.isReady(), and only set handler, if not ready yet // (otherwise immediately excute handler code) if(!Flac.isReady()){   Flac.onready = function(event){      //gets executed when library becomes ready...		 doSomethingWithFlac();   }; } else {		// Flac is already ready: immediately start processing		doSomethingWithFlac();	}</code></pre>
     
 
+
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="setOptions">
+            
+            setOptions<span class="signature">(p_coder, options)</span>
+        </h4>
+
+        
+    </div>
+
+    
+</dt>
+<dd>
+
+    
+    <div class="description">
+        Set coding options for an encoder / decoder instance (will / should be deleted, when finish()/delete())
+    </div>
+    
+
+    
+
+    
+
+    
+        
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>p_coder</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number">Number</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the encoder/decoder pointer (ID)</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">CodingOptions</span>
+
+
+
+            
+            </td>
+
+            
+
+            <td class="description last">
+                
+                the coding options</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+    
+
+    
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+
+    
+
+    
+
+    
+
+    
 
     
 </dd>
@@ -5377,7 +5921,7 @@
     <div class="nameContainer">
         <h4 class="name" id="~encoder_write_callback_fn">
             
-            encoder_write_callback_fn<span class="signature">(data, numberOfBytes, samples, currentFrame)</span>
+            encoder_write_callback_fn<span class="signature">(data, numberOfBytes, samples, currentFrame)</span><span class="glyphicon glyphicon-circle-arrow-right"></span><span class="type-signature returnType">{undefined|false}</span>
         </h4>
 
         
@@ -5551,6 +6095,39 @@
     
 
     
+
+    
+    <h5>Returns:</h5>
+    
+
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+    <tbody>
+    
+        <tr>
+            
+            <td class="type">
+            
+                        undefined
+                         | 
+                    
+                        false
+                        
+                    
+            </td>
+            <td class="description last">returning <code>false</code> indicates that an								unrecoverable error occurred and decoding should be aborted</td>
+        </tr>
+    
+    </tbody>
+</table>
+
 
     
 
@@ -5824,6 +6401,38 @@
 
         <tr>
             
+                <td class="name"><code>channelAssignment</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.FLAC__ChannelAssignment.html">Flac.FLAC__ChannelAssignment</a></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">the channel assignment</td>
+        </tr>
+
+    
+
+        <tr>
+            
                 <td class="name"><code>crc</code></td>
             
 
@@ -5850,6 +6459,40 @@
             
 
             <td class="description last">the MD5 checksum for the decoded data, if validation is enabled</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>subframes</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;<a href="Flac.SubFrameMetadata.html">Flac.SubFrameMetadata</a>></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">the metadata of the subframes. The array length corresponds to the number of channels. NOTE will only be included if <a href="Flac.CodingOptions.html"><code>CodingOptions.analyseSubframes</code></a> is enabled for the decoder.</td>
         </tr>
 
     
@@ -5952,6 +6595,865 @@
             
 
             <td class="description last">bits per sample</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.CodingOptions.html">Flac.CodingOptions</a></li>
+        
+            <li><a href="Flac.html#setOptions">Flac#setOptions</a></li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="CoderChangedEventData">
+            
+            Flac.CoderChangedEventData
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        Life cycle event data for signaling life cycle changes of encoder or decoder instances
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">the ID for the encoder or decoder instance</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"encoder"</span>
+|
+
+<span class="param-type">"decoder"</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">signifies whether the event is for an encoder or decoder instance</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>data</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">any</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">specific data for the life cycle change</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#.event:CreatedEvent">Flac.event:CreatedEvent</a></li>
+        
+            <li><a href="Flac.html#.event:DestroyedEvent">Flac.event:DestroyedEvent</a></li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="CodingOptions">
+            
+            Flac.CodingOptions
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        Additional options for encoding or decoding
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>analyseSubframes</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">for decoding: include subframes metadata in write-callback metadata, DEFAULT: false</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>analyseResiduals</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">for decoding: include residual data in subframes metadata in write-callback metadata, NOTE <code>#analyseSubframes</code> muste also be enabled, DEFAULT: false</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#setOptions">Flac#setOptions</a></li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="FixedSubFrameData">
+            
+            Flac.FixedSubFrameData
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        metadata for FIXED subframe type
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>order</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The polynomial order.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>warmup</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Warmup samples to prime the predictor, length == order.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>partition</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.SubFramePartition.html">Flac.SubFramePartition</a></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The residual coding method.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>residual</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The residual signal, length == (blocksize minus order) samples.									NOTE will only be included if <a href="Flac.CodingOptions.html"><code>CodingOptions.analyseSubframes</code></a> is enabled for the decoder.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="FLAC__ChannelAssignment">
+            
+            Flac.FLAC__ChannelAssignment
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        The channel assignment for the (decoded) frame.
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>0</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__CHANNEL_ASSIGNMENT_INDEPENDENT"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">independent channels</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>1</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__CHANNEL_ASSIGNMENT_LEFT_SIDE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">left+side stereo</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>2</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__CHANNEL_ASSIGNMENT_RIGHT_SIDE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">right+side stereo</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>3</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__CHANNEL_ASSIGNMENT_MID_SIDE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">mid+side stereo</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="FLAC__EntropyCodingMethodType">
+            
+            Flac.FLAC__EntropyCodingMethodType
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        entropy coding methods
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>0</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Residual is coded by partitioning into contexts, each with it's own 4-bit Rice parameter.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>1</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Residual is coded by partitioning into contexts, each with it's own 5-bit Rice parameter.</td>
         </tr>
 
     
@@ -7043,7 +8545,7 @@
 
             
 
-            <td class="description last">The metadata input to the encoder is invalid, in one of the following ways:																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0																	      One of the metadata blocks contains an undefined type																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block</td>
+            <td class="description last">The metadata input to the encoder is invalid, in one of the following ways:																						      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0																						      One of the metadata blocks contains an undefined type																						      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()																						      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()																						      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block</td>
         </tr>
 
     
@@ -7361,6 +8863,490 @@
             
 
             <td class="description last">Memory allocation failed.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="FLAC__SubframeType">
+            
+            Flac.FLAC__SubframeType
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        The types for FLAC subframes
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>0</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__SUBFRAME_TYPE_CONSTANT"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">constant signal</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>1</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__SUBFRAME_TYPE_VERBATIM"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">uncompressed signal</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>2</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__SUBFRAME_TYPE_FIXED"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">fixed polynomial prediction</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>3</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__SUBFRAME_TYPE_LPC"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">linear prediction</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="LPCSubFrameData">
+            
+            Flac.LPCSubFrameData
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        metadata for LPC subframe type
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>order</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The FIR order.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>qlp_coeff</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">FIR filter coefficients.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>qlp_coeff_precision</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Quantized FIR filter coefficient precision in bits.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>quantization_level</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The qlp coeff shift needed.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>warmup</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                  <span class="inherited"><a href="Flac.FixedSubFrameData.html">inherited</a></span>
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Warmup samples to prime the predictor, length == order.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>partition</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.SubFramePartition.html">Flac.SubFramePartition</a></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                  <span class="inherited"><a href="Flac.FixedSubFrameData.html">inherited</a></span>
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The residual coding method.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>residual</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                  <span class="inherited"><a href="Flac.FixedSubFrameData.html">inherited</a></span>
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The residual signal, length == (blocksize minus order) samples.									NOTE will only be included if <a href="Flac.CodingOptions.html"><code>CodingOptions.analyseSubframes</code></a> is enabled for the decoder.</td>
         </tr>
 
     
@@ -8094,6 +10080,560 @@
     
 </dd>
 
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="SubFrameMetadata">
+            
+            Flac.SubFrameMetadata
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        FLAC subframe metadata
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.FLAC__SubframeType.html">Flac.FLAC__SubframeType</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the type of the subframe</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>data</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+|
+
+<span class="param-type"><a href="Flac.FixedSubFrameData.html">Flac.FixedSubFrameData</a></span>
+|
+
+<span class="param-type"><a href="Flac.LPCSubFrameData.html">Flac.LPCSubFrameData</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the type specific metadata for subframe</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>wastedBits</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the wasted bits-per-sample</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="SubFramePartition">
+            
+            Flac.SubFramePartition
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        metadata for FIXED or LPC subframe partitions
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.FLAC__EntropyCodingMethodType.html">Flac.FLAC__EntropyCodingMethodType</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the entropy coding method</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>data</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.SubFramePartitionData.html">Flac.SubFramePartitionData</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">metadata for a Rice partitioned residual</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="SubFramePartitionContent">
+            
+            Flac.SubFramePartitionContent
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        metadata for FIXED or LPC subframe partition data content
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>parameters</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The Rice parameters for each context.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>rawBits</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Widths for escape-coded partitions. Will be non-zero for escaped partitions and zero for unescaped partitions.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>capacityByOrder</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The capacity of the parameters and raw_bits arrays specified as an order, i.e. the number of array elements allocated is 2 ^ capacity_by_order.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
+            
+                
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id="SubFramePartitionData">
+            
+            Flac.SubFramePartitionData
+        </h4>
+    </div>
+
+    
+</dt>
+<dd>
+    
+    <div class="description">
+        metadata for FIXED or LPC subframe partition data
+    </div>
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>order</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The partition order, i.e. # of contexts = 2 ^ order.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>contents</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.SubFramePartitionContent.html">Flac.SubFramePartitionContent</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The context's Rice parameters and/or raw bits.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    
+</dd>
+
             </dl>
     
 
@@ -8101,6 +10641,330 @@
         <h3 class="subsection-title">Events</h3>
 
         <dl>
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id=".event:CreatedEvent">
+            
+            Flac.event:CreatedEvent
+        </h4>
+
+        
+    </div>
+
+    
+</dt>
+<dd>
+
+    
+    <div class="description">
+        Created event: is fired when an encoder or decoder was created.
+    </div>
+    
+
+    
+        <h5>Type:</h5>
+        <ul>
+            <li>
+                
+<span class="param-type">object</span>
+
+
+
+            </li>
+        </ul>
+    
+
+    
+
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"created"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the type of the event <code>"created"</code></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>target</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.CoderChangedEventData.html">Flac.CoderChangedEventData</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the information for the created encoder or decoder</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#on"><code>on</code></a></li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dd>
+
+        
+            
+<dt>
+    <div class="nameContainer">
+        <h4 class="name" id=".event:DestroyedEvent">
+            
+            Flac.event:DestroyedEvent
+        </h4>
+
+        
+    </div>
+
+    
+</dt>
+<dd>
+
+    
+    <div class="description">
+        Destroyed event: is fired when an encoder or decoder was destroyed.
+    </div>
+    
+
+    
+        <h5>Type:</h5>
+        <ul>
+            <li>
+                
+<span class="param-type">object</span>
+
+
+
+            </li>
+        </ul>
+    
+
+    
+
+    
+
+    
+<dl class="details">
+    
+
+        <h5 class="subsection-title">Properties:</h5>
+
+        <dl>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"destroyed"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the type of the event <code>"destroyed"</code></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>target</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Flac.CoderChangedEventData.html">Flac.CoderChangedEventData</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the information for the destroyed encoder or decoder</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+</dl>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#on"><code>on</code></a></li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dd>
+
+        
             
 <dt>
     <div class="nameContainer">
@@ -8175,7 +11039,7 @@
             <td class="type">
             
                 
-<span class="param-type">string</span>
+<span class="param-type">"ready"</span>
 
 
 

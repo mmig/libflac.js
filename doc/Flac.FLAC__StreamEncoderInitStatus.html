@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>libflac.js 5.1.0</title>
+    <title>libflac.js 5.2.0</title>
     
     
     
@@ -11,7 +11,7 @@
     
     
     
-    <meta property="og:title" content="libflac.js API 5.1.0"/>
+    <meta property="og:title" content="libflac.js API 5.2.0"/>
     <meta property="og:type" content="website"/>
     <meta property="og:image" content=""/>
     <meta property="og:site_name" content="libflac.js"/>
@@ -29,7 +29,7 @@
 
     
     <script>
-    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.1.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.1.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
+    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.2.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.2.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
     </script>
     
 
@@ -79,6 +79,16 @@
                 
                     <li data-name="Flac.BlockMetadata"><a href="Flac.BlockMetadata.html">BlockMetadata</a></li>
                 
+                    <li data-name="Flac.CoderChangedEventData"><a href="Flac.CoderChangedEventData.html">CoderChangedEventData</a></li>
+                
+                    <li data-name="Flac.CodingOptions"><a href="Flac.CodingOptions.html">CodingOptions</a></li>
+                
+                    <li data-name="Flac.FixedSubFrameData"><a href="Flac.FixedSubFrameData.html">FixedSubFrameData</a></li>
+                
+                    <li data-name="Flac.FLAC__ChannelAssignment"><a href="Flac.FLAC__ChannelAssignment.html">FLAC__ChannelAssignment</a></li>
+                
+                    <li data-name="Flac.FLAC__EntropyCodingMethodType"><a href="Flac.FLAC__EntropyCodingMethodType.html">FLAC__EntropyCodingMethodType</a></li>
+                
                     <li data-name="Flac.FLAC__StreamDecoderErrorStatus"><a href="Flac.FLAC__StreamDecoderErrorStatus.html">FLAC__StreamDecoderErrorStatus</a></li>
                 
                     <li data-name="Flac.FLAC__StreamDecoderInitStatus"><a href="Flac.FLAC__StreamDecoderInitStatus.html">FLAC__StreamDecoderInitStatus</a></li>
@@ -89,11 +99,23 @@
                 
                     <li data-name="Flac.FLAC__StreamEncoderState"><a href="Flac.FLAC__StreamEncoderState.html">FLAC__StreamEncoderState</a></li>
                 
+                    <li data-name="Flac.FLAC__SubframeType"><a href="Flac.FLAC__SubframeType.html">FLAC__SubframeType</a></li>
+                
+                    <li data-name="Flac.LPCSubFrameData"><a href="Flac.LPCSubFrameData.html">LPCSubFrameData</a></li>
+                
                     <li data-name="Flac.Metadata"><a href="Flac.Metadata.html">Metadata</a></li>
                 
                     <li data-name="Flac.ReadResult"><a href="Flac.ReadResult.html">ReadResult</a></li>
                 
                     <li data-name="Flac.StreamMetadata"><a href="Flac.StreamMetadata.html">StreamMetadata</a></li>
+                
+                    <li data-name="Flac.SubFrameMetadata"><a href="Flac.SubFrameMetadata.html">SubFrameMetadata</a></li>
+                
+                    <li data-name="Flac.SubFramePartition"><a href="Flac.SubFramePartition.html">SubFramePartition</a></li>
+                
+                    <li data-name="Flac.SubFramePartitionContent"><a href="Flac.SubFramePartitionContent.html">SubFramePartitionContent</a></li>
+                
+                    <li data-name="Flac.SubFramePartitionData"><a href="Flac.SubFramePartitionData.html">SubFramePartitionData</a></li>
                 
                 </ul>
                 <ul class="methods itemMembers">
@@ -134,6 +156,8 @@
                 
                     <li data-name="Flac#FLAC__stream_encoder_set_verify"><a href="Flac.html#FLAC__stream_encoder_set_verify">FLAC__stream_encoder_set_verify</a></li>
                 
+                    <li data-name="Flac#getOptions"><a href="Flac.html#getOptions">getOptions</a></li>
+                
                     <li data-name="Flac#init_decoder_ogg_stream"><a href="Flac.html#init_decoder_ogg_stream">init_decoder_ogg_stream</a></li>
                 
                     <li data-name="Flac#init_decoder_stream"><a href="Flac.html#init_decoder_stream">init_decoder_stream</a></li>
@@ -154,10 +178,16 @@
                 
                     <li data-name="Flac#onready"><a href="Flac.html#onready">onready</a></li>
                 
+                    <li data-name="Flac#setOptions"><a href="Flac.html#setOptions">setOptions</a></li>
+                
                 </ul>
                 <ul class="events itemMembers">
                 
                 <span class="subtitle">Events</span>
+                
+                    <li data-name="Flac.event:CreatedEvent"><a href="Flac.html#.event:CreatedEvent">CreatedEvent</a></li>
+                
+                    <li data-name="Flac.event:DestroyedEvent"><a href="Flac.html#.event:DestroyedEvent">DestroyedEvent</a></li>
                 
                     <li data-name="Flac.event:ReadyEvent"><a href="Flac.html#.event:ReadyEvent">ReadyEvent</a></li>
                 
@@ -170,6 +200,116 @@
             <li class="item" data-name="Flac.BlockMetadata.html">
                 <span class="title">
                     <a href="Flac.BlockMetadata.html">BlockMetadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.CoderChangedEventData.html">
+                <span class="title">
+                    <a href="Flac.CoderChangedEventData.html">CoderChangedEventData</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.CodingOptions.html">
+                <span class="title">
+                    <a href="Flac.CodingOptions.html">CodingOptions</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FixedSubFrameData.html">
+                <span class="title">
+                    <a href="Flac.FixedSubFrameData.html">FixedSubFrameData</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__ChannelAssignment.html">
+                <span class="title">
+                    <a href="Flac.FLAC__ChannelAssignment.html">FLAC__ChannelAssignment</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.FLAC__EntropyCodingMethodType.html">
+                <span class="title">
+                    <a href="Flac.FLAC__EntropyCodingMethodType.html">FLAC__EntropyCodingMethodType</a>
                     
                 </span>
                 <ul class="members itemMembers">
@@ -299,6 +439,50 @@
                 </ul>
             </li>
         
+            <li class="item" data-name="Flac.FLAC__SubframeType.html">
+                <span class="title">
+                    <a href="Flac.FLAC__SubframeType.html">FLAC__SubframeType</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.LPCSubFrameData.html">
+                <span class="title">
+                    <a href="Flac.LPCSubFrameData.html">LPCSubFrameData</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
             <li class="item" data-name="Flac.Metadata.html">
                 <span class="title">
                     <a href="Flac.Metadata.html">Metadata</a>
@@ -346,6 +530,94 @@
             <li class="item" data-name="Flac.StreamMetadata.html">
                 <span class="title">
                     <a href="Flac.StreamMetadata.html">StreamMetadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.SubFrameMetadata.html">
+                <span class="title">
+                    <a href="Flac.SubFrameMetadata.html">SubFrameMetadata</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.SubFramePartition.html">
+                <span class="title">
+                    <a href="Flac.SubFramePartition.html">SubFramePartition</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.SubFramePartitionContent.html">
+                <span class="title">
+                    <a href="Flac.SubFramePartitionContent.html">SubFramePartitionContent</a>
+                    
+                </span>
+                <ul class="members itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="typedefs itemMembers">
+                
+                </ul>
+                <ul class="methods itemMembers">
+                
+                </ul>
+                <ul class="events itemMembers">
+                
+                </ul>
+            </li>
+        
+            <li class="item" data-name="Flac.SubFramePartitionData.html">
+                <span class="title">
+                    <a href="Flac.SubFramePartitionData.html">SubFramePartitionData</a>
                     
                 </span>
                 <ul class="members itemMembers">
@@ -728,7 +1000,7 @@
 
             
 
-            <td class="description last">The metadata input to the encoder is invalid, in one of the following ways:																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0																	      One of the metadata blocks contains an undefined type																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block</td>
+            <td class="description last">The metadata input to the encoder is invalid, in one of the following ways:																						      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0																						      One of the metadata blocks contains an undefined type																						      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()																						      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()																						      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block</td>
         </tr>
 
     
