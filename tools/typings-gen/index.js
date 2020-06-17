@@ -3,7 +3,37 @@ var fs = require('fs');
 
 var typeArrayStr = 'Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array';// | BigInt64Array | BigUint64Array';
 
+/**
+ * used newline character(s) for generated typings
+ * @type {String}
+ */
+var nl = '\r\n';
+
+/**
+ * handle enum-like definitions (i.e. @property definitions) as type-definitions,
+ * or as enum-definitions.
+ * @type {Boolean}
+ */
 var handleEnumAsTypeDef = true;
+/**
+ * do ignore / filter-out elements that are marked as @private
+ * @type {Boolean}
+ */
+var ignorePrivateElements = true;
+/**
+ * do re-process comments, or use raw source comments
+ * (raw comments may be missing inferred members etc. due to @copydoc)
+ * @type {Boolean}
+ */
+var reProcessComments = true;
+/**
+ * if re-processing comments:
+ * do try to modify/extend the raw/original comment, or regenerate comment
+ * anew from the element's metadata.
+ * @type {Boolean}
+ */
+var generateCommentByModifyingRaw = false;
+
 
 function getJsonConfig(fileName) {
 	return JSON.parse(fs.readFileSync(fileName));
@@ -31,23 +61,30 @@ function generateDeclaration(jsdocJson, outFileName, callback) {
 	var rootDict = getRootElements(jsdocJson);
 	addMembers(jsdocJson, rootDict);
 
-	var code = `export as namespace Flac;\r\n`;
+	var code = `export as namespace Flac;${nl}`;
 	Object.values(rootDict).forEach(function(el){
 
-		// code += `${indentComment(el.comment, '')}\ndeclare class ${el.name.replace(/^Flac$/, 'FlacClass')} {\r\n`;
+		if(ignorePrivateElements && el.access === "private"){
+			return;
+		}
+
+		// code += `${indentComment(el.comment, '')}\ndeclare class ${el.name.replace(/^Flac$/, 'FlacClass')} {${nl}`;
 		if(el.children){
 			el.children.forEach(function(ch){
+				if(ignorePrivateElements && ch.access === "private"){
+					return;
+				}
 				code += generateCode(ch, 0, 'all');//'members');
 			})
 		}
-		// code += `\r\n}\r\ndeclare namespace ${el.name.replace(/^Flac$/, 'FlacClass')} {\r\n`;
+		// code += `${nl}}${nl}declare namespace ${el.name.replace(/^Flac$/, 'FlacClass')} {${nl}`;
 		// if(el.children){
 		// 	el.children.forEach(function(ch){
 		// 		code += generateCode(ch, 2, 'types');
 		// 	})
 		// }
-		code += `\r\nexport type TypedArray = ${typeArrayStr};`;
-		// code += `\r\n}\r\n`;
+		code += `${nl}export type TypedArray = ${typeArrayStr};`;
+		// code += `${nl}${nl}`;
 	});
 
 	log('finished!');
@@ -92,15 +129,127 @@ function indentComment(comment, indentStr){
 	return comment.replace(/(\r?\n)\s*( \*)/gm, '$1'+indentStr+'$2');
 }
 
-function descriptionToComment(description, indentStr){
-	return '/**\r\n'+indentStr+' * ' + description.replace(/(\r?\n)/gm, '$1'+indentStr+' * ') + '\r\n'+indentStr+' */';
+function descriptionToComment(description, indentStr, omitWrapping){
+	var c = indentStr+' * ' + toCommentLineBreak(description, indentStr);
+	return omitWrapping? c : '/**'+nl+ c + nl+indentStr+' */';
+}
+
+function toCommentLineBreak(description, indentStr){
+	if(!description){
+		return '';
+	}
+	return description.replace(/\r?\n/gm, nl+indentStr+' * ').replace(/\r/gm, nl+indentStr+' * ');
+}
+
+function getCommentFrom(el, indentStr){
+	var comment = el.comment;
+	if(reProcessComments){
+		// modify/extend or regenerate comment text with/from element's metadata
+		return generateCommentByModifyingRaw? extendCommentFrom(el, indentStr) : generateComment(el, indentStr);
+	}
+	return indentComment(comment, indentStr);
+}
+
+function extendCommentFrom(el, indentStr){
+	var comment = el.comment;
+	// to try to insert/replace information from params, returns, and description field(s) into the raw comment string
+	// TODO generated "clean" comment by using *all* the annotations etc.
+
+	if(el.description && comment.replace(/$\s*\*(\s|\s+)?/gm, '').replace(/\r|\r?\n/g, '').indexOf(el.description.replace(/\r|\r?\n/g, '')) === -1){
+		comment = comment.replace(/^\s*\/\*\*/, '/**' + nl + descriptionToComment(el.description, '', true) + nl + ' * '+nl);
+	}
+	var list = [];
+	if(Array.isArray(el.params)){
+		el.params.forEach(function(p){
+			doAddCommentInfo(p, 'param', list);
+			comment = removeFromComment(comment, p, 'param');
+
+		});
+	}
+	if(Array.isArray(el.returns)){
+		el.returns.forEach(function(p){
+			doAddCommentInfo(p, 'returns', list);
+			comment = removeFromComment(comment, p, 'returns');
+		});
+	}
+	if(list.length > 0){
+		comment = comment.replace(/(\r?\n\s*)?\*\//, nl+' * '+nl+' * ' +  list.join(nl+' * ') + nl+' */');
+	}
+	return indentComment(comment, indentStr);
+}
+
+function generateComment(el, indentStr){
+	var sb = [indentStr + '/**'];
+	if(el.deprecated){
+		sb.push(indentStr+' * @'+el.deprecated);
+	}
+	if(el.description){
+		sb.push(descriptionToComment(el.description, indentStr, true) + nl + indentStr + ' * ');
+	}
+	if(el.access){
+		sb.push(indentStr+' * @'+el.access);
+	}
+	if(Array.isArray(el.augments)){
+		el.augments.forEach(function(s){
+			sb.push(indentStr+' * @augments '+s);
+		});
+	}
+	if(Array.isArray(el.properties)){
+		el.properties.forEach(function(p){
+			 doAddCommentInfo(p, 'property', sb, indentStr);
+		});
+	}
+	if(Array.isArray(el.params)){
+		el.params.forEach(function(p){
+			doAddCommentInfo(p, 'param', sb, indentStr);
+		});
+	}
+	if(Array.isArray(el.returns)){
+		el.returns.forEach(function(r){
+			doAddCommentInfo(r, 'returns', sb, indentStr);
+		});
+	}
+	if(Array.isArray(el.see)){
+		el.see.forEach(function(s){
+			sb.push(indentStr+' * @see '+s);
+		});
+	}
+	if(Array.isArray(el.examples)){
+		el.examples.forEach(function(e){
+			sb.push(indentStr+' * @example ', indentStr + ' * ' + toCommentLineBreak(e, indentStr));
+		});
+	}
+	sb.push(indentStr + ' */');
+	return sb.join(nl);
+}
+
+function doAddCommentInfo(p, infoTag, list, indentStr){
+	var name = p.name || '';
+	if(name && p.optional){
+		name = '['+name+']';
+	}
+	var type = !p.type? ' ' : ' {' + toTypeList(p.type).join(' | ') + '} ';
+	list.push((typeof indentStr === 'string'? indentStr + ' * ' : '') + '@'+infoTag+ type + (name? name + '  ' : ' ') + toCommentLineBreak(p.description, ''));
+}
+
+function removeFromComment(comment, p, infoTag){
+	var name = p.name || '';
+	var tagName = infoTag.replace(/s$/, '') + 's';
+	var re = new RegExp('@'+tagName+'?\\s+(\\{[^}]+\\}\\s+)?(\\[\s*)?'+name, 'ig'), m;
+	if(p.description && (m = re.exec(comment))){
+		var re2 = new RegExp(/@(?!link)|\*\/|$/, 'g');
+		re2.lastIndex = m.index + m[0].length;
+		var m2 = re2.exec(comment);
+		comment = comment.substring(0, m.index) + comment.substring(m2.index);
+	}
+	return comment;
 }
 
 function generateCode(el, indent, genType){
 	var ist = indentStr(indent);
 	var kind = getKind(el);
 	var kindStr = genType === 'members'? 'public' : 'export ' + (handleEnumAsTypeDef && kind === 'enum'? 'type' : kind);
-	var code = `${ist}${indentComment(el.comment, ist)}\r\n${ist}${kindStr} ${el.name}`;
+	var code = `${ist}${getCommentFrom(el, ist)}${nl}${ist}${kindStr} ${el.name}`;
 	if(kind === 'function'){
 		if(genType === 'types'){
 			return '';
@@ -136,10 +285,9 @@ function generateCode(el, indent, genType){
 		}
 		code += ` /* ${el.kind} */;`
 	}
-	code += `\r\n`;
+	code += `${nl}`;
 	return code;
 }
-
 
 function getKind(el){
 	switch(el.kind){
@@ -215,11 +363,11 @@ function generateInterfaceCode(el, indent){
 	var props = [], comment;
 	if(el.properties){
 		el.properties.forEach(function(p){
-			comment = p.description? descriptionToComment(p.description, istr) + '\r\n' + istr : '';
+			comment = p.description? descriptionToComment(p.description, istr, false) + nl + istr : '';
 			props.push(comment + p.name + (p.optional? '?' : '') + ': ' + toTypeList(p.type).join(' | ') + ';');
 		});
 	}
-	return '\r\n' + istr + props.join('\r\n'+istr) + '\r\n';
+	return nl + istr + props.join(nl+istr) + nl;
 }
 
 function generateEnumCode(el, indent){
@@ -231,7 +379,7 @@ function generateEnumCode(el, indent){
 			props.push(toTypeList(p.type).join(' | ') + ' = ' + p.name);
 		});
 	}
-	return '\r\n' + istr + props.join(',\r\n'+istr) + '\r\n';
+	return nl + istr + props.join(','+nl+istr) + nl;
 }
 
 function generateTypeCode(el, usePropName){
@@ -261,7 +409,7 @@ function toTypeStr(type){
 	// if(type === 'TypedArray'){
 	// 	return 'FlacClass.TypedArray';
 	// }
-	return type.replace(/^Flac[#~.](event:)?/, '').replace(/^Array\.</,'Array<');
+	return type.replace(/\bFlac[#~.](event:)?\b/, '').replace(/^Array\.</,'Array<');
 }
 
 function indentStr(indent){

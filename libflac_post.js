@@ -70,9 +70,10 @@ function _readMd5(p_md5){
  * HELPER: read frame data
  *
  * @param {POINTER} p_frame
+ * @param {CodingOptions} [enc_opt]
  * @returns FrameHeader
  */
-function _readFrameHdr(p_frame){
+function _readFrameHdr(p_frame, enc_opt){
 
 	/*
 	typedef struct {
@@ -115,18 +116,208 @@ function _readFrameHdr(p_frame){
 
 	var crc = Module.getValue(p_frame+36,'i8');
 
-	//TODO read subframe
-	//TODO read footer
+	var subframes;
+	if(enc_opt && enc_opt.analyseSubframes){
+		var subOffset = {offset: 40};
+		subframes = [];
+		for(var i=0; i < channels; ++i){
+			subframes.push(_readSubFrameHdr(p_frame, subOffset, blocksize, enc_opt));
+		}
+		//TODO read footer
+		// console.log('  footer crc ', Module.getValue(p_frame + subOffset.offset,'i16'));
+	}
 
 	return {
 		blocksize: blocksize,
 		sampleRate: sample_rate,
 		channels: channels,
+		channelAssignment: channel_assignment,
 		bitsPerSample: bits_per_sample,
 		number: number,
 		numberType: numberType,
-		crc: crc
+		crc: crc,
+		subframes: subframes
 	};
+}
+
+
+function _readSubFrameHdr(p_subframe, subOffset, block_size, enc_opt){
+	/*
+	FLAC__SubframeType 	type
+	union {
+	   FLAC__Subframe_Constant   constant
+	   FLAC__Subframe_Fixed   fixed
+	   FLAC__Subframe_LPC   lpc
+	   FLAC__Subframe_Verbatim   verbatim
+	} 	data
+	unsigned 	wasted_bits
+	*/
+
+	var type = Module.getValue(p_subframe + subOffset.offset, 'i32');
+	subOffset.offset += 4;
+
+	var data;
+	switch(type){
+		case 0:	//FLAC__SUBFRAME_TYPE_CONSTANT
+			data = {value: Module.getValue(p_subframe + subOffset.offset, 'i32')};
+			subOffset.offset += 284;//4;
+			break;
+		case 1:	//FLAC__SUBFRAME_TYPE_VERBATIM
+			data = Module.getValue(p_subframe + subOffset.offset, 'i32');
+			subOffset.offset += 284;//4;
+			break;
+		case 2:	//FLAC__SUBFRAME_TYPE_FIXED
+			data = _readSubFrameHdrFixedData(p_subframe, subOffset, block_size, false, enc_opt);
+			break;
+		case 3:	//FLAC__SUBFRAME_TYPE_LPC
+			data = _readSubFrameHdrFixedData(p_subframe, subOffset, block_size, true, enc_opt);
+			break;
+	}
+
+	var offset =  subOffset.offset;
+	var wasted_bits = Module.getValue(p_subframe + offset, 'i32');
+	subOffset.offset += 4;
+
+	return {
+		type: type,//['CONSTANT', 'VERBATIM', 'FIXED', 'LPC'][type],
+		data: data,
+		wastedBits: wasted_bits
+	}
+}
+
+function _readSubFrameHdrFixedData(p_subframe_data, subOffset, block_size, is_lpc, enc_opt){
+
+	var offset = subOffset.offset;
+
+	var data = {order: -1, contents: {parameters: [], rawBits: []}};
+	//FLAC__Subframe_Fixed:
+	// FLAC__EntropyCodingMethod 	entropy_coding_method
+	// unsigned 	order
+	// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER]
+	// const FLAC__int32 * 	residual
+
+	//FLAC__EntropyCodingMethod:
+	// FLAC__EntropyCodingMethodType 	type
+	// union {
+	//    FLAC__EntropyCodingMethod_PartitionedRice   partitioned_rice
+	// } 	data
+
+	//FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE	0		Residual is coded by partitioning into contexts, each with it's own 4-bit Rice parameter.
+	//FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2 1	Residual is coded by partitioning into contexts, each with it's own 5-bit Rice parameter.
+	var entropyType = Module.getValue(p_subframe_data, 'i32');
+	offset += 4;
+
+	//FLAC__EntropyCodingMethod_PartitionedRice:
+	//	unsigned 	order
+	var entropyOrder = Module.getValue(p_subframe_data + offset, 'i32');
+	data.order = entropyOrder;
+	offset += 4;
+
+	//FLAC__EntropyCodingMethod_PartitionedRice:
+	//	FLAC__EntropyCodingMethod_PartitionedRiceContents * 	contents
+	var partitions = 1 << entropyOrder, params = data.contents.parameters, raws = data.contents.rawBits;
+	//FLAC__EntropyCodingMethod_PartitionedRiceContents
+	// unsigned * 	parameters
+	// unsigned * 	raw_bits
+	// unsigned 	capacity_by_order
+	var ppart = Module.getValue(p_subframe_data + offset, 'i32');
+	var pparams = Module.getValue(ppart, 'i32');
+	var praw = Module.getValue(ppart + 4, 'i32');
+	data.contents.capacityByOrder = Module.getValue(ppart + 8, 'i32');
+	for(var i=0; i < partitions; ++i){
+		params.push(Module.getValue(pparams + (i*4), 'i32'));
+		raws.push(Module.getValue(praw + (i*4), 'i32'));
+	}
+	offset += 4;
+
+	//FLAC__Subframe_Fixed:
+	//	unsigned 	order
+	var order = Module.getValue(p_subframe_data + offset, 'i32');
+	offset += 4;
+
+	var warmup = [], res;
+
+	if(is_lpc){
+		//FLAC__Subframe_LPC
+
+		// unsigned 	qlp_coeff_precision
+		var qlp_coeff_precision = Module.getValue(p_subframe_data + offset, 'i32');
+		offset += 4;
+		// int 	quantization_level
+		var quantization_level = Module.getValue(p_subframe_data + offset, 'i32');
+		offset += 4;
+
+		//FLAC__Subframe_LPC :
+		// FLAC__int32 	qlp_coeff [FLAC__MAX_LPC_ORDER]
+		var qlp_coeff = [];
+		for(var i=0; i < order; ++i){
+			qlp_coeff.push(Module.getValue(p_subframe_data + offset, 'i32'));
+			offset += 4;
+		}
+		data.qlp_coeff = qlp_coeff;
+		data.qlp_coeff_precision = qlp_coeff_precision;
+		data.quantization_level = quantization_level;
+
+		//FLAC__Subframe_LPC:
+		// FLAC__int32 	warmup [FLAC__MAX_LPC_ORDER]
+		offset = subOffset.offset + 152;
+		offset = _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order);
+
+		//FLAC__Subframe_LPC:
+		// const FLAC__int32 * 	residual
+		if(enc_opt && enc_opt.analyseResiduals){
+			offset = subOffset.offset + 280;
+			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size, order);
+		}
+
+	} else {
+
+		//FLAC__Subframe_Fixed:
+		// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER]
+		offset = _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order);
+
+		//FLAC__Subframe_Fixed:
+		// const FLAC__int32 * 	residual
+		offset = subOffset.offset + 32;
+		if(enc_opt && enc_opt.analyseResiduals){
+			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size, order);
+		}
+	}
+
+	subOffset.offset += 284;
+	return {
+		partition: {
+			type: entropyType,
+			data: data
+		},
+		order: order,
+		warmup: warmup,
+		residual: res
+	}
+}
+
+
+function _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order){
+
+	// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER | FLAC__MAX_LPC_ORDER]
+	for(var i=0; i < order; ++i){
+		warmup.push(Module.getValue(p_subframe_data + offset, 'i32'));
+		offset += 4;
+	}
+	return offset;
+}
+
+
+function _readSubFrameHdrResidual(p_subframe_data_res, block_size, order){
+	// const FLAC__int32 * 	residual
+	var pres = Module.getValue(p_subframe_data_res, 'i32');
+	var res = [];//Module.getValue(pres, 'i32');
+	//TODO read residual all values(?)
+	// -> "The residual signal, length == (blocksize minus order) samples.
+	for(var i=0, size = block_size - order; i < size; ++i){
+		res.push(Module.getValue(pres + (i*4), 'i32'));
+	}
+	return res;
 }
 
 
@@ -137,15 +328,16 @@ function _readFrameHdr(p_frame){
  * 				the offset for the data on HEAPU8
  * @param {Uint8Array} newBuffer
  * 				the target buffer into which the data should be written -- with the correct (block) size
- * @param {number} padding
- * 				number of padding bytes
+ * @param {boolean} applyFix
+ * 				whether or not to apply the data repair heuristics
+ * 				(handling duplicated/triplicated values in raw data)
  */
-function __fix_write_buffer(heapOffset, newBuffer, padding){
+function __fix_write_buffer(heapOffset, newBuffer, applyFix){
 
 	var dv = new DataView(newBuffer.buffer);
 	var targetSize = newBuffer.length;
 
-	var increase = padding > 0? 1 : 2;//<- for FIX/workaround, NOTE: if padding occurres, there is no fix/increase needed (more details comment below)
+	var increase = !applyFix? 1 : 2;//<- for FIX/workaround, NOTE: e.g. if 24-bit padding occurres, there is no fix/increase needed (more details comment below)
 	var buffer = HEAPU8.subarray(heapOffset, heapOffset + targetSize * increase);
 
 	// FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated",
@@ -163,8 +355,8 @@ function __fix_write_buffer(heapOffset, newBuffer, padding){
 			size = buffer.length;
 		}
 
-		// NOTE if padding occurres, there does not seem to be no duplication/triplication of 255 or 0, so must not try to fix!
-		if(padding === 0 && (buffer[i] === 0 || buffer[i] === 255)){
+		// NOTE if e.g. 24-bit padding occurres, there does not seem to be no duplication/triplication of 255 or 0, so must not try to fix!
+		if(applyFix && (buffer[i] === 0 || buffer[i] === 255)){
 
 			jump = 0;
 			isPrint = true;
@@ -224,12 +416,12 @@ var FLAC__STREAM_DECODER_WRITE_STATUS_ABORT = 1;
  * @interface FLAC__StreamDecoderInitStatus
  * @memberOf Flac
  *
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_OK"}	0 	Initialization was successful.
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}	1 	The library was not compiled with support for the given container format.
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS"}	2 	A required callback was not supplied.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_OK"}						0 	Initialization was successful.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}		1 	The library was not compiled with support for the given container format.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS"}			2 	A required callback was not supplied.
  * @property {"FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR"}	3 	An error occurred allocating memory.
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE"}	4 	fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED"}	5 	FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE"}		4 	fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED"}		5 	FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
  */
 var FLAC__STREAM_DECODER_INIT_STATUS_OK	= 0;
 var FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER	= 1;
@@ -242,25 +434,25 @@ var FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED = 5;
  * @interface FLAC__StreamEncoderInitStatus
  * @memberOf Flac
  *
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_OK"}	0 	Initialization was successful.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR"}	1 	General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}	2 	The library was not compiled with support for the given container format.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS"}	3 	A required callback was not supplied.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS"}	4 	The encoder has an invalid setting for number of channels.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE"}	5 	The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE"}	6 	The encoder has an invalid setting for the input sample rate.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE"}	7 	The encoder has an invalid setting for the block size.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER"}	8 	The encoder has an invalid setting for the maximum LPC order.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION"}	9 	The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_OK"}									0 	Initialization was successful.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR"}							1 	General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}					2 	The library was not compiled with support for the given container format.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS"}						3 	A required callback was not supplied.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS"}			4 	The encoder has an invalid setting for number of channels.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE"}				5 	The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE"}					6 	The encoder has an invalid setting for the input sample rate.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE"}					7 	The encoder has an invalid setting for the block size.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER"}					8 	The encoder has an invalid setting for the maximum LPC order.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION"}			9 	The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
  * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER"}	10 	The specified block size is less than the maximum LPC order.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE"}	11 	The encoder is bound to the Subset but other settings violate it.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA"}	12 	The metadata input to the encoder is invalid, in one of the following ways:
- *																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
- *																	      One of the metadata blocks contains an undefined type
- *																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
- *																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
- *																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED"}	13 	FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE"}						11 	The encoder is bound to the Subset but other settings violate it.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA"}						12 	The metadata input to the encoder is invalid, in one of the following ways:
+ *																						      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
+ *																						      One of the metadata blocks contains an undefined type
+ *																						      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
+ *																						      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
+ *																						      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED"}					13 	FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
  */
 var FLAC__STREAM_ENCODER_INIT_STATUS_OK = 0;
 var FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR = 1;
@@ -329,10 +521,42 @@ function setCallback(p_coder, func_type, callback){
 	coders[p_coder][func_type] = callback;
 }
 
+/**
+ * Get coding options for the encoder / decoder instance:
+ * returns FALSY when not set.
+ *
+ * @param {Number} p_coder
+ * 			the encoder/decoder pointer (ID)
+ * @returns {CodingOptions} the coding options
+ * @private
+ * @memberOf Flac
+ */
+function _getOptions(p_coder){
+	if(coders[p_coder]){
+		return coders[p_coder]["options"];
+	}
+}
+
+/**
+ * Set coding options for an encoder / decoder instance (will / should be deleted, when finish()/delete())
+ *
+ * @param {Number} p_coder
+ * 			the encoder/decoder pointer (ID)
+ * @param {CodingOptions} options
+ * 			the coding options
+ * @private
+ * @memberOf Flac
+ */
+function _setOptions(p_coder, options){
+	if(!coders[p_coder]){
+		coders[p_coder] = {};
+	}
+	coders[p_coder]["options"] = options;
+}
+
 //(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data)
 // -> FLAC__StreamEncoderWriteStatus
 var enc_write_fn_ptr = addFunction(function(p_encoder, buffer, bytes, samples, current_frame, p_client_data){
-	var arraybuf = new ArrayBuffer(buffer);
 	var retdata = new Uint8Array(bytes);
 	retdata.set(HEAPU8.subarray(buffer, buffer + bytes));
 	var write_callback_fn = getCallback(p_encoder, 'write');
@@ -342,7 +566,7 @@ var enc_write_fn_ptr = addFunction(function(p_encoder, buffer, bytes, samples, c
 		console.error(err);
 		return FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR;
 	}
-	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK
+	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK;
 }, 'iiiiiii');
 
 //(const FLAC__StreamDecoder *decoder, FLAC__byte buffer[], size_t *bytes, void *client_data)
@@ -388,22 +612,26 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 	// var dec = Module.getValue(p_decoder,'i32');
 	// var clientData = Module.getValue(p_client_data,'i32');
 
-	var frameInfo = _readFrameHdr(p_frame);
+	var dec_opts = _getOptions(p_decoder);
+	var frameInfo = _readFrameHdr(p_frame, dec_opts);
 
 //	console.log(frameInfo);//DEBUG
 
 	var channels = frameInfo.channels;
 	var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
 
+	//whether or not to apply data fixing heuristics (e.g. not needed for 24-bit samples)
+	var isFix = frameInfo.bitsPerSample !== 24;
+
 	//take padding bits into account for calculating buffer size
-	//FIXME do this gererically(?) ... for now hard-coded handling for 24-bit which is padded with 1 extra bit
-	var padding = frameInfo.bitsPerSample === 24? 1 : 0;
+	// -> seems to be done for uneven byte sizes, i.e. 1 (8 bits) and 3 (24 bits)
+	var padding = (frameInfo.bitsPerSample / 8)%2;
 	if(padding > 0){
 		block_size += frameInfo.blocksize * padding;
 	}
 
 	var data = [];//<- array for the data of each channel
-	var bufferOffset, heapView, _buffer;
+	var bufferOffset, _buffer;
 
 	for(var i=0; i < channels; ++i){
 
@@ -411,7 +639,7 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 
 		_buffer = new Uint8Array(block_size);
 		//FIXME HACK for "strange" data (see helper function __fix_write_buffer)
-		__fix_write_buffer(bufferOffset, _buffer, padding);
+		__fix_write_buffer(bufferOffset, _buffer, isFix);
 
 		data.push(_buffer.subarray(0, block_size));
 	}
@@ -431,8 +659,8 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
  * <br>
  * If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.
  *
- * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"}					0   An error in the stream caused the decoder to lose synchronization.
- * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"}  				1   The decoder encountered a corrupted frame header.
+ * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"}			0   An error in the stream caused the decoder to lose synchronization.
+ * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"}  			1   The decoder encountered a corrupted frame header.
  * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"}	2   The frame's data did not match the CRC in the footer.
  * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"}	3   The decoder encountered reserved fields in use in the stream.
  *
@@ -545,7 +773,7 @@ var remove_event_listener = function (eventName, listener){
  * HELPER: fire an event
  * @param  {string} eventName
  * 										the event name
- * @param  {Array<any>} [args] OPITIONAL
+ * @param  {any[]} [args] OPITIONAL
  * 										the arguments when triggering the listeners
  * @param  {boolean} [isPersist] OPTIONAL (positinal argument!)
  * 										if TRUE, handlers for this event that will be registered after this will get triggered immediately
@@ -592,6 +820,29 @@ var _exported = {
 	_clear_dec_cb: function(dec_ptr){//internal function: remove reference to decoder instance and its callbacks
 		delete coders[dec_ptr];
 	},
+	/**
+	 * Additional options for encoding or decoding
+	 * @interface CodingOptions
+	 * @memberOf Flac
+	 * @property {boolean}  [analyseSubframes] for decoding: include subframes metadata in write-callback metadata, DEFAULT: false
+	 * @property {boolean}  [analyseResiduals] for decoding: include residual data in subframes metadata in write-callback metadata, NOTE {@link #analyseSubframes} muste also be enabled, DEFAULT: false
+	 *
+	 * @see Flac#setOptions
+	 */
+	/**
+	 * @function
+	 * @public
+	 * @memberOf Flac#
+	 * @copydoc Flac._setOptions
+	 */
+	setOptions: _setOptions,
+	/**
+	 * @function
+	 * @public
+	 * @memberOf Flac#
+	 * @copydoc Flac._getOptions
+	 */
+	getOptions: _getOptions,
 	/**
 	 * Returns if Flac has been initialized / is ready to be used.
 	 *
@@ -648,11 +899,44 @@ var _exported = {
 	 * @event ReadyEvent
 	 * @memberOf Flac
 	 * @type {object}
-	 * @property {string} type 	the type of the event <code>"ready"</code>
+	 * @property {"ready"} type 	the type of the event <code>"ready"</code>
 	 * @property {Flac} target 	the initalized FLAC library instance
 	 *
 	 * @see #isReady
 	 * @see #on
+	 */
+	/**
+	 * Created event: is fired when an encoder or decoder was created.
+	 *
+	 * @event CreatedEvent
+	 * @memberOf Flac
+	 * @type {object}
+	 * @property {"created"} type 	the type of the event <code>"created"</code>
+	 * @property {Flac.CoderChangedEventData} target 	the information for the created encoder or decoder
+	 *
+	 * @see #on
+	 */
+	/**
+	 * Destroyed event: is fired when an encoder or decoder was destroyed.
+	 *
+	 * @event DestroyedEvent
+	 * @memberOf Flac
+	 * @type {object}
+	 * @property {"destroyed"} type 	the type of the event <code>"destroyed"</code>
+	 * @property {Flac.CoderChangedEventData} target 	the information for the destroyed encoder or decoder
+	 *
+	 * @see #on
+	 */
+	/**
+	 * Life cycle event data for signaling life cycle changes of encoder or decoder instances
+	 * @interface CoderChangedEventData
+	 * @memberOf Flac
+	 * @property {number}  id  the ID for the encoder or decoder instance
+	 * @property {"encoder" | "decoder"}  type  signifies whether the event is for an encoder or decoder instance
+	 * @property {any}  [data]  specific data for the life cycle change
+	 *
+	 * @see Flac.event:CreatedEvent
+	 * @see Flac.event:DestroyedEvent
 	 */
 	/**
 	 * Add an event listener for module-events.
@@ -660,6 +944,10 @@ var _exported = {
 	 * <ul>
 	 *  <li> <code>"ready"</code> &rarr; {@link Flac.event:ReadyEvent}: emitted when module is ready for usage (i.e. {@link #isReady} is true)<br/>
 	 *             <em>NOTE listener will get immediately triggered if module is already <code>"ready"</code></em>
+	 *  </li>
+	 *  <li> <code>"created"</code> &rarr; {@link Flac.event:CreatedEvent}: emitted when an encoder or decoder instance was created<br/>
+	 *  </li>
+	 *  <li> <code>"destroyed"</code> &rarr; {@link Flac.event:DestroyedEvent}: emitted when an encoder or decoder instance was destroyed<br/>
 	 *  </li>
 	 * </ul>
 	 *
@@ -671,6 +959,8 @@ var _exported = {
 	 * @see #off
 	 * @see #onready
 	 * @see Flac.event:ReadyEvent
+	 * @see Flac.event:CreatedEvent
+	 * @see Flac.event:DestroyedEvent
 	 * @example
 	 *  Flac.on('ready', function(event){
 	 *     //gets executed when library is ready, or becomes ready...
@@ -912,6 +1202,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		ok &= Module.ccall('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number'], [ encoder, block_size ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_total_samples_estimate', 'number', ['number', 'number'], [ encoder, total_samples ]);
 		if (ok){
+			do_fire_event('created', [{type: 'created', target: {id: encoder, type: 'encoder'}}], false);
 			return encoder;
 		}
 		return 0;
@@ -944,6 +1235,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		var decoder = Module.ccall('FLAC__stream_decoder_new', 'number', [ ], [ ]);
 		ok &= Module.ccall('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number'], [ decoder, is_verify ]);
 		if (ok){
+			do_fire_event('created', [{type: 'created', target: {id: decoder, type: 'decoder'}}], false);
 			return decoder;
 		}
 		return 0;
@@ -1013,8 +1305,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				<code>true</code> will set a default serial number (<code>1</code>),
 	 * 				if specified as number, it will be used as the stream's serial number within the ogg container.
 	 *
-	 * @returns {number} the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>),
-	 * 					 see {@link Flac.FLAC__StreamEncoderInitStatus}
+	 * @returns {Flac.FLAC__StreamEncoderInitStatus} the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>)
 	 *
 	 * @memberOf Flac#
 	 * @function
@@ -1141,7 +1432,99 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @property {number}  blocksize the block size (bytes)
 	 * @property {number}  number the number of the decoded samples or frames
 	 * @property {string}  numberType the type to which <code>number</code> refers to: either <code>"frames"</code> or <code>"samples"</code>
+	 * @property {Flac.FLAC__ChannelAssignment} channelAssignment the channel assignment
 	 * @property {string}  crc the MD5 checksum for the decoded data, if validation is enabled
+	 * @property {Flac.SubFrameMetadata[]}  [subframes] the metadata of the subframes. The array length corresponds to the number of channels. NOTE will only be included if {@link Flac.CodingOptions CodingOptions.analyseSubframes} is enabled for the decoder.
+	 *
+	 * @see Flac.CodingOptions
+	 * @see Flac#setOptions
+	 */
+	/**
+	 * FLAC subframe metadata
+	 * @interface SubFrameMetadata
+	 * @memberOf Flac
+	 *
+	 * @property {Flac.FLAC__SubframeType}  type the type of the subframe
+	 * @property {number|Flac.FixedSubFrameData|Flac.LPCSubFrameData}  data the type specific metadata for subframe
+	 * @property {number}  wastedBits the wasted bits-per-sample
+	 */
+	/**
+	 * metadata for FIXED subframe type
+	 * @interface FixedSubFrameData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The polynomial order.
+	 * @property {number[]}  warmup  Warmup samples to prime the predictor, length == order.
+	 * @property {Flac.SubFramePartition}  partition  The residual coding method.
+	 * @property {number[]}  [residual]  The residual signal, length == (blocksize minus order) samples.
+	 * 									NOTE will only be included if {@link Flac.CodingOptions CodingOptions.analyseSubframes} is enabled for the decoder.
+	 */
+	/**
+	 * metadata for LPC subframe type
+	 * @interface LPCSubFrameData
+	 * @augments Flac.FixedSubFrameData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The FIR order.
+	 * @property {number[]}  qlp_coeff  FIR filter coefficients.
+	 * @property {number}  qlp_coeff_precision  Quantized FIR filter coefficient precision in bits.
+	 * @property {number}  quantization_level The qlp coeff shift needed.
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partitions
+	 * @interface SubFramePartition
+	 * @memberOf Flac
+	 *
+	 * @property {Flac.FLAC__EntropyCodingMethodType}  type  the entropy coding method
+	 * @property {Flac.SubFramePartitionData}  data  metadata for a Rice partitioned residual
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partition data
+	 * @interface SubFramePartitionData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The partition order, i.e. # of contexts = 2 ^ order.
+	 * @property {Flac.SubFramePartitionContent}  contents  The context's Rice parameters and/or raw bits.
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partition data content
+	 * @interface SubFramePartitionContent
+	 * @memberOf Flac
+	 *
+	 * @property {number[]}  parameters  The Rice parameters for each context.
+	 * @property {number[]}  rawBits  Widths for escape-coded partitions. Will be non-zero for escaped partitions and zero for unescaped partitions.
+	 * @property {number}  capacityByOrder  The capacity of the parameters and raw_bits arrays specified as an order, i.e. the number of array elements allocated is 2 ^ capacity_by_order.
+	 */
+	/**
+	 * The types for FLAC subframes
+	 *
+	 * @interface FLAC__SubframeType
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__SUBFRAME_TYPE_CONSTANT"} 	0	constant signal
+	 * @property {"FLAC__SUBFRAME_TYPE_VERBATIM"} 	1	uncompressed signal
+	 * @property {"FLAC__SUBFRAME_TYPE_FIXED"} 		2	fixed polynomial prediction
+	 * @property {"FLAC__SUBFRAME_TYPE_LPC"} 		3	linear prediction
+	 */
+	/**
+	 * The channel assignment for the (decoded) frame.
+	 *
+	 * @interface FLAC__ChannelAssignment
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_INDEPENDENT"} 		0	independent channels
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_LEFT_SIDE"}  		1	left+side stereo
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_RIGHT_SIDE"} 		2	right+side stereo
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_MID_SIDE"}			3	mid+side stereo
+	 */
+	/**
+	 * entropy coding methods
+	 *
+	 * @interface FLAC__EntropyCodingMethodType
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE"} 	0	Residual is coded by partitioning into contexts, each with it's own 4-bit Rice parameter.
+	 * @property {"FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2"} 	1	Residual is coded by partitioning into contexts, each with it's own 5-bit Rice parameter.
 	 */
 	/**
 	 * Initialize the decoder.
@@ -1171,8 +1554,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				<code>true</code> will use the default serial number, if specified as number the
 	 * 				corresponding stream with the serial number from the ogg container will be used.
 	 *
-	 * @returns {number} the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>),
-	 * 					 see {@link Flac.FLAC__StreamDecoderInitStatus}
+	 * @returns {Flac.FLAC__StreamDecoderInitStatus} the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>)
 	 *
 	 * @memberOf Flac#
 	 * @function
@@ -1228,8 +1610,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 				[
 					 decoder,
 					 dec_read_fn_ptr,
-					 0,// FLAC__StreamDecoderSeekCallback
-					 0,// FLAC__StreamDecoderTellCallback
+					 0,// 	FLAC__StreamDecoderSeekCallback
+					 0,// 	FLAC__StreamDecoderTellCallback
 					 0,//	FLAC__StreamDecoderLengthCallback
 					 0,//	FLAC__StreamDecoderEofCallback
 					 dec_write_fn_ptr,
@@ -1356,15 +1738,15 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @memberOf Flac
 	 *
 	 * @property {"FLAC__STREAM_DECODER_SEARCH_FOR_METADATA"} 		0	The decoder is ready to search for metadata
-	 * @property {"FLAC__STREAM_DECODER_READ_METADATA"}  					1	The decoder is ready to or is in the process of reading metadata
+	 * @property {"FLAC__STREAM_DECODER_READ_METADATA"}  			1	The decoder is ready to or is in the process of reading metadata
 	 * @property {"FLAC__STREAM_DECODER_SEARCH_FOR_FRAME_SYNC"} 	2	The decoder is ready to or is in the process of searching for the frame sync code
-	 * @property {"FLAC__STREAM_DECODER_READ_FRAME"}							3	The decoder is ready to or is in the process of reading a frame
-	 * @property {"FLAC__STREAM_DECODER_END_OF_STREAM"}						4	The decoder has reached the end of the stream
-	 * @property {"FLAC__STREAM_DECODER_OGG_ERROR"}								5	An error occurred in the underlying Ogg layer
-	 * @property {"FLAC__STREAM_DECODER_SEEK_ERROR"}							6	An error occurred while seeking. The decoder must be flushed with FLAC__stream_decoder_flush() or reset with FLAC__stream_decoder_reset() before decoding can continue
-	 * @property {"FLAC__STREAM_DECODER_ABORTED"}									7	The decoder was aborted by the read callback
+	 * @property {"FLAC__STREAM_DECODER_READ_FRAME"}				3	The decoder is ready to or is in the process of reading a frame
+	 * @property {"FLAC__STREAM_DECODER_END_OF_STREAM"}				4	The decoder has reached the end of the stream
+	 * @property {"FLAC__STREAM_DECODER_OGG_ERROR"}					5	An error occurred in the underlying Ogg layer
+	 * @property {"FLAC__STREAM_DECODER_SEEK_ERROR"}				6	An error occurred while seeking. The decoder must be flushed with FLAC__stream_decoder_flush() or reset with FLAC__stream_decoder_reset() before decoding can continue
+	 * @property {"FLAC__STREAM_DECODER_ABORTED"}					7	The decoder was aborted by the read callback
 	 * @property {"FLAC__STREAM_DECODER_MEMORY_ALLOCATION_ERROR"}	8	An error occurred allocating memory. The decoder is in an invalid state and can no longer be used
-	 * @property {"FLAC__STREAM_DECODER_UNINITIALIZED"}						9	The decoder is in the uninitialized state; one of the FLAC__stream_decoder_init_*() functions must be called before samples can be processed.
+	 * @property {"FLAC__STREAM_DECODER_UNINITIALIZED"}				9	The decoder is in the uninitialized state; one of the FLAC__stream_decoder_init_*() functions must be called before samples can be processed.
 	 *
 	 */
 	/**
@@ -1372,11 +1754,10 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
-	 * @returns {number} the decoder state, see {@link Flac.FLAC__StreamDecoderState}
+	 * @returns {Flac.FLAC__StreamDecoderState} the decoder state
 	 *
 	 * @memberOf Flac#
 	 * @function
-	 * @see .FLAC__StreamDecoderState
 	 */
 	FLAC__stream_decoder_get_state: Module.cwrap('FLAC__stream_decoder_get_state', 'number', ['number']),
 
@@ -1386,15 +1767,15 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @interface FLAC__StreamEncoderState
 	 * @memberOf Flac
 	 *
-	 * @property {"FLAC__STREAM_ENCODER_OK"}														0 	The encoder is in the normal OK state and samples can be processed.
-	 * @property {"FLAC__STREAM_ENCODER_UNINITIALIZED"}									1 	The encoder is in the uninitialized state; one of the FLAC__stream_encoder_init_*() functions must be called before samples can be processed.
-	 * @property {"FLAC__STREAM_ENCODER_OGG_ERROR"}											2 	An error occurred in the underlying Ogg layer.
-	 * @property {"FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR"}					3 	An error occurred in the underlying verify stream decoder; check FLAC__stream_encoder_get_verify_decoder_state().
-	 * @property {"FLAC__STREAM_ENCODER_VERIFY_MISMATCH_IN_AUDIO_DATA"}	4 	The verify decoder detected a mismatch between the original audio signal and the decoded audio signal.
-	 * @property {"FLAC__STREAM_ENCODER_CLIENT_ERROR"}									5 	One of the callbacks returned a fatal error.
-	 * @property {"FLAC__STREAM_ENCODER_IO_ERROR"}											6 	An I/O error occurred while opening/reading/writing a file. Check errno.
-	 * @property {"FLAC__STREAM_ENCODER_FRAMING_ERROR"}									7 	An error occurred while writing the stream; usually, the write_callback returned an error.
-	 * @property {"FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR"}				8 	Memory allocation failed.
+	 * @property {"FLAC__STREAM_ENCODER_OK"}								0 	The encoder is in the normal OK state and samples can be processed.
+	 * @property {"FLAC__STREAM_ENCODER_UNINITIALIZED"}						1 	The encoder is in the uninitialized state; one of the FLAC__stream_encoder_init_*() functions must be called before samples can be processed.
+	 * @property {"FLAC__STREAM_ENCODER_OGG_ERROR"}							2 	An error occurred in the underlying Ogg layer.
+	 * @property {"FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR"}				3 	An error occurred in the underlying verify stream decoder; check FLAC__stream_encoder_get_verify_decoder_state().
+	 * @property {"FLAC__STREAM_ENCODER_VERIFY_MISMATCH_IN_AUDIO_DATA"}		4 	The verify decoder detected a mismatch between the original audio signal and the decoded audio signal.
+	 * @property {"FLAC__STREAM_ENCODER_CLIENT_ERROR"}						5 	One of the callbacks returned a fatal error.
+	 * @property {"FLAC__STREAM_ENCODER_IO_ERROR"}							6 	An I/O error occurred while opening/reading/writing a file. Check errno.
+	 * @property {"FLAC__STREAM_ENCODER_FRAMING_ERROR"}						7 	An error occurred while writing the stream; usually, the write_callback returned an error.
+	 * @property {"FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR"}			8 	Memory allocation failed.
 	 *
 	 */
 	/**
@@ -1402,11 +1783,10 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} encoder
 	 * 				the ID of the encoder instance
 	 *
-	 * @returns {number} the encoder state, see {@link Flac.FLAC__StreamEncoderState}
+	 * @returns {Flac.FLAC__StreamEncoderState} the encoder state
 	 *
 	 * @memberOf Flac#
 	 * @function
-	 * @see Flac.FLAC__StreamEncoderState
 	 */
 	FLAC__stream_encoder_get_state:  Module.cwrap('FLAC__stream_encoder_get_state', 'number', ['number']),
 
@@ -1485,7 +1865,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 */
 	FLAC__stream_encoder_delete: function(encoder){
 		this._clear_enc_cb(encoder);//<- remove callback references
-		return Module.ccall('FLAC__stream_encoder_delete', 'number', [ 'number' ], [encoder]);
+		Module.ccall('FLAC__stream_encoder_delete', 'number', [ 'number' ], [encoder]);
+		do_fire_event('destroyed', [{type: 'destroyed', target: {id: encoder, type: 'encoder'}}], false);
 	},
 	/**
 	 * Delete the decoder instance, and free up its resources.
@@ -1498,7 +1879,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 */
 	FLAC__stream_decoder_delete: function(decoder){
 		this._clear_dec_cb(decoder);//<- remove callback references
-		return Module.ccall('FLAC__stream_decoder_delete', 'number', [ 'number' ], [decoder]);
+		Module.ccall('FLAC__stream_decoder_delete', 'number', [ 'number' ], [decoder]);
+		do_fire_event('destroyed', [{type: 'destroyed', target: {id: decoder, type: 'decoder'}}], false);
 	}
 
 };//END: var _exported = {
