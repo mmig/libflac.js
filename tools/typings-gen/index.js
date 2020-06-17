@@ -409,7 +409,7 @@ function toTypeStr(type){
 	// if(type === 'TypedArray'){
 	// 	return 'FlacClass.TypedArray';
 	// }
-	return type.replace(/^Flac[#~.](event:)?/, '').replace(/^Array\.</,'Array<');
+	return type.replace(/\bFlac[#~.](event:)?\b/, '').replace(/^Array\.</,'Array<');
 }
 
 function indentStr(indent){
