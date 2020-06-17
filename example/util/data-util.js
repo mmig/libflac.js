@@ -406,6 +406,13 @@ function wav_file_processing_read_parameters(ui8_data){
 	}
 }
 
+
+function wav_file_processing_convert_to32bitdata(arraybuffer, bps){
+	if(bps === 16){
+		return wav_file_processing_convert_16bitdata_to32bitdata(arraybuffer);
+	}
+}
+
 /**
  *  converts the PCM data of the wav file (each sample stored as 16 bit value) into
  *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)

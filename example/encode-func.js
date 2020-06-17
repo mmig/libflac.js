@@ -39,6 +39,16 @@ function encodeFlac(binData, recBuffers, isVerify, isUseOgg){
 	console.log("block_align  : " + wav_parameters.block_align);
 	console.log("total_samples: " + wav_parameters.total_samples);
 
+	// convert the PCM-Data to the appropriate format for the libflac library methods (32-bit array of samples)
+	// creates a new array (32-bit) and stores the 16-bit data of the wav-file as 32-bit data
+	var buffer_i32 = wav_file_processing_convert_to32bitdata(ui8_data.buffer, wav_parameters.bps, wav_parameters.block_align);
+
+	if(!buffer_i32){
+		var msg = 'Unsupported WAV format';
+		console.error(msg);
+		return {error: msg, status: 1};
+	}
+
 	var tot_samples = 0;
 	var compression_level = 5;
 	var flac_ok = 1;
@@ -51,19 +61,19 @@ function encodeFlac(binData, recBuffers, isVerify, isUseOgg){
 		flac_ok &= init_status == 0;
 		console.log("flac init: " + flac_ok);
 	} else {
+		Flac.FLAC__stream_encoder_delete(flac_encoder);
 		var msg = 'Error initializing the decoder.';
 		console.error(msg);
 		return {error: msg, status: 1};
 	}
 
-	// convert the PCM-Data to the appropriate format for the libflac library methods (32-bit array of samples)
-	// creates a new array (32-bit) and stores the 16-bit data of the wav-file as 32-bit data
-	var buffer_i32 = wav_file_processing_convert_16bitdata_to32bitdata(ui8_data.buffer);
-
 	var flac_return = Flac.FLAC__stream_encoder_process_interleaved(flac_encoder, buffer_i32, buffer_i32.length / wav_parameters.channels);
 
 	if (flac_return != true){
-		console.log("Error: FLAC__stream_encoder_process_interleaved returned false. " + flac_return);
+		console.error("Error: FLAC__stream_encoder_process_interleaved returned false. " + flac_return);
+		flac_ok = Flac.FLAC__stream_encoder_get_state(flac_encoder);
+		Flac.FLAC__stream_encoder_delete(flac_encoder);
+		return {error: 'Encountered error while encoding.', status: flac_ok};
 	}
 
 	flac_ok &= Flac.FLAC__stream_encoder_finish(flac_encoder);
