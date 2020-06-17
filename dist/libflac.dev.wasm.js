@@ -1,7 +1,4 @@
-// Copyright 2010 The Emscripten Authors.  All rights reserved.
-// Emscripten is available under two separate licenses, the MIT license and the
-// University of Illinois/NCSA Open Source License.  Both these licenses can be
-// found in the LICENSE file.
+
 
 // The Module object: Our interface to the outside world. We import
 // and export values on it. There are various ways Module can be used:
@@ -17,6 +14,8 @@
 // before the code. Then that object will be used in the code, and you
 // can continue to use Module afterwards as well.
 var Module = typeof Module !== 'undefined' ? Module : {};
+
+
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
@@ -183,6 +182,8 @@ if (ENVIRONMENT_IS_NODE) {
   }
 
 
+
+
   read_ = function shell_read(filename, binary) {
     if (!nodeFS) nodeFS = require('fs');
     if (!nodePath) nodePath = require('path');
@@ -296,6 +297,8 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
   {
 
 
+
+
   read_ = function shell_read(url) {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url, false);
@@ -359,9 +362,9 @@ moduleOverrides = null;
 // to the proper local x. This has two benefits: first, we only emit it if it is
 // expected to arrive, and second, by using a local everywhere else that can be
 // minified.
-if (Module['arguments']) arguments_ = Module['arguments'];if (!Object.getOwnPropertyDescriptor(Module, 'arguments')) Object.defineProperty(Module, 'arguments', { configurable: true, get: function() { abort('Module.arguments has been replaced with plain arguments_') } });
-if (Module['thisProgram']) thisProgram = Module['thisProgram'];if (!Object.getOwnPropertyDescriptor(Module, 'thisProgram')) Object.defineProperty(Module, 'thisProgram', { configurable: true, get: function() { abort('Module.thisProgram has been replaced with plain thisProgram') } });
-if (Module['quit']) quit_ = Module['quit'];if (!Object.getOwnPropertyDescriptor(Module, 'quit')) Object.defineProperty(Module, 'quit', { configurable: true, get: function() { abort('Module.quit has been replaced with plain quit_') } });
+if (Module['arguments']) arguments_ = Module['arguments'];if (!Object.getOwnPropertyDescriptor(Module, 'arguments')) Object.defineProperty(Module, 'arguments', { configurable: true, get: function() { abort('Module.arguments has been replaced with plain arguments_ (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
+if (Module['thisProgram']) thisProgram = Module['thisProgram'];if (!Object.getOwnPropertyDescriptor(Module, 'thisProgram')) Object.defineProperty(Module, 'thisProgram', { configurable: true, get: function() { abort('Module.thisProgram has been replaced with plain thisProgram (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
+if (Module['quit']) quit_ = Module['quit'];if (!Object.getOwnPropertyDescriptor(Module, 'quit')) Object.defineProperty(Module, 'quit', { configurable: true, get: function() { abort('Module.quit has been replaced with plain quit_ (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
 
 // perform assertions in shell.js after we set up out() and err(), as otherwise if an assertion fails it cannot print the message
 // Assertions on removed incoming Module JS APIs.
@@ -374,46 +377,23 @@ assert(typeof Module['readAsync'] === 'undefined', 'Module.readAsync option was 
 assert(typeof Module['readBinary'] === 'undefined', 'Module.readBinary option was removed (modify readBinary in JS)');
 assert(typeof Module['setWindowTitle'] === 'undefined', 'Module.setWindowTitle option was removed (modify setWindowTitle in JS)');
 assert(typeof Module['TOTAL_MEMORY'] === 'undefined', 'Module.TOTAL_MEMORY has been renamed Module.INITIAL_MEMORY');
-if (!Object.getOwnPropertyDescriptor(Module, 'read')) Object.defineProperty(Module, 'read', { configurable: true, get: function() { abort('Module.read has been replaced with plain read_') } });
-if (!Object.getOwnPropertyDescriptor(Module, 'readAsync')) Object.defineProperty(Module, 'readAsync', { configurable: true, get: function() { abort('Module.readAsync has been replaced with plain readAsync') } });
-if (!Object.getOwnPropertyDescriptor(Module, 'readBinary')) Object.defineProperty(Module, 'readBinary', { configurable: true, get: function() { abort('Module.readBinary has been replaced with plain readBinary') } });
-// TODO: add when SDL2 is fixed if (!Object.getOwnPropertyDescriptor(Module, 'setWindowTitle')) Object.defineProperty(Module, 'setWindowTitle', { configurable: true, get: function() { abort('Module.setWindowTitle has been replaced with plain setWindowTitle') } });
+if (!Object.getOwnPropertyDescriptor(Module, 'read')) Object.defineProperty(Module, 'read', { configurable: true, get: function() { abort('Module.read has been replaced with plain read_ (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
+if (!Object.getOwnPropertyDescriptor(Module, 'readAsync')) Object.defineProperty(Module, 'readAsync', { configurable: true, get: function() { abort('Module.readAsync has been replaced with plain readAsync (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
+if (!Object.getOwnPropertyDescriptor(Module, 'readBinary')) Object.defineProperty(Module, 'readBinary', { configurable: true, get: function() { abort('Module.readBinary has been replaced with plain readBinary (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
+if (!Object.getOwnPropertyDescriptor(Module, 'setWindowTitle')) Object.defineProperty(Module, 'setWindowTitle', { configurable: true, get: function() { abort('Module.setWindowTitle has been replaced with plain setWindowTitle (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
 var IDBFS = 'IDBFS is no longer included by default; build with -lidbfs.js';
 var PROXYFS = 'PROXYFS is no longer included by default; build with -lproxyfs.js';
 var WORKERFS = 'WORKERFS is no longer included by default; build with -lworkerfs.js';
 var NODEFS = 'NODEFS is no longer included by default; build with -lnodefs.js';
 
 
-// TODO remove when SDL2 is fixed (also see above)
 
 
 
-// Copyright 2017 The Emscripten Authors.  All rights reserved.
-// Emscripten is available under two separate licenses, the MIT license and the
-// University of Illinois/NCSA Open Source License.  Both these licenses can be
-// found in the LICENSE file.
 
 // {{PREAMBLE_ADDITIONS}}
 
 var STACK_ALIGN = 16;
-
-// stack management, and other functionality that is provided by the compiled code,
-// should not be used before it is ready
-
-/** @suppress{duplicate} */
-var stackSave;
-/** @suppress{duplicate} */
-var stackRestore;
-/** @suppress{duplicate} */
-var stackAlloc;
-
-stackSave = stackRestore = stackAlloc = function() {
-  abort('cannot use the stack before compiled code is ready to run, and has provided stack access');
-};
-
-function staticAlloc(size) {
-  abort('staticAlloc is no longer available at runtime; instead, perform static allocations at compile time (using makeStaticAlloc)');
-}
 
 function dynamicAlloc(size) {
   assert(DYNAMICTOP_PTR);
@@ -458,6 +438,8 @@ function warnOnce(text) {
     err(text);
   }
 }
+
+
 
 
 
@@ -550,9 +532,32 @@ function convertJsFunctionToWasm(func, sig) {
 
 var freeTableIndexes = [];
 
+// Weak map of functions in the table to their indexes, created on first use.
+var functionsInTableMap;
+
 // Add a wasm function to the table.
 function addFunctionWasm(func, sig) {
   var table = wasmTable;
+
+  // Check if the function is already in the table, to ensure each function
+  // gets a unique index. First, create the map if this is the first use.
+  if (!functionsInTableMap) {
+    functionsInTableMap = new WeakMap();
+    for (var i = 0; i < table.length; i++) {
+      var item = table.get(i);
+      // Ignore null values.
+      if (item) {
+        functionsInTableMap.set(item, i);
+      }
+    }
+  }
+  if (functionsInTableMap.has(func)) {
+    return functionsInTableMap.get(func);
+  }
+
+  // It's not in the table, add it now.
+
+
   var ret;
   // Reuse a free index if there is one, otherwise grow.
   if (freeTableIndexes.length) {
@@ -583,10 +588,13 @@ function addFunctionWasm(func, sig) {
     table.set(ret, wrapped);
   }
 
+  functionsInTableMap.set(func, ret);
+
   return ret;
 }
 
 function removeFunctionWasm(index) {
+  functionsInTableMap.delete(wasmTable.get(index));
   freeTableIndexes.push(index);
 }
 
@@ -637,6 +645,8 @@ function getFuncWrapper(func, sig) {
 
 
 
+
+
 function makeBigInt(low, high, unsigned) {
   return unsigned ? ((+((low>>>0)))+((+((high>>>0)))*4294967296.0)) : ((+((low>>>0)))+((+((high|0)))*4294967296.0));
 }
@@ -669,18 +679,12 @@ function getCompilerSetting(name) {
   throw 'You must build with -s RETAIN_COMPILER_SETTINGS=1 for getCompilerSetting or emscripten_get_compiler_setting to work';
 }
 
-var Runtime = {
-  // helpful errors
-  getTempRet0: function() { abort('getTempRet0() is now a top-level function, after removing the Runtime object. Remove "Runtime."') },
-  staticAlloc: function() { abort('staticAlloc() is now a top-level function, after removing the Runtime object. Remove "Runtime."') },
-  stackAlloc: function() { abort('stackAlloc() is now a top-level function, after removing the Runtime object. Remove "Runtime."') },
-};
-
 // The address globals begin at. Very low in memory, for code size and optimization opportunities.
 // Above 0 is static memory, starting with globals.
 // Then the stack.
 // Then 'dynamic' memory for sbrk.
 var GLOBAL_BASE = 1024;
+
 
 
 
@@ -696,13 +700,15 @@ var GLOBAL_BASE = 1024;
 //    is up at http://kripken.github.io/emscripten-site/docs/api_reference/preamble.js.html
 
 
-var wasmBinary;if (Module['wasmBinary']) wasmBinary = Module['wasmBinary'];if (!Object.getOwnPropertyDescriptor(Module, 'wasmBinary')) Object.defineProperty(Module, 'wasmBinary', { configurable: true, get: function() { abort('Module.wasmBinary has been replaced with plain wasmBinary') } });
-var noExitRuntime;if (Module['noExitRuntime']) noExitRuntime = Module['noExitRuntime'];if (!Object.getOwnPropertyDescriptor(Module, 'noExitRuntime')) Object.defineProperty(Module, 'noExitRuntime', { configurable: true, get: function() { abort('Module.noExitRuntime has been replaced with plain noExitRuntime') } });
+var wasmBinary;if (Module['wasmBinary']) wasmBinary = Module['wasmBinary'];if (!Object.getOwnPropertyDescriptor(Module, 'wasmBinary')) Object.defineProperty(Module, 'wasmBinary', { configurable: true, get: function() { abort('Module.wasmBinary has been replaced with plain wasmBinary (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
+var noExitRuntime;if (Module['noExitRuntime']) noExitRuntime = Module['noExitRuntime'];if (!Object.getOwnPropertyDescriptor(Module, 'noExitRuntime')) Object.defineProperty(Module, 'noExitRuntime', { configurable: true, get: function() { abort('Module.noExitRuntime has been replaced with plain noExitRuntime (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
 
 
 if (typeof WebAssembly !== 'object') {
   abort('No WebAssembly support found. Build with -s WASM=0 to target JavaScript instead.');
 }
+
+
 
 
 // In MINIMAL_RUNTIME, setValue() and getValue() are only available when building with safe heap enabled, for heap safety checking.
@@ -750,6 +756,7 @@ function getValue(ptr, type, noSafe) {
 
 
 
+
 // Wasm globals
 
 var wasmMemory;
@@ -792,7 +799,8 @@ function getCFunc(ident) {
 }
 
 // C calling interface.
-/** @param {Array=} argTypes
+/** @param {string|null=} returnType
+    @param {Array=} argTypes
     @param {Arguments|Array=} args
     @param {Object=} opts */
 function ccall(ident, returnType, argTypes, args, opts) {
@@ -843,7 +851,8 @@ function ccall(ident, returnType, argTypes, args, opts) {
   return ret;
 }
 
-/** @param {Array=} argTypes
+/** @param {string=} returnType
+    @param {Array=} argTypes
     @param {Object=} opts */
 function cwrap(ident, returnType, argTypes, opts) {
   return function() {
@@ -948,6 +957,8 @@ function getMemory(size) {
 }
 
 
+
+
 // runtime_strings.js: Strings related runtime functions that are part of both MINIMAL_RUNTIME and regular runtime.
 
 // Given a pointer 'ptr' to a null-terminated UTF8-encoded string in the given array that contains uint8 values, returns
@@ -960,16 +971,16 @@ var UTF8Decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf8') :
  * @param {number=} maxBytesToRead
  * @return {string}
  */
-function UTF8ArrayToString(u8Array, idx, maxBytesToRead) {
+function UTF8ArrayToString(heap, idx, maxBytesToRead) {
   var endIdx = idx + maxBytesToRead;
   var endPtr = idx;
   // TextDecoder needs to know the byte length in advance, it doesn't stop on null terminator by itself.
   // Also, use the length info to avoid running tiny strings through TextDecoder, since .subarray() allocates garbage.
   // (As a tiny code save trick, compare endPtr against endIdx using a negation, so that undefined means Infinity)
-  while (u8Array[endPtr] && !(endPtr >= endIdx)) ++endPtr;
+  while (heap[endPtr] && !(endPtr >= endIdx)) ++endPtr;
 
-  if (endPtr - idx > 16 && u8Array.subarray && UTF8Decoder) {
-    return UTF8Decoder.decode(u8Array.subarray(idx, endPtr));
+  if (endPtr - idx > 16 && heap.subarray && UTF8Decoder) {
+    return UTF8Decoder.decode(heap.subarray(idx, endPtr));
   } else {
     var str = '';
     // If building with TextDecoder, we have already computed the string length above, so test loop end condition against that
@@ -978,16 +989,16 @@ function UTF8ArrayToString(u8Array, idx, maxBytesToRead) {
       // http://en.wikipedia.org/wiki/UTF-8#Description
       // https://www.ietf.org/rfc/rfc2279.txt
       // https://tools.ietf.org/html/rfc3629
-      var u0 = u8Array[idx++];
+      var u0 = heap[idx++];
       if (!(u0 & 0x80)) { str += String.fromCharCode(u0); continue; }
-      var u1 = u8Array[idx++] & 63;
+      var u1 = heap[idx++] & 63;
       if ((u0 & 0xE0) == 0xC0) { str += String.fromCharCode(((u0 & 31) << 6) | u1); continue; }
-      var u2 = u8Array[idx++] & 63;
+      var u2 = heap[idx++] & 63;
       if ((u0 & 0xF0) == 0xE0) {
         u0 = ((u0 & 15) << 12) | (u1 << 6) | u2;
       } else {
         if ((u0 & 0xF8) != 0xF0) warnOnce('Invalid UTF-8 leading byte 0x' + u0.toString(16) + ' encountered when deserializing a UTF-8 string on the asm.js/wasm heap to a JS string!');
-        u0 = ((u0 & 7) << 18) | (u1 << 12) | (u2 << 6) | (u8Array[idx++] & 63);
+        u0 = ((u0 & 7) << 18) | (u1 << 12) | (u2 << 6) | (heap[idx++] & 63);
       }
 
       if (u0 < 0x10000) {
@@ -1025,7 +1036,7 @@ function UTF8ToString(ptr, maxBytesToRead) {
 // Use the function lengthBytesUTF8 to compute the exact number of bytes (excluding null terminator) that this function will write.
 // Parameters:
 //   str: the Javascript string to copy.
-//   outU8Array: the array to copy to. Each index in this array is assumed to be one 8-byte element.
+//   heap: the array to copy to. Each index in this array is assumed to be one 8-byte element.
 //   outIdx: The starting offset in the array to begin the copying.
 //   maxBytesToWrite: The maximum number of bytes this function can write to the array.
 //                    This count should include the null terminator,
@@ -1033,7 +1044,7 @@ function UTF8ToString(ptr, maxBytesToRead) {
 //                    maxBytesToWrite=0 does not write any bytes to the output, not even the null terminator.
 // Returns the number of bytes written, EXCLUDING the null terminator.
 
-function stringToUTF8Array(str, outU8Array, outIdx, maxBytesToWrite) {
+function stringToUTF8Array(str, heap, outIdx, maxBytesToWrite) {
   if (!(maxBytesToWrite > 0)) // Parameter maxBytesToWrite is not optional. Negative values, 0, null, undefined and false each don't write out any bytes.
     return 0;
 
@@ -1050,27 +1061,27 @@ function stringToUTF8Array(str, outU8Array, outIdx, maxBytesToWrite) {
     }
     if (u <= 0x7F) {
       if (outIdx >= endIdx) break;
-      outU8Array[outIdx++] = u;
+      heap[outIdx++] = u;
     } else if (u <= 0x7FF) {
       if (outIdx + 1 >= endIdx) break;
-      outU8Array[outIdx++] = 0xC0 | (u >> 6);
-      outU8Array[outIdx++] = 0x80 | (u & 63);
+      heap[outIdx++] = 0xC0 | (u >> 6);
+      heap[outIdx++] = 0x80 | (u & 63);
     } else if (u <= 0xFFFF) {
       if (outIdx + 2 >= endIdx) break;
-      outU8Array[outIdx++] = 0xE0 | (u >> 12);
-      outU8Array[outIdx++] = 0x80 | ((u >> 6) & 63);
-      outU8Array[outIdx++] = 0x80 | (u & 63);
+      heap[outIdx++] = 0xE0 | (u >> 12);
+      heap[outIdx++] = 0x80 | ((u >> 6) & 63);
+      heap[outIdx++] = 0x80 | (u & 63);
     } else {
       if (outIdx + 3 >= endIdx) break;
       if (u >= 0x200000) warnOnce('Invalid Unicode code point 0x' + u.toString(16) + ' encountered when serializing a JS string to an UTF-8 string on the asm.js/wasm heap! (Valid unicode code points should be in range 0-0x1FFFFF).');
-      outU8Array[outIdx++] = 0xF0 | (u >> 18);
-      outU8Array[outIdx++] = 0x80 | ((u >> 12) & 63);
-      outU8Array[outIdx++] = 0x80 | ((u >> 6) & 63);
-      outU8Array[outIdx++] = 0x80 | (u & 63);
+      heap[outIdx++] = 0xF0 | (u >> 18);
+      heap[outIdx++] = 0x80 | ((u >> 12) & 63);
+      heap[outIdx++] = 0x80 | ((u >> 6) & 63);
+      heap[outIdx++] = 0x80 | (u & 63);
     }
   }
   // Null-terminate the pointer to the buffer.
-  outU8Array[outIdx] = 0;
+  heap[outIdx] = 0;
   return outIdx - startIdx;
 }
 
@@ -1102,6 +1113,8 @@ function lengthBytesUTF8(str) {
 
 
 
+
+
 // runtime_strings_extra.js: Strings related runtime functions that are available only in regular runtime.
 
 // Given a pointer 'ptr' to a null-terminated ASCII-encoded string in the emscripten HEAP, returns
@@ -1128,13 +1141,16 @@ function stringToAscii(str, outPtr) {
 
 var UTF16Decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-16le') : undefined;
 
-function UTF16ToString(ptr) {
+function UTF16ToString(ptr, maxBytesToRead) {
   assert(ptr % 2 == 0, 'Pointer passed to UTF16ToString must be aligned to two bytes!');
   var endPtr = ptr;
   // TextDecoder needs to know the byte length in advance, it doesn't stop on null terminator by itself.
   // Also, use the length info to avoid running tiny strings through TextDecoder, since .subarray() allocates garbage.
   var idx = endPtr >> 1;
-  while (HEAP16[idx]) ++idx;
+  var maxIdx = idx + maxBytesToRead / 2;
+  // If maxBytesToRead is not passed explicitly, it will be undefined, and this
+  // will always evaluate to true. This saves on code size.
+  while (!(idx >= maxIdx) && HEAPU16[idx]) ++idx;
   endPtr = idx << 1;
 
   if (endPtr - ptr > 32 && UTF16Decoder) {
@@ -1145,7 +1161,7 @@ function UTF16ToString(ptr) {
     var str = '';
     while (1) {
       var codeUnit = HEAP16[(((ptr)+(i*2))>>1)];
-      if (codeUnit == 0) return str;
+      if (codeUnit == 0 || i == maxBytesToRead / 2) return str;
       ++i;
       // fromCharCode constructs a character from a UTF-16 code unit, so we can pass the UTF16 string right through.
       str += String.fromCharCode(codeUnit);
@@ -1192,15 +1208,16 @@ function lengthBytesUTF16(str) {
   return str.length*2;
 }
 
-function UTF32ToString(ptr) {
+function UTF32ToString(ptr, maxBytesToRead) {
   assert(ptr % 4 == 0, 'Pointer passed to UTF32ToString must be aligned to four bytes!');
   var i = 0;
 
   var str = '';
-  while (1) {
+  // If maxBytesToRead is not passed explicitly, it will be undefined, and this
+  // will always evaluate to true. This saves on code size.
+  while (!(i >= maxBytesToRead / 4)) {
     var utf32 = HEAP32[(((ptr)+(i*4))>>2)];
-    if (utf32 == 0)
-      return str;
+    if (utf32 == 0) break;
     ++i;
     // Gotcha: fromCharCode constructs a character from a UTF-16 encoded code (pair), not from a Unicode code point! So encode the code point to UTF-16 for constructing.
     // See http://unicode.org/faq/utf_bom.html#utf16-3
@@ -1211,6 +1228,7 @@ function UTF32ToString(ptr) {
       str += String.fromCharCode(utf32);
     }
   }
+  return str;
 }
 
 // Copies the given Javascript String object 'str' to the emscripten HEAP at address 'outPtr',
@@ -1377,11 +1395,10 @@ assert(STACK_BASE % 16 === 0, 'stack must start aligned');
 assert(DYNAMIC_BASE % 16 === 0, 'heap must start aligned');
 
 
-
 var TOTAL_STACK = 5242880;
 if (Module['TOTAL_STACK']) assert(TOTAL_STACK === Module['TOTAL_STACK'], 'the stack size can no longer be determined at runtime')
 
-var INITIAL_INITIAL_MEMORY = Module['INITIAL_MEMORY'] || 16777216;if (!Object.getOwnPropertyDescriptor(Module, 'INITIAL_MEMORY')) Object.defineProperty(Module, 'INITIAL_MEMORY', { configurable: true, get: function() { abort('Module.INITIAL_MEMORY has been replaced with plain INITIAL_INITIAL_MEMORY') } });
+var INITIAL_INITIAL_MEMORY = Module['INITIAL_MEMORY'] || 16777216;if (!Object.getOwnPropertyDescriptor(Module, 'INITIAL_MEMORY')) Object.defineProperty(Module, 'INITIAL_MEMORY', { configurable: true, get: function() { abort('Module.INITIAL_MEMORY has been replaced with plain INITIAL_INITIAL_MEMORY (the initial value can be provided on Module, but after startup the value is only looked for on a local variable of that name)') } });
 
 assert(INITIAL_INITIAL_MEMORY >= TOTAL_STACK, 'INITIAL_MEMORY should be larger than TOTAL_STACK, was ' + INITIAL_INITIAL_MEMORY + '! (TOTAL_STACK=' + TOTAL_STACK + ')');
 
@@ -1394,8 +1411,11 @@ assert(typeof Int32Array !== 'undefined' && typeof Float64Array !== 'undefined' 
 
 
 
-// In standalone mode, the wasm creates the memory, and the user can't provide it.
+
+
 // In non-standalone/normal mode, we create the memory here.
+
+
 
 // Create the main memory. (Note: this isn't used in STANDALONE_WASM mode since the wasm
 // memory is created in the wasm, not in JS.)
@@ -1406,6 +1426,8 @@ assert(typeof Int32Array !== 'undefined' && typeof Float64Array !== 'undefined' 
   {
     wasmMemory = new WebAssembly.Memory({
       'initial': INITIAL_INITIAL_MEMORY / WASM_PAGE_SIZE
+      ,
+      'maximum': 2147483648 / WASM_PAGE_SIZE
     });
   }
 
@@ -1418,9 +1440,12 @@ if (wasmMemory) {
 // specifically provide the memory length with Module['INITIAL_MEMORY'].
 INITIAL_INITIAL_MEMORY = buffer.byteLength;
 assert(INITIAL_INITIAL_MEMORY % WASM_PAGE_SIZE === 0);
+assert(65536 % WASM_PAGE_SIZE === 0);
 updateGlobalBufferAndViews(buffer);
 
 HEAP32[DYNAMICTOP_PTR>>2] = DYNAMIC_BASE;
+
+
 
 
 
@@ -1447,9 +1472,6 @@ function checkStackCookie() {
   if (HEAP32[0] !== 0x63736d65 /* 'emsc' */) abort('Runtime error: The application has corrupted its heap memory area (address zero)!');
 }
 
-function abortStackOverflow(allocSize) {
-  abort('Stack overflow! Attempted to allocate ' + allocSize + ' bytes on the stack, but stack has only ' + (STACK_MAX - stackSave() + allocSize) + ' bytes available!');
-}
 
 
 
@@ -1472,7 +1494,7 @@ function callRuntimeCallbacks(callbacks) {
   while(callbacks.length > 0) {
     var callback = callbacks.shift();
     if (typeof callback == 'function') {
-      callback();
+      callback(Module); // Pass the module as the first argument.
       continue;
     }
     var func = callback.func;
@@ -1584,6 +1606,8 @@ function reSign(value, bits, ignore) {
   }
   return value;
 }
+
+
 
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/imul
@@ -1708,7 +1732,6 @@ function removeRunDependency(id) {
 Module["preloadedImages"] = {}; // maps url to image data
 Module["preloadedAudios"] = {}; // maps url to audio data
 
-
 /** @param {string|number=} what */
 function abort(what) {
   if (Module['onAbort']) {
@@ -1741,23 +1764,48 @@ var memoryInitializer = null;
 
 
 
-// Copyright 2017 The Emscripten Authors.  All rights reserved.
-// Emscripten is available under two separate licenses, the MIT license and the
-// University of Illinois/NCSA Open Source License.  Both these licenses can be
-// found in the LICENSE file.
+
+
+
+
+function hasPrefix(str, prefix) {
+  return String.prototype.startsWith ?
+      str.startsWith(prefix) :
+      str.indexOf(prefix) === 0;
+}
 
 // Prefix of data URIs emitted by SINGLE_FILE and related options.
 var dataURIPrefix = 'data:application/octet-stream;base64,';
 
 // Indicates whether filename is a base64 data URI.
 function isDataURI(filename) {
-  return String.prototype.startsWith ?
-      filename.startsWith(dataURIPrefix) :
-      filename.indexOf(dataURIPrefix) === 0;
+  return hasPrefix(filename, dataURIPrefix);
+}
+
+var fileURIPrefix = "file://";
+
+// Indicates whether filename is delivered via file protocol (as opposed to http/https)
+function isFileURI(filename) {
+  return hasPrefix(filename, fileURIPrefix);
 }
 
 
 
+function createExportWrapper(name, fixedasm) {
+  return function() {
+    var displayName = name;
+    var asm = fixedasm;
+    if (!fixedasm) {
+      asm = Module['asm'];
+    }
+    assert(runtimeInitialized, 'native function `' + displayName + '` called before runtime initialization');
+    assert(!runtimeExited, 'native function `' + displayName + '` called after runtime exit (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
+    if (!asm[name]) {
+      assert(asm[name], 'exported native function `' + displayName + '` not found');
+    }
+    return asm[name].apply(null, arguments);
+  };
+}
 
 var wasmBinaryFile = 'libflac.dev.wasm.wasm';
 if (!isDataURI(wasmBinaryFile)) {
@@ -1782,9 +1830,12 @@ function getBinary() {
 }
 
 function getBinaryPromise() {
-  // if we don't have the binary yet, and have the Fetch api, use that
+  // If we don't have the binary yet, and have the Fetch api, use that;
   // in some environments, like Electron's render process, Fetch api may be present, but have a different context than expected, let's only use it on the Web
-  if (!wasmBinary && (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) && typeof fetch === 'function') {
+  if (!wasmBinary && (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) && typeof fetch === 'function'
+      // Let's not use fetch to get objects over file:// as it's most likely Cordova which doesn't support fetch for file://
+      && !isFileURI(wasmBinaryFile)
+      ) {
     return fetch(wasmBinaryFile, { credentials: 'same-origin' }).then(function(response) {
       if (!response['ok']) {
         throw "failed to load wasm binary file at '" + wasmBinaryFile + "'";
@@ -1819,7 +1870,7 @@ function createWasm() {
     Module['asm'] = exports;
     removeRunDependency('wasm-instantiate');
   }
-   // we can't run yet (except in a pthread, where we have a custom sync instantiator)
+  // we can't run yet (except in a pthread, where we have a custom sync instantiator)
   addRunDependency('wasm-instantiate');
 
 
@@ -1832,8 +1883,8 @@ function createWasm() {
     // receiveInstance() will swap in the exports (to Module.asm) so they can be called
     assert(Module === trueModule, 'the Module object should not be replaced during async compilation - perhaps the order of HTML elements is wrong?');
     trueModule = null;
-      // TODO: Due to Closure regression https://github.com/google/closure-compiler/issues/3193, the above line no longer optimizes out down to the following line.
-      // When the regression is fixed, can restore the above USE_PTHREADS-enabled path.
+    // TODO: Due to Closure regression https://github.com/google/closure-compiler/issues/3193, the above line no longer optimizes out down to the following line.
+    // When the regression is fixed, can restore the above USE_PTHREADS-enabled path.
     receiveInstance(output['instance']);
   }
 
@@ -1852,6 +1903,8 @@ function createWasm() {
     if (!wasmBinary &&
         typeof WebAssembly.instantiateStreaming === 'function' &&
         !isDataURI(wasmBinaryFile) &&
+        // Don't use streaming for file:// delivered objects in a webview, fetch them synchronously.
+        !isFileURI(wasmBinaryFile) &&
         typeof fetch === 'function') {
       fetch(wasmBinaryFile, { credentials: 'same-origin' }).then(function (response) {
         var result = WebAssembly.instantiateStreaming(response, info);
@@ -1860,7 +1913,7 @@ function createWasm() {
             // in which case falling back to ArrayBuffer instantiation should work.
             err('wasm streaming compile failed: ' + reason);
             err('falling back to ArrayBuffer instantiation');
-            instantiateArrayBuffer(receiveInstantiatedSource);
+            return instantiateArrayBuffer(receiveInstantiatedSource);
           });
       });
     } else {
@@ -1908,6 +1961,10 @@ var ASM_CONSTS = {
 // {{PRE_LIBRARY}}
 
 
+  function abortStackOverflow(allocSize) {
+      abort('Stack overflow! Attempted to allocate ' + allocSize + ' bytes on the stack, but stack has only ' + (STACK_MAX - stackSave() + allocSize) + ' bytes available!');
+    }
+
   function demangle(func) {
       warnOnce('warning: build with  -s DEMANGLE_SUPPORT=1  to link in libcxxabi demangling');
       return func;
@@ -1950,10 +2007,6 @@ var ASM_CONSTS = {
       abort('stack overflow')
     }
 
-  function _abort() {
-      abort();
-    }
-
   function _emscripten_get_sbrk_ptr() {
       return 14160;
     }
@@ -1970,13 +2023,14 @@ var ASM_CONSTS = {
   function emscripten_realloc_buffer(size) {
       try {
         // round size grow request up to wasm page size (fixed 64KB per spec)
-        wasmMemory.grow((size - buffer.byteLength + 65535) >> 16); // .grow() takes a delta compared to the previous size
+        wasmMemory.grow((size - buffer.byteLength + 65535) >>> 16); // .grow() takes a delta compared to the previous size
         updateGlobalBufferAndViews(wasmMemory.buffer);
         return 1 /*success*/;
       } catch(e) {
         console.error('emscripten_realloc_buffer: Attempted to grow heap from ' + buffer.byteLength  + ' bytes to ' + size + ' bytes, but got error: ' + e);
       }
     }function _emscripten_resize_heap(requestedSize) {
+      requestedSize = requestedSize >>> 0;
       var oldSize = _emscripten_get_heap_size();
       // With pthreads, races can happen (another thread might increase the size in between), so return a failure, and let the caller retry.
       assert(requestedSize > oldSize);
@@ -1995,7 +2049,9 @@ var ASM_CONSTS = {
       // 5. If we were unable to allocate as much memory, it may be due to over-eager decision to excessively reserve due to (3) above.
       //    Hence if an allocation fails, cut down on the amount of excess growth, in an attempt to succeed to perform a smaller allocation.
   
-      var maxHeapSize = 2147483648 - PAGE_MULTIPLE;
+      // A limit was set for how much we can grow. We should not exceed that
+      // (the wasm binary specifies it, so if we tried, we'd fail anyhow).
+      var maxHeapSize = 2147483648;
       if (requestedSize > maxHeapSize) {
         err('Cannot enlarge memory, asked to go up to ' + requestedSize + ' bytes, but the limit is ' + maxHeapSize + ' bytes!');
         return false;
@@ -2093,9 +2149,8 @@ var ASM_CONSTS = {
       }};
   
   
-  function ___setErrNo(value) {
-      if (Module['___errno_location']) HEAP32[((Module['___errno_location']())>>2)]=value;
-      else err('failed to set errno from JS');
+  function setErrNo(value) {
+      HEAP32[((___errno_location())>>2)]=value;
       return value;
     }
   
@@ -2394,7 +2449,7 @@ var ASM_CONSTS = {
         // For small filesizes (<1MB), perform size*2 geometric increase, but for large sizes, do a much more conservative size*1.125 increase to
         // avoid overshooting the allocation cap by a very large margin.
         var CAPACITY_DOUBLING_MAX = 1024 * 1024;
-        newCapacity = Math.max(newCapacity, (prevCapacity * (prevCapacity < CAPACITY_DOUBLING_MAX ? 2.0 : 1.125)) | 0);
+        newCapacity = Math.max(newCapacity, (prevCapacity * (prevCapacity < CAPACITY_DOUBLING_MAX ? 2.0 : 1.125)) >>> 0);
         if (prevCapacity != 0) newCapacity = Math.max(newCapacity, 256); // At minimum allocate 256b for each file when expanding.
         var oldContents = node.contents;
         node.contents = new Uint8Array(newCapacity); // Allocate new storage.
@@ -2564,7 +2619,7 @@ var ASM_CONSTS = {
              node.contents[position + i] = buffer[offset + i]; // Or fall back to manual write if not.
             }
           }
-          node.usedBytes = Math.max(node.usedBytes, position+length);
+          node.usedBytes = Math.max(node.usedBytes, position + length);
           return length;
         },llseek:function(stream, offset, whence) {
           var position = offset;
@@ -2582,9 +2637,10 @@ var ASM_CONSTS = {
         },allocate:function(stream, offset, length) {
           MEMFS.expandFileStorage(stream.node, offset + length);
           stream.node.usedBytes = Math.max(stream.node.usedBytes, offset + length);
-        },mmap:function(stream, buffer, offset, length, position, prot, flags) {
-          // The data buffer should be a typed array view
-          assert(!(buffer instanceof ArrayBuffer));
+        },mmap:function(stream, address, length, position, prot, flags) {
+          // We don't currently support location hints for the address of the mapping
+          assert(address === 0);
+  
           if (!FS.isFile(stream.node.mode)) {
             throw new FS.ErrnoError(43);
           }
@@ -2592,8 +2648,7 @@ var ASM_CONSTS = {
           var allocated;
           var contents = stream.node.contents;
           // Only make a new copy when MAP_PRIVATE is specified.
-          if ( !(flags & 2) &&
-                contents.buffer === buffer.buffer ) {
+          if (!(flags & 2) && contents.buffer === buffer) {
             // We can't emulate MAP_SHARED when the file is not backed by the buffer
             // we're mapping to (e.g. the HEAP buffer).
             allocated = false;
@@ -2608,14 +2663,11 @@ var ASM_CONSTS = {
               }
             }
             allocated = true;
-            // malloc() can lead to growing the heap. If targeting the heap, we need to
-            // re-acquire the heap buffer object in case growth had occurred.
-            var fromHeap = (buffer.buffer == HEAP8.buffer);
             ptr = _malloc(length);
             if (!ptr) {
               throw new FS.ErrnoError(48);
             }
-            (fromHeap ? HEAP8 : buffer).set(contents, ptr);
+            HEAP8.set(contents, ptr);
           }
           return { ptr: ptr, allocated: allocated };
         },msync:function(stream, buffer, offset, length, mmapFlags) {
@@ -2636,7 +2688,7 @@ var ASM_CONSTS = {
   
   var ERRNO_CODES={EPERM:63,ENOENT:44,ESRCH:71,EINTR:27,EIO:29,ENXIO:60,E2BIG:1,ENOEXEC:45,EBADF:8,ECHILD:12,EAGAIN:6,EWOULDBLOCK:6,ENOMEM:48,EACCES:2,EFAULT:21,ENOTBLK:105,EBUSY:10,EEXIST:20,EXDEV:75,ENODEV:43,ENOTDIR:54,EISDIR:31,EINVAL:28,ENFILE:41,EMFILE:33,ENOTTY:59,ETXTBSY:74,EFBIG:22,ENOSPC:51,ESPIPE:70,EROFS:69,EMLINK:34,EPIPE:64,EDOM:18,ERANGE:68,ENOMSG:49,EIDRM:24,ECHRNG:106,EL2NSYNC:156,EL3HLT:107,EL3RST:108,ELNRNG:109,EUNATCH:110,ENOCSI:111,EL2HLT:112,EDEADLK:16,ENOLCK:46,EBADE:113,EBADR:114,EXFULL:115,ENOANO:104,EBADRQC:103,EBADSLT:102,EDEADLOCK:16,EBFONT:101,ENOSTR:100,ENODATA:116,ETIME:117,ENOSR:118,ENONET:119,ENOPKG:120,EREMOTE:121,ENOLINK:47,EADV:122,ESRMNT:123,ECOMM:124,EPROTO:65,EMULTIHOP:36,EDOTDOT:125,EBADMSG:9,ENOTUNIQ:126,EBADFD:127,EREMCHG:128,ELIBACC:129,ELIBBAD:130,ELIBSCN:131,ELIBMAX:132,ELIBEXEC:133,ENOSYS:52,ENOTEMPTY:55,ENAMETOOLONG:37,ELOOP:32,EOPNOTSUPP:138,EPFNOSUPPORT:139,ECONNRESET:15,ENOBUFS:42,EAFNOSUPPORT:5,EPROTOTYPE:67,ENOTSOCK:57,ENOPROTOOPT:50,ESHUTDOWN:140,ECONNREFUSED:14,EADDRINUSE:3,ECONNABORTED:13,ENETUNREACH:40,ENETDOWN:38,ETIMEDOUT:73,EHOSTDOWN:142,EHOSTUNREACH:23,EINPROGRESS:26,EALREADY:7,EDESTADDRREQ:17,EMSGSIZE:35,EPROTONOSUPPORT:66,ESOCKTNOSUPPORT:137,EADDRNOTAVAIL:4,ENETRESET:39,EISCONN:30,ENOTCONN:53,ETOOMANYREFS:141,EUSERS:136,EDQUOT:19,ESTALE:72,ENOTSUP:138,ENOMEDIUM:148,EILSEQ:25,EOVERFLOW:61,ECANCELED:11,ENOTRECOVERABLE:56,EOWNERDEAD:62,ESTRPIPE:135};var FS={root:null,mounts:[],devices:{},streams:[],nextInode:1,nameTable:null,currentPath:"/",initialized:false,ignorePermissions:true,trackingDelegate:{},tracking:{openFlags:{READ:1,WRITE:2}},ErrnoError:null,genericErrors:{},filesystems:null,syncFSRequests:0,handleFSError:function(e) {
         if (!(e instanceof FS.ErrnoError)) throw e + ' : ' + stackTrace();
-        return ___setErrNo(e.errno);
+        return setErrNo(e.errno);
       },lookupPath:function(path, opts) {
         path = PATH_FS.resolve(FS.cwd(), path);
         opts = opts || {};
@@ -3455,7 +3507,7 @@ var ASM_CONSTS = {
           FS.truncate(node, 0);
         }
         // we've already handled these, don't pass down to the underlying vfs
-        flags &= ~(128 | 512);
+        flags &= ~(128 | 512 | 131072);
   
         // register the stream with the filesystem
         var stream = FS.createStream({
@@ -3566,7 +3618,7 @@ var ASM_CONSTS = {
         if (!stream.stream_ops.write) {
           throw new FS.ErrnoError(28);
         }
-        if (stream.flags & 1024) {
+        if (stream.seekable && stream.flags & 1024) {
           // seek to the end before writing in append mode
           FS.llseek(stream, 0, 2);
         }
@@ -3601,7 +3653,7 @@ var ASM_CONSTS = {
           throw new FS.ErrnoError(138);
         }
         stream.stream_ops.allocate(stream, offset, length);
-      },mmap:function(stream, buffer, offset, length, position, prot, flags) {
+      },mmap:function(stream, address, length, position, prot, flags) {
         // User requests writing to file (prot & PROT_WRITE != 0).
         // Checking if we have permissions to write to the file unless
         // MAP_PRIVATE flag is set. According to POSIX spec it is possible
@@ -3619,7 +3671,7 @@ var ASM_CONSTS = {
         if (!stream.stream_ops.mmap) {
           throw new FS.ErrnoError(43);
         }
-        return stream.stream_ops.mmap(stream, buffer, offset, length, position, prot, flags);
+        return stream.stream_ops.mmap(stream, address, length, position, prot, flags);
       },msync:function(stream, buffer, offset, length, mmapFlags) {
         if (!stream || !stream.stream_ops.msync) {
           return 0;
@@ -3874,7 +3926,7 @@ var ASM_CONSTS = {
         if (ret.exists) {
           return ret.object;
         } else {
-          ___setErrNo(ret.error);
+          setErrNo(ret.error);
           return null;
         }
       },analyzePath:function(path, dontResolveLastLink) {
@@ -4019,7 +4071,7 @@ var ASM_CONSTS = {
         } else {
           throw new Error('Cannot load without read() or XMLHttpRequest.');
         }
-        if (!success) ___setErrNo(29);
+        if (!success) setErrNo(29);
         return success;
       },createLazyFile:function(parent, name, url, canRead, canWrite) {
         // Lazy chunked Uint8Array (implements get and length from Uint8Array). Actual getting is abstracted away for eventual reuse.
@@ -4452,6 +4504,7 @@ var ASM_CONSTS = {
 
   function _fd_seek(fd, offset_low, offset_high, whence, newOffset) {try {
   
+      
       var stream = SYSCALLS.getStreamFromFD(fd);
       var HIGH_OFFSET = 0x100000000; // 2^32
       // use an unsigned operator on low and shift high by 32-bits
@@ -4542,10 +4595,7 @@ var FSNode = /** @constructor */ function(parent, name, mode, rdev) {
   FS.staticInit();;
 var ASSERTIONS = true;
 
-// Copyright 2017 The Emscripten Authors.  All rights reserved.
-// Emscripten is available under two separate licenses, the MIT license and the
-// University of Illinois/NCSA Open Source License.  Both these licenses can be
-// found in the LICENSE file.
+
 
 /** @type {function(string, boolean=, number=)} */
 function intArrayFromString(stringy, dontAddNull, length) {
@@ -4575,344 +4625,155 @@ function intArrayToString(array) {
 // ASM_LIBRARY EXTERN PRIMITIVES: Math_floor,Math_ceil
 
 var asmGlobalArg = {};
-var asmLibraryArg = { "__handle_stack_overflow": ___handle_stack_overflow, "abort": _abort, "emscripten_get_sbrk_ptr": _emscripten_get_sbrk_ptr, "emscripten_memcpy_big": _emscripten_memcpy_big, "emscripten_resize_heap": _emscripten_resize_heap, "fd_close": _fd_close, "fd_read": _fd_read, "fd_seek": _fd_seek, "fd_write": _fd_write, "memory": wasmMemory, "round": _round, "setTempRet0": _setTempRet0, "table": wasmTable };
+var asmLibraryArg = { "__handle_stack_overflow": ___handle_stack_overflow, "emscripten_get_sbrk_ptr": _emscripten_get_sbrk_ptr, "emscripten_memcpy_big": _emscripten_memcpy_big, "emscripten_resize_heap": _emscripten_resize_heap, "fd_close": _fd_close, "fd_read": _fd_read, "fd_seek": _fd_seek, "fd_write": _fd_write, "memory": wasmMemory, "round": _round, "setTempRet0": _setTempRet0, "table": wasmTable };
 var asm = createWasm();
-Module["asm"] = asm;
 /** @type {function(...*):?} */
-var ___wasm_call_ctors = Module["___wasm_call_ctors"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["__wasm_call_ctors"].apply(null, arguments)
-};
+var ___wasm_call_ctors = Module["___wasm_call_ctors"] = createExportWrapper("__wasm_call_ctors");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_new = Module["_FLAC__stream_decoder_new"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_new"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_new = Module["_FLAC__stream_decoder_new"] = createExportWrapper("FLAC__stream_decoder_new");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_delete = Module["_FLAC__stream_decoder_delete"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_delete"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_delete = Module["_FLAC__stream_decoder_delete"] = createExportWrapper("FLAC__stream_decoder_delete");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_finish = Module["_FLAC__stream_decoder_finish"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_finish"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_finish = Module["_FLAC__stream_decoder_finish"] = createExportWrapper("FLAC__stream_decoder_finish");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_init_stream = Module["_FLAC__stream_decoder_init_stream"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_init_stream"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_init_stream = Module["_FLAC__stream_decoder_init_stream"] = createExportWrapper("FLAC__stream_decoder_init_stream");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_reset = Module["_FLAC__stream_decoder_reset"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_reset"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_reset = Module["_FLAC__stream_decoder_reset"] = createExportWrapper("FLAC__stream_decoder_reset");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_init_ogg_stream = Module["_FLAC__stream_decoder_init_ogg_stream"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_init_ogg_stream"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_init_ogg_stream = Module["_FLAC__stream_decoder_init_ogg_stream"] = createExportWrapper("FLAC__stream_decoder_init_ogg_stream");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_set_ogg_serial_number = Module["_FLAC__stream_decoder_set_ogg_serial_number"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_set_ogg_serial_number"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_set_ogg_serial_number = Module["_FLAC__stream_decoder_set_ogg_serial_number"] = createExportWrapper("FLAC__stream_decoder_set_ogg_serial_number");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_set_md5_checking = Module["_FLAC__stream_decoder_set_md5_checking"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_set_md5_checking"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_set_md5_checking = Module["_FLAC__stream_decoder_set_md5_checking"] = createExportWrapper("FLAC__stream_decoder_set_md5_checking");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_get_state = Module["_FLAC__stream_decoder_get_state"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_get_state"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_get_state = Module["_FLAC__stream_decoder_get_state"] = createExportWrapper("FLAC__stream_decoder_get_state");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_get_md5_checking = Module["_FLAC__stream_decoder_get_md5_checking"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_get_md5_checking"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_get_md5_checking = Module["_FLAC__stream_decoder_get_md5_checking"] = createExportWrapper("FLAC__stream_decoder_get_md5_checking");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_process_single = Module["_FLAC__stream_decoder_process_single"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_process_single"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_process_single = Module["_FLAC__stream_decoder_process_single"] = createExportWrapper("FLAC__stream_decoder_process_single");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_process_until_end_of_metadata = Module["_FLAC__stream_decoder_process_until_end_of_metadata"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_process_until_end_of_metadata"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_process_until_end_of_metadata = Module["_FLAC__stream_decoder_process_until_end_of_metadata"] = createExportWrapper("FLAC__stream_decoder_process_until_end_of_metadata");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_decoder_process_until_end_of_stream = Module["_FLAC__stream_decoder_process_until_end_of_stream"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_decoder_process_until_end_of_stream"].apply(null, arguments)
-};
+var _FLAC__stream_decoder_process_until_end_of_stream = Module["_FLAC__stream_decoder_process_until_end_of_stream"] = createExportWrapper("FLAC__stream_decoder_process_until_end_of_stream");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_new = Module["_FLAC__stream_encoder_new"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_new"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_new = Module["_FLAC__stream_encoder_new"] = createExportWrapper("FLAC__stream_encoder_new");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_delete = Module["_FLAC__stream_encoder_delete"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_delete"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_delete = Module["_FLAC__stream_encoder_delete"] = createExportWrapper("FLAC__stream_encoder_delete");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_finish = Module["_FLAC__stream_encoder_finish"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_finish"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_finish = Module["_FLAC__stream_encoder_finish"] = createExportWrapper("FLAC__stream_encoder_finish");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_init_stream = Module["_FLAC__stream_encoder_init_stream"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_init_stream"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_init_stream = Module["_FLAC__stream_encoder_init_stream"] = createExportWrapper("FLAC__stream_encoder_init_stream");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_init_ogg_stream = Module["_FLAC__stream_encoder_init_ogg_stream"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_init_ogg_stream"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_init_ogg_stream = Module["_FLAC__stream_encoder_init_ogg_stream"] = createExportWrapper("FLAC__stream_encoder_init_ogg_stream");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_set_ogg_serial_number = Module["_FLAC__stream_encoder_set_ogg_serial_number"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_set_ogg_serial_number"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_set_ogg_serial_number = Module["_FLAC__stream_encoder_set_ogg_serial_number"] = createExportWrapper("FLAC__stream_encoder_set_ogg_serial_number");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_set_verify = Module["_FLAC__stream_encoder_set_verify"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_set_verify"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_set_verify = Module["_FLAC__stream_encoder_set_verify"] = createExportWrapper("FLAC__stream_encoder_set_verify");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_set_channels = Module["_FLAC__stream_encoder_set_channels"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_set_channels"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_set_channels = Module["_FLAC__stream_encoder_set_channels"] = createExportWrapper("FLAC__stream_encoder_set_channels");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_set_bits_per_sample = Module["_FLAC__stream_encoder_set_bits_per_sample"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_set_bits_per_sample"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_set_bits_per_sample = Module["_FLAC__stream_encoder_set_bits_per_sample"] = createExportWrapper("FLAC__stream_encoder_set_bits_per_sample");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_set_sample_rate = Module["_FLAC__stream_encoder_set_sample_rate"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_set_sample_rate"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_set_sample_rate = Module["_FLAC__stream_encoder_set_sample_rate"] = createExportWrapper("FLAC__stream_encoder_set_sample_rate");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_set_compression_level = Module["_FLAC__stream_encoder_set_compression_level"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_set_compression_level"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_set_compression_level = Module["_FLAC__stream_encoder_set_compression_level"] = createExportWrapper("FLAC__stream_encoder_set_compression_level");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_set_blocksize = Module["_FLAC__stream_encoder_set_blocksize"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_set_blocksize"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_set_blocksize = Module["_FLAC__stream_encoder_set_blocksize"] = createExportWrapper("FLAC__stream_encoder_set_blocksize");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_set_total_samples_estimate = Module["_FLAC__stream_encoder_set_total_samples_estimate"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_set_total_samples_estimate"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_set_total_samples_estimate = Module["_FLAC__stream_encoder_set_total_samples_estimate"] = createExportWrapper("FLAC__stream_encoder_set_total_samples_estimate");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_get_state = Module["_FLAC__stream_encoder_get_state"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_get_state"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_get_state = Module["_FLAC__stream_encoder_get_state"] = createExportWrapper("FLAC__stream_encoder_get_state");
 
 /** @type {function(...*):?} */
-var _FLAC__stream_encoder_process_interleaved = Module["_FLAC__stream_encoder_process_interleaved"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["FLAC__stream_encoder_process_interleaved"].apply(null, arguments)
-};
+var _FLAC__stream_encoder_process_interleaved = Module["_FLAC__stream_encoder_process_interleaved"] = createExportWrapper("FLAC__stream_encoder_process_interleaved");
 
 /** @type {function(...*):?} */
-var ___errno_location = Module["___errno_location"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["__errno_location"].apply(null, arguments)
-};
+var ___errno_location = Module["___errno_location"] = createExportWrapper("__errno_location");
 
 /** @type {function(...*):?} */
-var _fflush = Module["_fflush"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["fflush"].apply(null, arguments)
-};
+var _fflush = Module["_fflush"] = createExportWrapper("fflush");
 
 /** @type {function(...*):?} */
-var _malloc = Module["_malloc"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["malloc"].apply(null, arguments)
-};
+var stackSave = Module["stackSave"] = createExportWrapper("stackSave");
 
 /** @type {function(...*):?} */
-var _free = Module["_free"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["free"].apply(null, arguments)
-};
+var stackRestore = Module["stackRestore"] = createExportWrapper("stackRestore");
 
 /** @type {function(...*):?} */
-var ___set_stack_limit = Module["___set_stack_limit"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["__set_stack_limit"].apply(null, arguments)
-};
+var stackAlloc = Module["stackAlloc"] = createExportWrapper("stackAlloc");
 
 /** @type {function(...*):?} */
-var stackSave = Module["stackSave"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["stackSave"].apply(null, arguments)
-};
+var _malloc = Module["_malloc"] = createExportWrapper("malloc");
 
 /** @type {function(...*):?} */
-var stackAlloc = Module["stackAlloc"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["stackAlloc"].apply(null, arguments)
-};
+var _free = Module["_free"] = createExportWrapper("free");
 
 /** @type {function(...*):?} */
-var stackRestore = Module["stackRestore"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["stackRestore"].apply(null, arguments)
-};
+var ___set_stack_limit = Module["___set_stack_limit"] = createExportWrapper("__set_stack_limit");
 
 /** @type {function(...*):?} */
-var __growWasmMemory = Module["__growWasmMemory"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["__growWasmMemory"].apply(null, arguments)
-};
+var __growWasmMemory = Module["__growWasmMemory"] = createExportWrapper("__growWasmMemory");
 
 /** @type {function(...*):?} */
-var dynCall_iii = Module["dynCall_iii"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_iii"].apply(null, arguments)
-};
+var dynCall_iii = Module["dynCall_iii"] = createExportWrapper("dynCall_iii");
 
 /** @type {function(...*):?} */
-var dynCall_ii = Module["dynCall_ii"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_ii"].apply(null, arguments)
-};
+var dynCall_ii = Module["dynCall_ii"] = createExportWrapper("dynCall_ii");
 
 /** @type {function(...*):?} */
-var dynCall_iiii = Module["dynCall_iiii"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_iiii"].apply(null, arguments)
-};
+var dynCall_iiii = Module["dynCall_iiii"] = createExportWrapper("dynCall_iiii");
 
 /** @type {function(...*):?} */
-var dynCall_jiji = Module["dynCall_jiji"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_jiji"].apply(null, arguments)
-};
+var dynCall_jiji = Module["dynCall_jiji"] = createExportWrapper("dynCall_jiji");
 
 /** @type {function(...*):?} */
-var dynCall_viiiiii = Module["dynCall_viiiiii"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_viiiiii"].apply(null, arguments)
-};
+var dynCall_viiiiii = Module["dynCall_viiiiii"] = createExportWrapper("dynCall_viiiiii");
 
 /** @type {function(...*):?} */
-var dynCall_iiiii = Module["dynCall_iiiii"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_iiiii"].apply(null, arguments)
-};
+var dynCall_iiiii = Module["dynCall_iiiii"] = createExportWrapper("dynCall_iiiii");
 
 /** @type {function(...*):?} */
-var dynCall_viiiiiii = Module["dynCall_viiiiiii"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_viiiiiii"].apply(null, arguments)
-};
+var dynCall_viiiiiii = Module["dynCall_viiiiiii"] = createExportWrapper("dynCall_viiiiiii");
 
 /** @type {function(...*):?} */
-var dynCall_viiii = Module["dynCall_viiii"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_viiii"].apply(null, arguments)
-};
+var dynCall_viiii = Module["dynCall_viiii"] = createExportWrapper("dynCall_viiii");
 
 /** @type {function(...*):?} */
-var dynCall_viii = Module["dynCall_viii"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["dynCall_viii"].apply(null, arguments)
-};
+var dynCall_viii = Module["dynCall_viii"] = createExportWrapper("dynCall_viii");
+
 
 
 
 
 // === Auto-generated postamble setup entry stuff ===
 
-Module['asm'] = asm;
 
 if (!Object.getOwnPropertyDescriptor(Module, "intArrayFromString")) Module["intArrayFromString"] = function() { abort("'intArrayFromString' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "intArrayToString")) Module["intArrayToString"] = function() { abort("'intArrayToString' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
@@ -4969,9 +4830,9 @@ if (!Object.getOwnPropertyDescriptor(Module, "abort")) Module["abort"] = functio
 if (!Object.getOwnPropertyDescriptor(Module, "stringToNewUTF8")) Module["stringToNewUTF8"] = function() { abort("'stringToNewUTF8' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "emscripten_realloc_buffer")) Module["emscripten_realloc_buffer"] = function() { abort("'emscripten_realloc_buffer' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "ENV")) Module["ENV"] = function() { abort("'ENV' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
-if (!Object.getOwnPropertyDescriptor(Module, "setjmpId")) Module["setjmpId"] = function() { abort("'setjmpId' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "ERRNO_CODES")) Module["ERRNO_CODES"] = function() { abort("'ERRNO_CODES' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "ERRNO_MESSAGES")) Module["ERRNO_MESSAGES"] = function() { abort("'ERRNO_MESSAGES' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "setErrNo")) Module["setErrNo"] = function() { abort("'setErrNo' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "DNS")) Module["DNS"] = function() { abort("'DNS' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "GAI_ERRNO_MESSAGES")) Module["GAI_ERRNO_MESSAGES"] = function() { abort("'GAI_ERRNO_MESSAGES' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "Protocols")) Module["Protocols"] = function() { abort("'Protocols' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
@@ -4980,16 +4841,22 @@ if (!Object.getOwnPropertyDescriptor(Module, "UNWIND_CACHE")) Module["UNWIND_CAC
 if (!Object.getOwnPropertyDescriptor(Module, "readAsmConstArgs")) Module["readAsmConstArgs"] = function() { abort("'readAsmConstArgs' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "jstoi_q")) Module["jstoi_q"] = function() { abort("'jstoi_q' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "jstoi_s")) Module["jstoi_s"] = function() { abort("'jstoi_s' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "abortStackOverflow")) Module["abortStackOverflow"] = function() { abort("'abortStackOverflow' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "reallyNegative")) Module["reallyNegative"] = function() { abort("'reallyNegative' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "formatString")) Module["formatString"] = function() { abort("'formatString' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "PATH")) Module["PATH"] = function() { abort("'PATH' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "PATH_FS")) Module["PATH_FS"] = function() { abort("'PATH_FS' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "SYSCALLS")) Module["SYSCALLS"] = function() { abort("'SYSCALLS' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "syscallMmap2")) Module["syscallMmap2"] = function() { abort("'syscallMmap2' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "syscallMunmap")) Module["syscallMunmap"] = function() { abort("'syscallMunmap' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "JSEvents")) Module["JSEvents"] = function() { abort("'JSEvents' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "specialHTMLTargets")) Module["specialHTMLTargets"] = function() { abort("'specialHTMLTargets' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "demangle")) Module["demangle"] = function() { abort("'demangle' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "demangleAll")) Module["demangleAll"] = function() { abort("'demangleAll' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "jsStackTrace")) Module["jsStackTrace"] = function() { abort("'jsStackTrace' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "stackTrace")) Module["stackTrace"] = function() { abort("'stackTrace' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "getEnvStrings")) Module["getEnvStrings"] = function() { abort("'getEnvStrings' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "checkWasiClock")) Module["checkWasiClock"] = function() { abort("'checkWasiClock' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "writeI53ToI64")) Module["writeI53ToI64"] = function() { abort("'writeI53ToI64' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "writeI53ToI64Clamped")) Module["writeI53ToI64Clamped"] = function() { abort("'writeI53ToI64Clamped' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "writeI53ToI64Signaling")) Module["writeI53ToI64Signaling"] = function() { abort("'writeI53ToI64Signaling' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
@@ -5011,6 +4878,9 @@ if (!Object.getOwnPropertyDescriptor(Module, "emscriptenWebGLGetTexPixelData")) 
 if (!Object.getOwnPropertyDescriptor(Module, "emscriptenWebGLGetUniform")) Module["emscriptenWebGLGetUniform"] = function() { abort("'emscriptenWebGLGetUniform' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "emscriptenWebGLGetVertexAttrib")) Module["emscriptenWebGLGetVertexAttrib"] = function() { abort("'emscriptenWebGLGetVertexAttrib' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "AL")) Module["AL"] = function() { abort("'AL' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "SDL_unicode")) Module["SDL_unicode"] = function() { abort("'SDL_unicode' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "SDL_ttfContext")) Module["SDL_ttfContext"] = function() { abort("'SDL_ttfContext' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "SDL_audio")) Module["SDL_audio"] = function() { abort("'SDL_audio' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "SDL")) Module["SDL"] = function() { abort("'SDL' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "SDL_gfx")) Module["SDL_gfx"] = function() { abort("'SDL_gfx' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "GLUT")) Module["GLUT"] = function() { abort("'GLUT' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
@@ -5035,8 +4905,7 @@ if (!Object.getOwnPropertyDescriptor(Module, "lengthBytesUTF32")) Module["length
 if (!Object.getOwnPropertyDescriptor(Module, "allocateUTF8")) Module["allocateUTF8"] = function() { abort("'allocateUTF8' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "allocateUTF8OnStack")) Module["allocateUTF8OnStack"] = function() { abort("'allocateUTF8OnStack' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 Module["writeStackCookie"] = writeStackCookie;
-Module["checkStackCookie"] = checkStackCookie;
-Module["abortStackOverflow"] = abortStackOverflow;if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_NORMAL")) Object.defineProperty(Module, "ALLOC_NORMAL", { configurable: true, get: function() { abort("'ALLOC_NORMAL' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") } });
+Module["checkStackCookie"] = checkStackCookie;if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_NORMAL")) Object.defineProperty(Module, "ALLOC_NORMAL", { configurable: true, get: function() { abort("'ALLOC_NORMAL' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") } });
 if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_STACK")) Object.defineProperty(Module, "ALLOC_STACK", { configurable: true, get: function() { abort("'ALLOC_STACK' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") } });
 if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_DYNAMIC")) Object.defineProperty(Module, "ALLOC_DYNAMIC", { configurable: true, get: function() { abort("'ALLOC_DYNAMIC' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") } });
 if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_NONE")) Object.defineProperty(Module, "ALLOC_NONE", { configurable: true, get: function() { abort("'ALLOC_NONE' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") } });
@@ -5044,7 +4913,6 @@ if (!Object.getOwnPropertyDescriptor(Module, "ALLOC_NONE")) Object.definePropert
 
 
 var calledRun;
-
 
 /**
  * @constructor
@@ -5174,7 +5042,8 @@ function exit(status, implicit) {
   if (noExitRuntime) {
     // if exit() was called, we may warn the user if the runtime isn't actually being shut down
     if (!implicit) {
-      err('program exited (with status: ' + status + '), but EXIT_RUNTIME is not set, so halting execution but not exiting the runtime or preventing further async execution (build with EXIT_RUNTIME=1, if you want a true shutdown)');
+      var msg = 'program exited (with status: ' + status + '), but EXIT_RUNTIME is not set, so halting execution but not exiting the runtime or preventing further async execution (build with EXIT_RUNTIME=1, if you want a true shutdown)';
+      err(msg);
     }
   } else {
 
@@ -5200,6 +5069,7 @@ if (Module['preInit']) {
   noExitRuntime = true;
 
 run();
+
 
 
 
@@ -5281,9 +5151,10 @@ function _readMd5(p_md5){
  * HELPER: read frame data
  *
  * @param {POINTER} p_frame
+ * @param {CodingOptions} [enc_opt]
  * @returns FrameHeader
  */
-function _readFrameHdr(p_frame){
+function _readFrameHdr(p_frame, enc_opt){
 
 	/*
 	typedef struct {
@@ -5326,18 +5197,208 @@ function _readFrameHdr(p_frame){
 
 	var crc = Module.getValue(p_frame+36,'i8');
 
-	//TODO read subframe
-	//TODO read footer
+	var subframes;
+	if(enc_opt && enc_opt.analyseSubframes){
+		var subOffset = {offset: 40};
+		subframes = [];
+		for(var i=0; i < channels; ++i){
+			subframes.push(_readSubFrameHdr(p_frame, subOffset, blocksize, enc_opt));
+		}
+		//TODO read footer
+		// console.log('  footer crc ', Module.getValue(p_frame + subOffset.offset,'i16'));
+	}
 
 	return {
 		blocksize: blocksize,
 		sampleRate: sample_rate,
 		channels: channels,
+		channelAssignment: channel_assignment,
 		bitsPerSample: bits_per_sample,
 		number: number,
 		numberType: numberType,
-		crc: crc
+		crc: crc,
+		subframes: subframes
 	};
+}
+
+
+function _readSubFrameHdr(p_subframe, subOffset, block_size, enc_opt){
+	/*
+	FLAC__SubframeType 	type
+	union {
+	   FLAC__Subframe_Constant   constant
+	   FLAC__Subframe_Fixed   fixed
+	   FLAC__Subframe_LPC   lpc
+	   FLAC__Subframe_Verbatim   verbatim
+	} 	data
+	unsigned 	wasted_bits
+	*/
+
+	var type = Module.getValue(p_subframe + subOffset.offset, 'i32');
+	subOffset.offset += 4;
+
+	var data;
+	switch(type){
+		case 0:	//FLAC__SUBFRAME_TYPE_CONSTANT
+			data = {value: Module.getValue(p_subframe + subOffset.offset, 'i32')};
+			subOffset.offset += 284;//4;
+			break;
+		case 1:	//FLAC__SUBFRAME_TYPE_VERBATIM
+			data = Module.getValue(p_subframe + subOffset.offset, 'i32');
+			subOffset.offset += 284;//4;
+			break;
+		case 2:	//FLAC__SUBFRAME_TYPE_FIXED
+			data = _readSubFrameHdrFixedData(p_subframe, subOffset, block_size, false, enc_opt);
+			break;
+		case 3:	//FLAC__SUBFRAME_TYPE_LPC
+			data = _readSubFrameHdrFixedData(p_subframe, subOffset, block_size, true, enc_opt);
+			break;
+	}
+
+	var offset =  subOffset.offset;
+	var wasted_bits = Module.getValue(p_subframe + offset, 'i32');
+	subOffset.offset += 4;
+
+	return {
+		type: type,//['CONSTANT', 'VERBATIM', 'FIXED', 'LPC'][type],
+		data: data,
+		wastedBits: wasted_bits
+	}
+}
+
+function _readSubFrameHdrFixedData(p_subframe_data, subOffset, block_size, is_lpc, enc_opt){
+
+	var offset = subOffset.offset;
+
+	var data = {order: -1, contents: {parameters: [], rawBits: []}};
+	//FLAC__Subframe_Fixed:
+	// FLAC__EntropyCodingMethod 	entropy_coding_method
+	// unsigned 	order
+	// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER]
+	// const FLAC__int32 * 	residual
+
+	//FLAC__EntropyCodingMethod:
+	// FLAC__EntropyCodingMethodType 	type
+	// union {
+	//    FLAC__EntropyCodingMethod_PartitionedRice   partitioned_rice
+	// } 	data
+
+	//FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE	0		Residual is coded by partitioning into contexts, each with it's own 4-bit Rice parameter.
+	//FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2 1	Residual is coded by partitioning into contexts, each with it's own 5-bit Rice parameter.
+	var entropyType = Module.getValue(p_subframe_data, 'i32');
+	offset += 4;
+
+	//FLAC__EntropyCodingMethod_PartitionedRice:
+	//	unsigned 	order
+	var entropyOrder = Module.getValue(p_subframe_data + offset, 'i32');
+	data.order = entropyOrder;
+	offset += 4;
+
+	//FLAC__EntropyCodingMethod_PartitionedRice:
+	//	FLAC__EntropyCodingMethod_PartitionedRiceContents * 	contents
+	var partitions = 1 << entropyOrder, params = data.contents.parameters, raws = data.contents.rawBits;
+	//FLAC__EntropyCodingMethod_PartitionedRiceContents
+	// unsigned * 	parameters
+	// unsigned * 	raw_bits
+	// unsigned 	capacity_by_order
+	var ppart = Module.getValue(p_subframe_data + offset, 'i32');
+	var pparams = Module.getValue(ppart, 'i32');
+	var praw = Module.getValue(ppart + 4, 'i32');
+	data.contents.capacityByOrder = Module.getValue(ppart + 8, 'i32');
+	for(var i=0; i < partitions; ++i){
+		params.push(Module.getValue(pparams + (i*4), 'i32'));
+		raws.push(Module.getValue(praw + (i*4), 'i32'));
+	}
+	offset += 4;
+
+	//FLAC__Subframe_Fixed:
+	//	unsigned 	order
+	var order = Module.getValue(p_subframe_data + offset, 'i32');
+	offset += 4;
+
+	var warmup = [], res;
+
+	if(is_lpc){
+		//FLAC__Subframe_LPC
+
+		// unsigned 	qlp_coeff_precision
+		var qlp_coeff_precision = Module.getValue(p_subframe_data + offset, 'i32');
+		offset += 4;
+		// int 	quantization_level
+		var quantization_level = Module.getValue(p_subframe_data + offset, 'i32');
+		offset += 4;
+
+		//FLAC__Subframe_LPC :
+		// FLAC__int32 	qlp_coeff [FLAC__MAX_LPC_ORDER]
+		var qlp_coeff = [];
+		for(var i=0; i < order; ++i){
+			qlp_coeff.push(Module.getValue(p_subframe_data + offset, 'i32'));
+			offset += 4;
+		}
+		data.qlp_coeff = qlp_coeff;
+		data.qlp_coeff_precision = qlp_coeff_precision;
+		data.quantization_level = quantization_level;
+
+		//FLAC__Subframe_LPC:
+		// FLAC__int32 	warmup [FLAC__MAX_LPC_ORDER]
+		offset = subOffset.offset + 152;
+		offset = _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order);
+
+		//FLAC__Subframe_LPC:
+		// const FLAC__int32 * 	residual
+		if(enc_opt && enc_opt.analyseResiduals){
+			offset = subOffset.offset + 280;
+			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size, order);
+		}
+
+	} else {
+
+		//FLAC__Subframe_Fixed:
+		// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER]
+		offset = _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order);
+
+		//FLAC__Subframe_Fixed:
+		// const FLAC__int32 * 	residual
+		offset = subOffset.offset + 32;
+		if(enc_opt && enc_opt.analyseResiduals){
+			res = _readSubFrameHdrResidual(p_subframe_data + offset, block_size, order);
+		}
+	}
+
+	subOffset.offset += 284;
+	return {
+		partition: {
+			type: entropyType,
+			data: data
+		},
+		order: order,
+		warmup: warmup,
+		residual: res
+	}
+}
+
+
+function _readSubFrameHdrWarmup(p_subframe_data, offset, warmup, order){
+
+	// FLAC__int32 	warmup [FLAC__MAX_FIXED_ORDER | FLAC__MAX_LPC_ORDER]
+	for(var i=0; i < order; ++i){
+		warmup.push(Module.getValue(p_subframe_data + offset, 'i32'));
+		offset += 4;
+	}
+	return offset;
+}
+
+
+function _readSubFrameHdrResidual(p_subframe_data_res, block_size, order){
+	// const FLAC__int32 * 	residual
+	var pres = Module.getValue(p_subframe_data_res, 'i32');
+	var res = [];//Module.getValue(pres, 'i32');
+	//TODO read residual all values(?)
+	// -> "The residual signal, length == (blocksize minus order) samples.
+	for(var i=0, size = block_size - order; i < size; ++i){
+		res.push(Module.getValue(pres + (i*4), 'i32'));
+	}
+	return res;
 }
 
 
@@ -5348,15 +5409,16 @@ function _readFrameHdr(p_frame){
  * 				the offset for the data on HEAPU8
  * @param {Uint8Array} newBuffer
  * 				the target buffer into which the data should be written -- with the correct (block) size
- * @param {number} padding
- * 				number of padding bytes
+ * @param {boolean} applyFix
+ * 				whether or not to apply the data repair heuristics
+ * 				(handling duplicated/triplicated values in raw data)
  */
-function __fix_write_buffer(heapOffset, newBuffer, padding){
+function __fix_write_buffer(heapOffset, newBuffer, applyFix){
 
 	var dv = new DataView(newBuffer.buffer);
 	var targetSize = newBuffer.length;
 
-	var increase = padding > 0? 1 : 2;//<- for FIX/workaround, NOTE: if padding occurres, there is no fix/increase needed (more details comment below)
+	var increase = !applyFix? 1 : 2;//<- for FIX/workaround, NOTE: e.g. if 24-bit padding occurres, there is no fix/increase needed (more details comment below)
 	var buffer = HEAPU8.subarray(heapOffset, heapOffset + targetSize * increase);
 
 	// FIXME for some reason, the bytes values 0 (min) and 255 (max) get "triplicated",
@@ -5374,8 +5436,8 @@ function __fix_write_buffer(heapOffset, newBuffer, padding){
 			size = buffer.length;
 		}
 
-		// NOTE if padding occurres, there does not seem to be no duplication/triplication of 255 or 0, so must not try to fix!
-		if(padding === 0 && (buffer[i] === 0 || buffer[i] === 255)){
+		// NOTE if e.g. 24-bit padding occurres, there does not seem to be no duplication/triplication of 255 or 0, so must not try to fix!
+		if(applyFix && (buffer[i] === 0 || buffer[i] === 255)){
 
 			jump = 0;
 			isPrint = true;
@@ -5435,12 +5497,12 @@ var FLAC__STREAM_DECODER_WRITE_STATUS_ABORT = 1;
  * @interface FLAC__StreamDecoderInitStatus
  * @memberOf Flac
  *
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_OK"}	0 	Initialization was successful.
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}	1 	The library was not compiled with support for the given container format.
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS"}	2 	A required callback was not supplied.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_OK"}						0 	Initialization was successful.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}		1 	The library was not compiled with support for the given container format.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_INVALID_CALLBACKS"}			2 	A required callback was not supplied.
  * @property {"FLAC__STREAM_DECODER_INIT_STATUS_MEMORY_ALLOCATION_ERROR"}	3 	An error occurred allocating memory.
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE"}	4 	fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
- * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED"}	5 	FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ERROR_OPENING_FILE"}		4 	fopen() failed in FLAC__stream_decoder_init_file() or FLAC__stream_decoder_init_ogg_file().
+ * @property {"FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED"}		5 	FLAC__stream_decoder_init_*() was called when the decoder was already initialized, usually because FLAC__stream_decoder_finish() was not called.
  */
 var FLAC__STREAM_DECODER_INIT_STATUS_OK	= 0;
 var FLAC__STREAM_DECODER_INIT_STATUS_UNSUPPORTED_CONTAINER	= 1;
@@ -5453,25 +5515,25 @@ var FLAC__STREAM_DECODER_INIT_STATUS_ALREADY_INITIALIZED = 5;
  * @interface FLAC__StreamEncoderInitStatus
  * @memberOf Flac
  *
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_OK"}	0 	Initialization was successful.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR"}	1 	General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}	2 	The library was not compiled with support for the given container format.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS"}	3 	A required callback was not supplied.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS"}	4 	The encoder has an invalid setting for number of channels.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE"}	5 	The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE"}	6 	The encoder has an invalid setting for the input sample rate.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE"}	7 	The encoder has an invalid setting for the block size.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER"}	8 	The encoder has an invalid setting for the maximum LPC order.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION"}	9 	The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_OK"}									0 	Initialization was successful.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR"}							1 	General failure to set up encoder; call FLAC__stream_encoder_get_state() for cause.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_UNSUPPORTED_CONTAINER"}					2 	The library was not compiled with support for the given container format.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_CALLBACKS"}						3 	A required callback was not supplied.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_NUMBER_OF_CHANNELS"}			4 	The encoder has an invalid setting for number of channels.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BITS_PER_SAMPLE"}				5 	The encoder has an invalid setting for bits-per-sample. FLAC supports 4-32 bps but the reference encoder currently supports only up to 24 bps.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_SAMPLE_RATE"}					6 	The encoder has an invalid setting for the input sample rate.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_BLOCK_SIZE"}					7 	The encoder has an invalid setting for the block size.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_MAX_LPC_ORDER"}					8 	The encoder has an invalid setting for the maximum LPC order.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_QLP_COEFF_PRECISION"}			9 	The encoder has an invalid setting for the precision of the quantized linear predictor coefficients.
  * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_BLOCK_SIZE_TOO_SMALL_FOR_LPC_ORDER"}	10 	The specified block size is less than the maximum LPC order.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE"}	11 	The encoder is bound to the Subset but other settings violate it.
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA"}	12 	The metadata input to the encoder is invalid, in one of the following ways:
- *																	      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
- *																	      One of the metadata blocks contains an undefined type
- *																	      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
- *																	      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
- *																	      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
- * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED"}	13 	FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_NOT_STREAMABLE"}						11 	The encoder is bound to the Subset but other settings violate it.
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_INVALID_METADATA"}						12 	The metadata input to the encoder is invalid, in one of the following ways:
+ *																						      FLAC__stream_encoder_set_metadata() was called with a null pointer but a block count > 0
+ *																						      One of the metadata blocks contains an undefined type
+ *																						      It contains an illegal CUESHEET as checked by FLAC__format_cuesheet_is_legal()
+ *																						      It contains an illegal SEEKTABLE as checked by FLAC__format_seektable_is_legal()
+ *																						      It contains more than one SEEKTABLE block or more than one VORBIS_COMMENT block
+ * @property {"FLAC__STREAM_ENCODER_INIT_STATUS_ALREADY_INITIALIZED"}					13 	FLAC__stream_encoder_init_*() was called when the encoder was already initialized, usually because FLAC__stream_encoder_finish() was not called.
  */
 var FLAC__STREAM_ENCODER_INIT_STATUS_OK = 0;
 var FLAC__STREAM_ENCODER_INIT_STATUS_ENCODER_ERROR = 1;
@@ -5540,10 +5602,42 @@ function setCallback(p_coder, func_type, callback){
 	coders[p_coder][func_type] = callback;
 }
 
+/**
+ * Get coding options for the encoder / decoder instance:
+ * returns FALSY when not set.
+ *
+ * @param {Number} p_coder
+ * 			the encoder/decoder pointer (ID)
+ * @returns {CodingOptions} the coding options
+ * @private
+ * @memberOf Flac
+ */
+function _getOptions(p_coder){
+	if(coders[p_coder]){
+		return coders[p_coder]["options"];
+	}
+}
+
+/**
+ * Set coding options for an encoder / decoder instance (will / should be deleted, when finish()/delete())
+ *
+ * @param {Number} p_coder
+ * 			the encoder/decoder pointer (ID)
+ * @param {CodingOptions} options
+ * 			the coding options
+ * @private
+ * @memberOf Flac
+ */
+function _setOptions(p_coder, options){
+	if(!coders[p_coder]){
+		coders[p_coder] = {};
+	}
+	coders[p_coder]["options"] = options;
+}
+
 //(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data)
 // -> FLAC__StreamEncoderWriteStatus
 var enc_write_fn_ptr = addFunction(function(p_encoder, buffer, bytes, samples, current_frame, p_client_data){
-	var arraybuf = new ArrayBuffer(buffer);
 	var retdata = new Uint8Array(bytes);
 	retdata.set(HEAPU8.subarray(buffer, buffer + bytes));
 	var write_callback_fn = getCallback(p_encoder, 'write');
@@ -5553,7 +5647,7 @@ var enc_write_fn_ptr = addFunction(function(p_encoder, buffer, bytes, samples, c
 		console.error(err);
 		return FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR;
 	}
-	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK
+	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK;
 }, 'iiiiiii');
 
 //(const FLAC__StreamDecoder *decoder, FLAC__byte buffer[], size_t *bytes, void *client_data)
@@ -5599,22 +5693,26 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 	// var dec = Module.getValue(p_decoder,'i32');
 	// var clientData = Module.getValue(p_client_data,'i32');
 
-	var frameInfo = _readFrameHdr(p_frame);
+	var dec_opts = _getOptions(p_decoder);
+	var frameInfo = _readFrameHdr(p_frame, dec_opts);
 
 //	console.log(frameInfo);//DEBUG
 
 	var channels = frameInfo.channels;
 	var block_size = frameInfo.blocksize * (frameInfo.bitsPerSample / 8);
 
+	//whether or not to apply data fixing heuristics (e.g. not needed for 24-bit samples)
+	var isFix = frameInfo.bitsPerSample !== 24;
+
 	//take padding bits into account for calculating buffer size
-	//FIXME do this gererically(?) ... for now hard-coded handling for 24-bit which is padded with 1 extra bit
-	var padding = frameInfo.bitsPerSample === 24? 1 : 0;
+	// -> seems to be done for uneven byte sizes, i.e. 1 (8 bits) and 3 (24 bits)
+	var padding = (frameInfo.bitsPerSample / 8)%2;
 	if(padding > 0){
 		block_size += frameInfo.blocksize * padding;
 	}
 
 	var data = [];//<- array for the data of each channel
-	var bufferOffset, heapView, _buffer;
+	var bufferOffset, _buffer;
 
 	for(var i=0; i < channels; ++i){
 
@@ -5622,7 +5720,7 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
 
 		_buffer = new Uint8Array(block_size);
 		//FIXME HACK for "strange" data (see helper function __fix_write_buffer)
-		__fix_write_buffer(bufferOffset, _buffer, padding);
+		__fix_write_buffer(bufferOffset, _buffer, isFix);
 
 		data.push(_buffer.subarray(0, block_size));
 	}
@@ -5642,8 +5740,8 @@ var dec_write_fn_ptr = addFunction(function(p_decoder, p_frame, p_buffer, p_clie
  * <br>
  * If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.
  *
- * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"}					0   An error in the stream caused the decoder to lose synchronization.
- * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"}  				1   The decoder encountered a corrupted frame header.
+ * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"}			0   An error in the stream caused the decoder to lose synchronization.
+ * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"}  			1   The decoder encountered a corrupted frame header.
  * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"}	2   The frame's data did not match the CRC in the footer.
  * @property {"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"}	3   The decoder encountered reserved fields in use in the stream.
  *
@@ -5756,7 +5854,7 @@ var remove_event_listener = function (eventName, listener){
  * HELPER: fire an event
  * @param  {string} eventName
  * 										the event name
- * @param  {Array<any>} [args] OPITIONAL
+ * @param  {any[]} [args] OPITIONAL
  * 										the arguments when triggering the listeners
  * @param  {boolean} [isPersist] OPTIONAL (positinal argument!)
  * 										if TRUE, handlers for this event that will be registered after this will get triggered immediately
@@ -5803,6 +5901,29 @@ var _exported = {
 	_clear_dec_cb: function(dec_ptr){//internal function: remove reference to decoder instance and its callbacks
 		delete coders[dec_ptr];
 	},
+	/**
+	 * Additional options for encoding or decoding
+	 * @interface CodingOptions
+	 * @memberOf Flac
+	 * @property {boolean}  [analyseSubframes] for decoding: include subframes metadata in write-callback metadata, DEFAULT: false
+	 * @property {boolean}  [analyseResiduals] for decoding: include residual data in subframes metadata in write-callback metadata, NOTE {@link #analyseSubframes} muste also be enabled, DEFAULT: false
+	 *
+	 * @see Flac#setOptions
+	 */
+	/**
+	 * @function
+	 * @public
+	 * @memberOf Flac#
+	 * @copydoc Flac._setOptions
+	 */
+	setOptions: _setOptions,
+	/**
+	 * @function
+	 * @public
+	 * @memberOf Flac#
+	 * @copydoc Flac._getOptions
+	 */
+	getOptions: _getOptions,
 	/**
 	 * Returns if Flac has been initialized / is ready to be used.
 	 *
@@ -5859,11 +5980,44 @@ var _exported = {
 	 * @event ReadyEvent
 	 * @memberOf Flac
 	 * @type {object}
-	 * @property {string} type 	the type of the event <code>"ready"</code>
+	 * @property {"ready"} type 	the type of the event <code>"ready"</code>
 	 * @property {Flac} target 	the initalized FLAC library instance
 	 *
 	 * @see #isReady
 	 * @see #on
+	 */
+	/**
+	 * Created event: is fired when an encoder or decoder was created.
+	 *
+	 * @event CreatedEvent
+	 * @memberOf Flac
+	 * @type {object}
+	 * @property {"created"} type 	the type of the event <code>"created"</code>
+	 * @property {Flac.CoderChangedEventData} target 	the information for the created encoder or decoder
+	 *
+	 * @see #on
+	 */
+	/**
+	 * Destroyed event: is fired when an encoder or decoder was destroyed.
+	 *
+	 * @event DestroyedEvent
+	 * @memberOf Flac
+	 * @type {object}
+	 * @property {"destroyed"} type 	the type of the event <code>"destroyed"</code>
+	 * @property {Flac.CoderChangedEventData} target 	the information for the destroyed encoder or decoder
+	 *
+	 * @see #on
+	 */
+	/**
+	 * Life cycle event data for signaling life cycle changes of encoder or decoder instances
+	 * @interface CoderChangedEventData
+	 * @memberOf Flac
+	 * @property {number}  id  the ID for the encoder or decoder instance
+	 * @property {"encoder" | "decoder"}  type  signifies whether the event is for an encoder or decoder instance
+	 * @property {any}  [data]  specific data for the life cycle change
+	 *
+	 * @see Flac.event:CreatedEvent
+	 * @see Flac.event:DestroyedEvent
 	 */
 	/**
 	 * Add an event listener for module-events.
@@ -5871,6 +6025,10 @@ var _exported = {
 	 * <ul>
 	 *  <li> <code>"ready"</code> &rarr; {@link Flac.event:ReadyEvent}: emitted when module is ready for usage (i.e. {@link #isReady} is true)<br/>
 	 *             <em>NOTE listener will get immediately triggered if module is already <code>"ready"</code></em>
+	 *  </li>
+	 *  <li> <code>"created"</code> &rarr; {@link Flac.event:CreatedEvent}: emitted when an encoder or decoder instance was created<br/>
+	 *  </li>
+	 *  <li> <code>"destroyed"</code> &rarr; {@link Flac.event:DestroyedEvent}: emitted when an encoder or decoder instance was destroyed<br/>
 	 *  </li>
 	 * </ul>
 	 *
@@ -5882,6 +6040,8 @@ var _exported = {
 	 * @see #off
 	 * @see #onready
 	 * @see Flac.event:ReadyEvent
+	 * @see Flac.event:CreatedEvent
+	 * @see Flac.event:DestroyedEvent
 	 * @example
 	 *  Flac.on('ready', function(event){
 	 *     //gets executed when library is ready, or becomes ready...
@@ -6123,6 +6283,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		ok &= Module.ccall('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number'], [ encoder, block_size ]);
 		ok &= Module.ccall('FLAC__stream_encoder_set_total_samples_estimate', 'number', ['number', 'number'], [ encoder, total_samples ]);
 		if (ok){
+			do_fire_event('created', [{type: 'created', target: {id: encoder, type: 'encoder'}}], false);
 			return encoder;
 		}
 		return 0;
@@ -6155,6 +6316,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		var decoder = Module.ccall('FLAC__stream_decoder_new', 'number', [ ], [ ]);
 		ok &= Module.ccall('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number'], [ decoder, is_verify ]);
 		if (ok){
+			do_fire_event('created', [{type: 'created', target: {id: decoder, type: 'decoder'}}], false);
 			return decoder;
 		}
 		return 0;
@@ -6224,8 +6386,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				<code>true</code> will set a default serial number (<code>1</code>),
 	 * 				if specified as number, it will be used as the stream's serial number within the ogg container.
 	 *
-	 * @returns {number} the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>),
-	 * 					 see {@link Flac.FLAC__StreamEncoderInitStatus}
+	 * @returns {Flac.FLAC__StreamEncoderInitStatus} the encoder status (<code>0</code> for <code>FLAC__STREAM_ENCODER_INIT_STATUS_OK</code>)
 	 *
 	 * @memberOf Flac#
 	 * @function
@@ -6352,7 +6513,99 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @property {number}  blocksize the block size (bytes)
 	 * @property {number}  number the number of the decoded samples or frames
 	 * @property {string}  numberType the type to which <code>number</code> refers to: either <code>"frames"</code> or <code>"samples"</code>
+	 * @property {Flac.FLAC__ChannelAssignment} channelAssignment the channel assignment
 	 * @property {string}  crc the MD5 checksum for the decoded data, if validation is enabled
+	 * @property {Flac.SubFrameMetadata[]}  [subframes] the metadata of the subframes. The array length corresponds to the number of channels. NOTE will only be included if {@link Flac.CodingOptions CodingOptions.analyseSubframes} is enabled for the decoder.
+	 *
+	 * @see Flac.CodingOptions
+	 * @see Flac#setOptions
+	 */
+	/**
+	 * FLAC subframe metadata
+	 * @interface SubFrameMetadata
+	 * @memberOf Flac
+	 *
+	 * @property {Flac.FLAC__SubframeType}  type the type of the subframe
+	 * @property {number|Flac.FixedSubFrameData|Flac.LPCSubFrameData}  data the type specific metadata for subframe
+	 * @property {number}  wastedBits the wasted bits-per-sample
+	 */
+	/**
+	 * metadata for FIXED subframe type
+	 * @interface FixedSubFrameData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The polynomial order.
+	 * @property {number[]}  warmup  Warmup samples to prime the predictor, length == order.
+	 * @property {Flac.SubFramePartition}  partition  The residual coding method.
+	 * @property {number[]}  [residual]  The residual signal, length == (blocksize minus order) samples.
+	 * 									NOTE will only be included if {@link Flac.CodingOptions CodingOptions.analyseSubframes} is enabled for the decoder.
+	 */
+	/**
+	 * metadata for LPC subframe type
+	 * @interface LPCSubFrameData
+	 * @augments Flac.FixedSubFrameData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The FIR order.
+	 * @property {number[]}  qlp_coeff  FIR filter coefficients.
+	 * @property {number}  qlp_coeff_precision  Quantized FIR filter coefficient precision in bits.
+	 * @property {number}  quantization_level The qlp coeff shift needed.
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partitions
+	 * @interface SubFramePartition
+	 * @memberOf Flac
+	 *
+	 * @property {Flac.FLAC__EntropyCodingMethodType}  type  the entropy coding method
+	 * @property {Flac.SubFramePartitionData}  data  metadata for a Rice partitioned residual
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partition data
+	 * @interface SubFramePartitionData
+	 * @memberOf Flac
+	 *
+	 * @property {number}  order  The partition order, i.e. # of contexts = 2 ^ order.
+	 * @property {Flac.SubFramePartitionContent}  contents  The context's Rice parameters and/or raw bits.
+	 */
+	/**
+	 * metadata for FIXED or LPC subframe partition data content
+	 * @interface SubFramePartitionContent
+	 * @memberOf Flac
+	 *
+	 * @property {number[]}  parameters  The Rice parameters for each context.
+	 * @property {number[]}  rawBits  Widths for escape-coded partitions. Will be non-zero for escaped partitions and zero for unescaped partitions.
+	 * @property {number}  capacityByOrder  The capacity of the parameters and raw_bits arrays specified as an order, i.e. the number of array elements allocated is 2 ^ capacity_by_order.
+	 */
+	/**
+	 * The types for FLAC subframes
+	 *
+	 * @interface FLAC__SubframeType
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__SUBFRAME_TYPE_CONSTANT"} 	0	constant signal
+	 * @property {"FLAC__SUBFRAME_TYPE_VERBATIM"} 	1	uncompressed signal
+	 * @property {"FLAC__SUBFRAME_TYPE_FIXED"} 		2	fixed polynomial prediction
+	 * @property {"FLAC__SUBFRAME_TYPE_LPC"} 		3	linear prediction
+	 */
+	/**
+	 * The channel assignment for the (decoded) frame.
+	 *
+	 * @interface FLAC__ChannelAssignment
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_INDEPENDENT"} 		0	independent channels
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_LEFT_SIDE"}  		1	left+side stereo
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_RIGHT_SIDE"} 		2	right+side stereo
+	 * @property {"FLAC__CHANNEL_ASSIGNMENT_MID_SIDE"}			3	mid+side stereo
+	 */
+	/**
+	 * entropy coding methods
+	 *
+	 * @interface FLAC__EntropyCodingMethodType
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE"} 	0	Residual is coded by partitioning into contexts, each with it's own 4-bit Rice parameter.
+	 * @property {"FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2"} 	1	Residual is coded by partitioning into contexts, each with it's own 5-bit Rice parameter.
 	 */
 	/**
 	 * Initialize the decoder.
@@ -6382,8 +6635,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				<code>true</code> will use the default serial number, if specified as number the
 	 * 				corresponding stream with the serial number from the ogg container will be used.
 	 *
-	 * @returns {number} the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>),
-	 * 					 see {@link Flac.FLAC__StreamDecoderInitStatus}
+	 * @returns {Flac.FLAC__StreamDecoderInitStatus} the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>)
 	 *
 	 * @memberOf Flac#
 	 * @function
@@ -6439,8 +6691,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 				[
 					 decoder,
 					 dec_read_fn_ptr,
-					 0,// FLAC__StreamDecoderSeekCallback
-					 0,// FLAC__StreamDecoderTellCallback
+					 0,// 	FLAC__StreamDecoderSeekCallback
+					 0,// 	FLAC__StreamDecoderTellCallback
 					 0,//	FLAC__StreamDecoderLengthCallback
 					 0,//	FLAC__StreamDecoderEofCallback
 					 dec_write_fn_ptr,
@@ -6567,15 +6819,15 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @memberOf Flac
 	 *
 	 * @property {"FLAC__STREAM_DECODER_SEARCH_FOR_METADATA"} 		0	The decoder is ready to search for metadata
-	 * @property {"FLAC__STREAM_DECODER_READ_METADATA"}  					1	The decoder is ready to or is in the process of reading metadata
+	 * @property {"FLAC__STREAM_DECODER_READ_METADATA"}  			1	The decoder is ready to or is in the process of reading metadata
 	 * @property {"FLAC__STREAM_DECODER_SEARCH_FOR_FRAME_SYNC"} 	2	The decoder is ready to or is in the process of searching for the frame sync code
-	 * @property {"FLAC__STREAM_DECODER_READ_FRAME"}							3	The decoder is ready to or is in the process of reading a frame
-	 * @property {"FLAC__STREAM_DECODER_END_OF_STREAM"}						4	The decoder has reached the end of the stream
-	 * @property {"FLAC__STREAM_DECODER_OGG_ERROR"}								5	An error occurred in the underlying Ogg layer
-	 * @property {"FLAC__STREAM_DECODER_SEEK_ERROR"}							6	An error occurred while seeking. The decoder must be flushed with FLAC__stream_decoder_flush() or reset with FLAC__stream_decoder_reset() before decoding can continue
-	 * @property {"FLAC__STREAM_DECODER_ABORTED"}									7	The decoder was aborted by the read callback
+	 * @property {"FLAC__STREAM_DECODER_READ_FRAME"}				3	The decoder is ready to or is in the process of reading a frame
+	 * @property {"FLAC__STREAM_DECODER_END_OF_STREAM"}				4	The decoder has reached the end of the stream
+	 * @property {"FLAC__STREAM_DECODER_OGG_ERROR"}					5	An error occurred in the underlying Ogg layer
+	 * @property {"FLAC__STREAM_DECODER_SEEK_ERROR"}				6	An error occurred while seeking. The decoder must be flushed with FLAC__stream_decoder_flush() or reset with FLAC__stream_decoder_reset() before decoding can continue
+	 * @property {"FLAC__STREAM_DECODER_ABORTED"}					7	The decoder was aborted by the read callback
 	 * @property {"FLAC__STREAM_DECODER_MEMORY_ALLOCATION_ERROR"}	8	An error occurred allocating memory. The decoder is in an invalid state and can no longer be used
-	 * @property {"FLAC__STREAM_DECODER_UNINITIALIZED"}						9	The decoder is in the uninitialized state; one of the FLAC__stream_decoder_init_*() functions must be called before samples can be processed.
+	 * @property {"FLAC__STREAM_DECODER_UNINITIALIZED"}				9	The decoder is in the uninitialized state; one of the FLAC__stream_decoder_init_*() functions must be called before samples can be processed.
 	 *
 	 */
 	/**
@@ -6583,11 +6835,10 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
-	 * @returns {number} the decoder state, see {@link Flac.FLAC__StreamDecoderState}
+	 * @returns {Flac.FLAC__StreamDecoderState} the decoder state
 	 *
 	 * @memberOf Flac#
 	 * @function
-	 * @see .FLAC__StreamDecoderState
 	 */
 	FLAC__stream_decoder_get_state: Module.cwrap('FLAC__stream_decoder_get_state', 'number', ['number']),
 
@@ -6597,15 +6848,15 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @interface FLAC__StreamEncoderState
 	 * @memberOf Flac
 	 *
-	 * @property {"FLAC__STREAM_ENCODER_OK"}														0 	The encoder is in the normal OK state and samples can be processed.
-	 * @property {"FLAC__STREAM_ENCODER_UNINITIALIZED"}									1 	The encoder is in the uninitialized state; one of the FLAC__stream_encoder_init_*() functions must be called before samples can be processed.
-	 * @property {"FLAC__STREAM_ENCODER_OGG_ERROR"}											2 	An error occurred in the underlying Ogg layer.
-	 * @property {"FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR"}					3 	An error occurred in the underlying verify stream decoder; check FLAC__stream_encoder_get_verify_decoder_state().
-	 * @property {"FLAC__STREAM_ENCODER_VERIFY_MISMATCH_IN_AUDIO_DATA"}	4 	The verify decoder detected a mismatch between the original audio signal and the decoded audio signal.
-	 * @property {"FLAC__STREAM_ENCODER_CLIENT_ERROR"}									5 	One of the callbacks returned a fatal error.
-	 * @property {"FLAC__STREAM_ENCODER_IO_ERROR"}											6 	An I/O error occurred while opening/reading/writing a file. Check errno.
-	 * @property {"FLAC__STREAM_ENCODER_FRAMING_ERROR"}									7 	An error occurred while writing the stream; usually, the write_callback returned an error.
-	 * @property {"FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR"}				8 	Memory allocation failed.
+	 * @property {"FLAC__STREAM_ENCODER_OK"}								0 	The encoder is in the normal OK state and samples can be processed.
+	 * @property {"FLAC__STREAM_ENCODER_UNINITIALIZED"}						1 	The encoder is in the uninitialized state; one of the FLAC__stream_encoder_init_*() functions must be called before samples can be processed.
+	 * @property {"FLAC__STREAM_ENCODER_OGG_ERROR"}							2 	An error occurred in the underlying Ogg layer.
+	 * @property {"FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR"}				3 	An error occurred in the underlying verify stream decoder; check FLAC__stream_encoder_get_verify_decoder_state().
+	 * @property {"FLAC__STREAM_ENCODER_VERIFY_MISMATCH_IN_AUDIO_DATA"}		4 	The verify decoder detected a mismatch between the original audio signal and the decoded audio signal.
+	 * @property {"FLAC__STREAM_ENCODER_CLIENT_ERROR"}						5 	One of the callbacks returned a fatal error.
+	 * @property {"FLAC__STREAM_ENCODER_IO_ERROR"}							6 	An I/O error occurred while opening/reading/writing a file. Check errno.
+	 * @property {"FLAC__STREAM_ENCODER_FRAMING_ERROR"}						7 	An error occurred while writing the stream; usually, the write_callback returned an error.
+	 * @property {"FLAC__STREAM_ENCODER_MEMORY_ALLOCATION_ERROR"}			8 	Memory allocation failed.
 	 *
 	 */
 	/**
@@ -6613,11 +6864,10 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} encoder
 	 * 				the ID of the encoder instance
 	 *
-	 * @returns {number} the encoder state, see {@link Flac.FLAC__StreamEncoderState}
+	 * @returns {Flac.FLAC__StreamEncoderState} the encoder state
 	 *
 	 * @memberOf Flac#
 	 * @function
-	 * @see Flac.FLAC__StreamEncoderState
 	 */
 	FLAC__stream_encoder_get_state:  Module.cwrap('FLAC__stream_encoder_get_state', 'number', ['number']),
 
@@ -6696,7 +6946,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 */
 	FLAC__stream_encoder_delete: function(encoder){
 		this._clear_enc_cb(encoder);//<- remove callback references
-		return Module.ccall('FLAC__stream_encoder_delete', 'number', [ 'number' ], [encoder]);
+		Module.ccall('FLAC__stream_encoder_delete', 'number', [ 'number' ], [encoder]);
+		do_fire_event('destroyed', [{type: 'destroyed', target: {id: encoder, type: 'encoder'}}], false);
 	},
 	/**
 	 * Delete the decoder instance, and free up its resources.
@@ -6709,7 +6960,8 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 */
 	FLAC__stream_decoder_delete: function(decoder){
 		this._clear_dec_cb(decoder);//<- remove callback references
-		return Module.ccall('FLAC__stream_decoder_delete', 'number', [ 'number' ], [decoder]);
+		Module.ccall('FLAC__stream_decoder_delete', 'number', [ 'number' ], [decoder]);
+		do_fire_event('destroyed', [{type: 'destroyed', target: {id: decoder, type: 'decoder'}}], false);
 	}
 
 };//END: var _exported = {
