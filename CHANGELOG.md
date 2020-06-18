@@ -1,4 +1,8 @@
 
+# Version 5.2.1
+
+ * examples: added example code for reading/encoding 8-bit and 24-bit WAV data
+
 # Version 5.2.0
 
  * added emitting of life cycle events when encoder or decoder instances are created and destroyed
