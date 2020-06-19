@@ -372,7 +372,7 @@ function flac_file_processing_check_flac_format(ui8_data, isOgg){
 
 	var view = new DataView(ui8_data.buffer);
 	//check last 7 bits of 4th byte for meta-data BLOCK type: must be STREAMINFO (0)
-	if ((view.getUint8(offset) & 0x7f) != 0){
+	if ((view.getUint8(offset) & 127 /* 0x7F */) != 0){
 		console.error("ERROR: wrong format for flac-file.");
 		return false;
 	}
@@ -407,30 +407,71 @@ function wav_file_processing_read_parameters(ui8_data){
 }
 
 
+/**
+ *  converts the PCM data of the wav file (each sample stored as 8 or 16 or 24 bit value) into
+ *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
+ */
 function wav_file_processing_convert_to32bitdata(arraybuffer, bps){
-	if(bps === 16){
-		return wav_file_processing_convert_16bitdata_to32bitdata(arraybuffer);
+
+	var decFunc;
+	switch(bps){
+		case 8:
+			decFunc = convert_8bitdata_to32bitdata;
+			break;
+		case 16:
+			decFunc = convert_16bitdata_to32bitdata;
+			break;
+		case 24:
+			decFunc = convert_24bitdata_to32bitdata;
+			break;
 	}
+	if(!decFunc){
+		// -> unsupported bit-depth
+		return void(0);
+	}
+
+	var bytes = bps / 8;
+	var ab_i16 = new DataView(arraybuffer, 44);
+	var buf_length = ab_i16.byteLength;
+	var buf32_length = buf_length / bytes;
+	var buffer_i32 = new Uint32Array(buf32_length);
+	var view = new DataView(buffer_i32.buffer);
+	var index = 0;
+	for (var j = 0; j < buf_length; j+=bytes){
+		view.setInt32(index, decFunc(ab_i16,j), true);
+		index += 4;
+	}
+	return buffer_i32;
+}
+
+/**
+ *  converts the PCM data of the wav file (each sample stored as 8 bit value) into
+ *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
+ */
+function convert_8bitdata_to32bitdata(dataView, i){
+	return dataView.getUint8(i) - 128 /* 0x80 */;
 }
 
 /**
  *  converts the PCM data of the wav file (each sample stored as 16 bit value) into
  *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
  */
-function wav_file_processing_convert_16bitdata_to32bitdata(arraybuffer){
-	// convert the PCM-Data to the appropriate format for the libflac library methods (32-bit array of samples)
-	// creates a new array (32-bit) and stores the 16-bit data of the wav-file as 32-bit data
-	var ab_i16 = new DataView(arraybuffer, 44);
-	var buf_length = ab_i16.byteLength;
-	var buf32_length = buf_length / 2;
-	var buffer_i32 = new Uint32Array(buf32_length);
-	var view = new DataView(buffer_i32.buffer);
-	var index = 0;
-	for (var j = 0; j < buf_length; j+=2){
-		view.setInt32(index, (ab_i16.getInt16(j, true)), true);
-		index += 4;
+function convert_16bitdata_to32bitdata(dataView, i){
+	return dataView.getInt16(i, true);
+}
+
+/**
+ *  converts the PCM data of the wav file (each sample stored as 24 bit value) into
+ *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
+ */
+function convert_24bitdata_to32bitdata(dataView, i){
+	var b = (((dataView.getUint8(i + 2) << 8) | dataView.getUint8(i + 1)) << 8) | dataView.getUint8(i);
+	if ((b & 8388608 /* 0x00800000 */ ) > 0) {
+		b |= 4278190080;// 0xFF000000;
+	} else {
+		b &= 16777215;// 0x00FFFFFF;
 	}
-	return buffer_i32;
+	return b;
 }
 
 /**
