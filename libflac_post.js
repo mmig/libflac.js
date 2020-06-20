@@ -1257,7 +1257,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} numberOfBytes the number of bytes in data
 	 * @param {number} samples the number of samples encoded in data
 	 * @param {number} currentFrame the number of the (current) encoded frame in data
-	 * @returns {undefined | false} returning <code>false</code> indicates that an
+	 * @returns {void | false} returning <code>false</code> indicates that an
 	 * 								unrecoverable error occurred and decoding should be aborted
 	 */
 	/**
@@ -1403,11 +1403,20 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @property {boolean}  [error] OPTIONAL value of <code>true</code> indicates that an error occured (decoding will be aborted)
 	 */
 	/**
+	 * Result / return value for {@link Flac~decoder_read_callback_fn} callback function for signifying that there is no more data to read
+	 *
+	 * @interface CompletedReadResult
+	 * @memberOf Flac
+	 * @augments Flac.ReadResult
+	 * @property {TypedArray | undefined}  buffer  a TypedArray (e.g. Uint8Array) with the read data (will be ignored in case readDataLength is <code>0</code>)
+	 * @property {0}  readDataLength the number of read data bytes: The number of <code>0</code> (zero) indicates that the end-of-stream is reached.
+	 */
+	/**
 	 * The callback for reading the FLAC data that will be decoded.
 	 *
 	 * @callback Flac~decoder_read_callback_fn
 	 * @param {number} numberOfBytes the maximal number of bytes that the read callback can return
-	 * @returns {Flac.ReadResult} the result of the reading action/request
+	 * @returns {Flac.ReadResult | Flac.CompletedReadResult} the result of the reading action/request
 	 */
 	/**
 	 * The callback for writing the decoded FLAC data.
@@ -1540,7 +1549,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				the callback for writing the decoded data:
 	 * 				<pre>write_callback_fn(data: Uint8Array[], frameInfo: Metadata)</pre>
 	 *
-	 * @param {Flac~decoder_error_callback_fn} [error_callback_fn] OPTIONAL
+	 * @param {Flac~decoder_error_callback_fn} error_callback_fn
 	 * 				the error callback:
 	 * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
 	 *
