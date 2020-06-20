@@ -25,25 +25,32 @@ var ext = '.js';
 // export factory method:
 module.exports = function(impl){
 
-	var optv;
+	var optv, optStr;
 	if(/\bdev\b/.test(impl)){
 		optv = optVariant['dev'];
+		optStr = 'dev';
 	} else if(/\bmin\b/.test(impl)){
 		optv = optVariant['min'];
+		optStr = 'min';
 	} else {
 		optv = optVariant['default'];
+		optStr = 'release';
 	}
 
-	var tecv;
+	var tecv, tecStr;
 	if(/\bwasm\b/.test(impl)){
 		tecv = tecVariant['wasm'];
+		tecStr = 'wasm';
 	} else {
 		tecv = tecVariant['default'];
+		tecStr = 'asmjs';
 	}
 
 	var libPath = baseDir + path.sep;
 	// set library directory
 	process.env.FLAC_SCRIPT_LOCATION = libPath;
 	// load library variant
-	return require(libPath + baseName + optv + tecv + ext);
+	var libInstance = require(libPath + baseName + optv + tecv + ext);
+	libInstance.variant = optStr + '.' + tecStr;
+	return libInstance;
 }
