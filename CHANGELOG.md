@@ -1,4 +1,28 @@
 
+# Version 5.3.0
+
+ * FIX incorrect API documentation: error-callback for decoder is not optional
+   ```
+   init_decoder_stream(decoder, read_callback_fn, write_callback_fn, error_callback_fn, ...)
+   ```
+
+ * exposed additional library functions:
+   * `FLAC__stream_decoder_get_md5_checking(decoder, boolean)`
+   * `FLAC__stream_encoder_get_verify_decoder_state(encoder)`
+   * `FLAC__stream_encoder_get_verify(encoder)`
+   
+ * added support for non-interleaved encoding method:  
+   `FLAC__stream_encoder_process(encoder, channelBuffers, numberOfSamples)`
+
+ * added `variant` property when using library factory method, i.e. when running in `node`:
+   do add property `variant` to returned instance for indicating which library variant is returned
+
+ * disabled generated code for `node` that would catch uncaught exceptions and promises:
+   these should be handled by application code instead of the library
+
+ * improved typings
+
+
 # Version 5.2.1
 
  * examples: added example code for reading/encoding 8-bit and 24-bit WAV data
