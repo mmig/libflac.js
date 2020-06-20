@@ -698,7 +698,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FixedSubFrameData.html">Interface: FixedSubFrameData</h1>
+        <h1 class="page-title" data-filename="Flac.CompressionLevel.html">Interface: CompressionLevel</h1>
         
 
 
@@ -709,7 +709,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FixedSubFrameData
+    CompressionLevel
     </h2>
     
 </header>
@@ -720,7 +720,7 @@
 
     
         
-            <div class="description">metadata for FIXED subframe type</div>
+            <div class="description">Set the compression levelThe compression level is roughly proportional to the amount of effort the encoder expends to compress the file. A higher level usually means more computation but higher compression. The default level is suitable for most applications.Currently the levels range from 0 (fastest, least compression) to 8 (slowest, most compression). A value larger than 8 will be treated as 8.This function automatically calls the following other set functions with appropriate values, so the client does not need to unless it specifically wants to override them:<pre>    FLAC__stream_encoder_set_do_mid_side_stereo()    FLAC__stream_encoder_set_loose_mid_side_stereo()    FLAC__stream_encoder_set_apodization()    FLAC__stream_encoder_set_max_lpc_order()    FLAC__stream_encoder_set_qlp_coeff_precision()    FLAC__stream_encoder_set_do_qlp_coeff_prec_search()    FLAC__stream_encoder_set_do_escape_coding()    FLAC__stream_encoder_set_do_exhaustive_model_search()    FLAC__stream_encoder_set_min_residual_partition_order()    FLAC__stream_encoder_set_max_residual_partition_order()    FLAC__stream_encoder_set_rice_parameter_search_dist()</pre>The actual values set for each level are:| level  | do mid-side stereo  | loose mid-side stereo  | apodization                                    | max lpc order  | qlp coeff precision  | qlp coeff prec search  | escape coding  | exhaustive model search  | min residual partition order  | max residual partition order  | rice parameter search dist   ||--------|---------------------|------------------------|------------------------------------------------|----------------|----------------------|------------------------|----------------|--------------------------|-------------------------------|-------------------------------|------------------------------|| 0      | false               | false                  | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            || 1      | true                | true                   | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            || 2      | true                | false                  | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            || 3      | false               | false                  | tukey(0.5)                                     | 6              | 0                    | false                  | false          | false                    | 0                             | 4                             | 0                            || 4      | true                | true                   | tukey(0.5)                                     | 8              | 0                    | false                  | false          | false                    | 0                             | 4                             | 0                            || 5      | true                | false                  | tukey(0.5)                                     | 8              | 0                    | false                  | false          | false                    | 0                             | 5                             | 0                            || 6      | true                | false                  | tukey(0.5);partial_tukey(2)                    | 8              | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            || 7      | true                | false                  | tukey(0.5);partial_tukey(2)                    | 12             | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            || 8      | true                | false                  | tukey(0.5);partial_tukey(2);punchout_tukey(3)  | 12             | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            |</div>
         
 
         
@@ -741,8 +741,6 @@
         <th>Type</th>
 
         
-        <th>Attributes</th>
-        
 
         
 
@@ -755,13 +753,13 @@
 
         <tr>
             
-                <td class="name"><code>order</code></td>
+                <td class="name"><code>0</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">number</span>
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_0"</span>
 
 
 
@@ -769,31 +767,23 @@
             </td>
 
             
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
 
             
 
-            <td class="description last">The polynomial order.</td>
+            <td class="description last">compression level 0</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>warmup</code></td>
+                <td class="name"><code>1</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_1"</span>
 
 
 
@@ -801,31 +791,23 @@
             </td>
 
             
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
 
             
 
-            <td class="description last">Warmup samples to prime the predictor, length == order.</td>
+            <td class="description last">compression level 1</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>partition</code></td>
+                <td class="name"><code>2</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><a href="Flac.SubFramePartition.html">Flac.SubFramePartition</a></span>
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_2"</span>
 
 
 
@@ -833,31 +815,23 @@
             </td>
 
             
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
 
             
 
-            <td class="description last">The residual coding method.</td>
+            <td class="description last">compression level 2</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>residual</code></td>
+                <td class="name"><code>3</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_3"</span>
 
 
 
@@ -865,20 +839,130 @@
             </td>
 
             
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
 
-                
+            
 
+            <td class="description last">compression level 3</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>4</code></td>
+            
+
+            <td class="type">
+            
                 
-                </td>
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_4"</span>
+
+
+
+            
+            </td>
+
             
 
             
 
-            <td class="description last">The residual signal, length == (blocksize minus order) samples.									NOTE will only be included if <a href="Flac.CodingOptions.html"><code>CodingOptions.analyseSubframes</code></a> is enabled for the decoder.</td>
+            <td class="description last">compression level 4</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>5</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_5"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">compression level 5</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>6</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_6"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">compression level 6</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>7</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_7"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">compression level 7</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>8</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__COMPRESSION_LEVEL_8"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">compression level 8</td>
         </tr>
 
     

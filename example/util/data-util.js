@@ -57,7 +57,8 @@ function interleave(recBuffers, channels, bitsPerSample){
 		index = 0,
 		inputIndex = 0,
 		ch_i = 0,
-		b_i = 0
+		b_i = 0,
+		pad_i = false,
 		ord = false;
 
 	for(var arrNum = 0, arrCount = recBuffers.length; arrNum < arrCount; ++arrNum){

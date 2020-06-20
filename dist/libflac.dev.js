@@ -217,14 +217,7 @@ if (ENVIRONMENT_IS_NODE) {
     module['exports'] = Module;
   }
 
-  process['on']('uncaughtException', function(ex) {
-    // suppress ExitStatus exceptions from showing an error
-    if (!(ex instanceof ExitStatus)) {
-      throw ex;
-    }
-  });
 
-  process['on']('unhandledRejection', abort);
 
   quit_ = function(status) {
     process['exit'](status);
@@ -46842,6 +46835,172 @@ function asmFunc(global, env, buffer) {
   return HEAP32[(HEAP32[$0 >> 2] | 0) >> 2] | 0 | 0;
  }
  
+ function FLAC__stream_encoder_get_verify_decoder_state($0) {
+  $0 = $0 | 0;
+  label$1 : {
+   if (HEAP32[((HEAP32[$0 >> 2] | 0) + 4 | 0) >> 2] | 0) {
+    break label$1
+   }
+   return 9 | 0;
+  }
+  return FLAC__stream_decoder_get_state(HEAP32[((HEAP32[($0 + 4 | 0) >> 2] | 0) + 11752 | 0) >> 2] | 0 | 0) | 0 | 0;
+ }
+ 
+ function FLAC__stream_encoder_get_verify($0) {
+  $0 = $0 | 0;
+  return HEAP32[((HEAP32[$0 >> 2] | 0) + 4 | 0) >> 2] | 0 | 0;
+ }
+ 
+ function FLAC__stream_encoder_process($0, $1, $2) {
+  $0 = $0 | 0;
+  $1 = $1 | 0;
+  $2 = $2 | 0;
+  var $10 = 0, $6 = 0, $11 = 0, $8 = 0, $13 = 0, $3 = 0, $7 = 0, $4 = 0, $12 = 0, $15 = 0, $14 = 0, $9 = 0, $5 = 0, $16 = 0, $17 = 0, $18 = 0;
+  $3 = HEAP32[$0 >> 2] | 0;
+  $4 = HEAP32[($3 + 36 | 0) >> 2] | 0;
+  $5 = $4 + 1 | 0;
+  $6 = HEAP32[($0 + 4 | 0) >> 2] | 0;
+  $7 = HEAP32[($3 + 24 | 0) >> 2] | 0;
+  $8 = 0;
+  $9 = $4 << 2 | 0;
+  label$1 : {
+   label$2 : while (1) {
+    $10 = $5 - (HEAP32[($6 + 7052 | 0) >> 2] | 0) | 0;
+    $11 = $2 - $8 | 0;
+    $12 = $10 >>> 0 < $11 >>> 0 ? $10 : $11;
+    label$3 : {
+     if (!(HEAP32[($3 + 4 | 0) >> 2] | 0)) {
+      break label$3
+     }
+     label$4 : {
+      if (!$7) {
+       break label$4
+      }
+      $13 = $12 << 2 | 0;
+      $10 = 0;
+      label$5 : while (1) {
+       $11 = $10 << 2 | 0;
+       memcpy((HEAP32[(($6 + $11 | 0) + 11764 | 0) >> 2] | 0) + ((HEAP32[($6 + 11800 | 0) >> 2] | 0) << 2 | 0) | 0 | 0, (HEAP32[($1 + $11 | 0) >> 2] | 0) + ($8 << 2 | 0) | 0 | 0, $13 | 0) | 0;
+       $10 = $10 + 1 | 0;
+       if (($10 | 0) != ($7 | 0)) {
+        continue label$5
+       }
+       break label$5;
+      };
+     }
+     $10 = $6 + 11800 | 0;
+     HEAP32[$10 >> 2] = (HEAP32[$10 >> 2] | 0) + $12 | 0;
+    }
+    label$6 : {
+     if (!$7) {
+      break label$6
+     }
+     $14 = $12 << 2 | 0;
+     $15 = 0;
+     $10 = 0;
+     label$7 : while (1) {
+      $6 = $10 << 2 | 0;
+      $11 = HEAP32[($1 + $6 | 0) >> 2] | 0;
+      if (!$11) {
+       break label$1
+      }
+      $13 = HEAP32[($0 + 4 | 0) >> 2] | 0;
+      memcpy((HEAP32[(($13 + $6 | 0) + 4 | 0) >> 2] | 0) + ((HEAP32[($13 + 7052 | 0) >> 2] | 0) << 2 | 0) | 0 | 0, $11 + ($8 << 2 | 0) | 0 | 0, $14 | 0) | 0;
+      $10 = $10 + 1 | 0;
+      if (($10 | 0) != ($7 | 0)) {
+       continue label$7
+      }
+      break label$7;
+     };
+    }
+    label$8 : {
+     label$9 : {
+      $3 = HEAP32[$0 >> 2] | 0;
+      if (!(HEAP32[($3 + 16 | 0) >> 2] | 0)) {
+       break label$9
+      }
+      $6 = HEAP32[($0 + 4 | 0) >> 2] | 0;
+      if ($8 >>> 0 >= $2 >>> 0) {
+       break label$8
+      }
+      $10 = HEAP32[($6 + 7052 | 0) >> 2] | 0;
+      if ($10 >>> 0 > $4 >>> 0) {
+       break label$8
+      }
+      $15 = HEAP32[($6 + 40 | 0) >> 2] | 0;
+      $16 = HEAP32[($6 + 36 | 0) >> 2] | 0;
+      $17 = HEAP32[($1 + 4 | 0) >> 2] | 0;
+      $18 = HEAP32[$1 >> 2] | 0;
+      label$10 : while (1) {
+       $11 = $10 << 2 | 0;
+       $13 = $8 << 2 | 0;
+       $14 = $18 + $13 | 0;
+       $13 = $17 + $13 | 0;
+       HEAP32[($15 + $11 | 0) >> 2] = (HEAP32[$14 >> 2] | 0) - (HEAP32[$13 >> 2] | 0) | 0;
+       HEAP32[($16 + $11 | 0) >> 2] = ((HEAP32[$13 >> 2] | 0) + (HEAP32[$14 >> 2] | 0) | 0) >> 1 | 0;
+       $8 = $8 + 1 | 0;
+       if ($8 >>> 0 >= $2 >>> 0) {
+        break label$8
+       }
+       $10 = $10 + 1 | 0;
+       if ($10 >>> 0 <= $4 >>> 0) {
+        continue label$10
+       }
+       break label$8;
+      };
+     }
+     $8 = $12 + $8 | 0;
+     $6 = HEAP32[($0 + 4 | 0) >> 2] | 0;
+    }
+    $10 = (HEAP32[($6 + 7052 | 0) >> 2] | 0) + $12 | 0;
+    HEAP32[($6 + 7052 | 0) >> 2] = $10;
+    label$11 : {
+     if ($10 >>> 0 <= $4 >>> 0) {
+      break label$11
+     }
+     $15 = 0;
+     if (!(process_frame_($0 | 0, 0 | 0, 0 | 0) | 0)) {
+      break label$1
+     }
+     label$12 : {
+      if (!$7) {
+       break label$12
+      }
+      $11 = HEAP32[($0 + 4 | 0) >> 2] | 0;
+      $10 = 0;
+      label$13 : while (1) {
+       $6 = HEAP32[(($11 + ($10 << 2 | 0) | 0) + 4 | 0) >> 2] | 0;
+       HEAP32[$6 >> 2] = HEAP32[($6 + $9 | 0) >> 2] | 0;
+       $10 = $10 + 1 | 0;
+       if (($10 | 0) != ($7 | 0)) {
+        continue label$13
+       }
+       break label$13;
+      };
+     }
+     $6 = HEAP32[($0 + 4 | 0) >> 2] | 0;
+     label$14 : {
+      $3 = HEAP32[$0 >> 2] | 0;
+      if (!(HEAP32[($3 + 16 | 0) >> 2] | 0)) {
+       break label$14
+      }
+      $10 = HEAP32[($6 + 36 | 0) >> 2] | 0;
+      HEAP32[$10 >> 2] = HEAP32[($10 + $9 | 0) >> 2] | 0;
+      $10 = HEAP32[($6 + 40 | 0) >> 2] | 0;
+      HEAP32[$10 >> 2] = HEAP32[($10 + $9 | 0) >> 2] | 0;
+     }
+     HEAP32[($6 + 7052 | 0) >> 2] = 1;
+    }
+    if ($8 >>> 0 < $2 >>> 0) {
+     continue label$2
+    }
+    break label$2;
+   };
+   $15 = 1;
+  }
+  return $15 | 0;
+ }
+ 
  function FLAC__stream_encoder_process_interleaved($0, $1, $2) {
   $0 = $0 | 0;
   $1 = $1 | 0;
@@ -48628,6 +48787,9 @@ function asmFunc(global, env, buffer) {
   "FLAC__stream_encoder_set_blocksize": FLAC__stream_encoder_set_blocksize, 
   "FLAC__stream_encoder_set_total_samples_estimate": legalstub$FLAC__stream_encoder_set_total_samples_estimate, 
   "FLAC__stream_encoder_get_state": FLAC__stream_encoder_get_state, 
+  "FLAC__stream_encoder_get_verify_decoder_state": FLAC__stream_encoder_get_verify_decoder_state, 
+  "FLAC__stream_encoder_get_verify": FLAC__stream_encoder_get_verify, 
+  "FLAC__stream_encoder_process": FLAC__stream_encoder_process, 
   "FLAC__stream_encoder_process_interleaved": FLAC__stream_encoder_process_interleaved, 
   "__errno_location": __errno_location, 
   "fflush": fflush, 
@@ -52808,6 +52970,15 @@ var _FLAC__stream_encoder_set_total_samples_estimate = Module["_FLAC__stream_enc
 var _FLAC__stream_encoder_get_state = Module["_FLAC__stream_encoder_get_state"] = createExportWrapper("FLAC__stream_encoder_get_state");
 
 /** @type {function(...*):?} */
+var _FLAC__stream_encoder_get_verify_decoder_state = Module["_FLAC__stream_encoder_get_verify_decoder_state"] = createExportWrapper("FLAC__stream_encoder_get_verify_decoder_state");
+
+/** @type {function(...*):?} */
+var _FLAC__stream_encoder_get_verify = Module["_FLAC__stream_encoder_get_verify"] = createExportWrapper("FLAC__stream_encoder_get_verify");
+
+/** @type {function(...*):?} */
+var _FLAC__stream_encoder_process = Module["_FLAC__stream_encoder_process"] = createExportWrapper("FLAC__stream_encoder_process");
+
+/** @type {function(...*):?} */
 var _FLAC__stream_encoder_process_interleaved = Module["_FLAC__stream_encoder_process_interleaved"] = createExportWrapper("FLAC__stream_encoder_process_interleaved");
 
 /** @type {function(...*):?} */
@@ -54171,11 +54342,15 @@ var _exported = {
 	 * @returns {boolean} <code>false</code> if the encoder is already initialized, else <code>true</code>
 	 *
 	 * @see #create_libflac_encoder
+	 * @see #FLAC__stream_encoder_get_verify
 	 *
 	 * @memberOf Flac#
 	 * @function
 	 */
-	FLAC__stream_encoder_set_verify: Module.cwrap('FLAC__stream_encoder_set_verify', 'number', [ 'number', 'number' ]),
+	FLAC__stream_encoder_set_verify: function(encoder, is_verify){
+		is_verify = is_verify? 1 : 0;
+		Module.ccall('FLAC__stream_encoder_set_verify', 'number', ['number', 'number'], [ encoder, is_verify ]);
+	},
 	/**
 	 * Set the compression level
 	 *
@@ -54190,11 +54365,12 @@ var _exported = {
 	 * @param {number} encoder
 	 * 				the ID of the encoder instance
 	 *
-	 * @param {number} compression_level the desired Flac compression level: [0, 8]
+	 * @param {Flac.CompressionLevel} compression_level the desired Flac compression level: [0, 8]
 	 *
 	 * @returns {boolean} <code>false</code> if the encoder is already initialized, else <code>true</code>
 	 *
 	 * @see #create_libflac_encoder
+	 * @see Flac.CompressionLevel
 	 * @see <a href="https://xiph.org/flac/api/group__flac__stream__encoder.html#gae49cf32f5256cb47eecd33779493ac85">FLAC API for FLAC__stream_encoder_set_compression_level()</a>
 	 *
 	 * @memberOf Flac#
@@ -54221,11 +54397,39 @@ var _exported = {
 	 * @function
 	 */
 	FLAC__stream_encoder_set_blocksize: Module.cwrap('FLAC__stream_encoder_set_blocksize', 'number', [ 'number', 'number']),
+
+
+	/**
+	 * Get the state of the verify stream decoder. Useful when the stream encoder state is FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR.
+	 *
+	 * @param {number} encoder
+	 * 				the ID of the encoder instance
+	 *
+	 * @returns {Flac.FLAC__StreamDecoderState} the verify stream decoder state
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 */
+	FLAC__stream_encoder_get_verify_decoder_state: Module.cwrap('FLAC__stream_encoder_get_verify_decoder_state', 'number', ['number']),
+
+	/**
+	 * Get the "verify" flag for the encoder.
+	 *
+	 * @param {number} encoder
+	 * 				the ID of the encoder instance
+	 *
+	 * @returns {boolean} the verify flag for the encoder
+	 *
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see #FLAC__stream_encoder_set_verify
+	 */
+	FLAC__stream_encoder_get_verify: Module.cwrap('FLAC__stream_encoder_get_verify', 'number', ['number']),
 /*
 
 TODO export other encoder API functions?:
-
-FLAC__StreamEncoder * 	FLAC__stream_encoder_new (void)
 
 FLAC__bool 	FLAC__stream_encoder_set_channels (FLAC__StreamEncoder *encoder, unsigned value)
 
@@ -54254,11 +54458,6 @@ FLAC__bool 	FLAC__stream_encoder_set_min_residual_partition_order (FLAC__StreamE
 FLAC__bool 	FLAC__stream_encoder_set_max_residual_partition_order (FLAC__StreamEncoder *encoder, unsigned value)
 
 FLAC__bool 	FLAC__stream_encoder_set_rice_parameter_search_dist (FLAC__StreamEncoder *encoder, unsigned value)
-
-
-FLAC__StreamDecoderState 	FLAC__stream_encoder_get_verify_decoder_state (const FLAC__StreamEncoder *encoder)
-
-FLAC__bool 	FLAC__stream_encoder_get_verify (const FLAC__StreamEncoder *encoder)
 
 FLAC__bool 	FLAC__stream_encoder_get_streamable_subset (const FLAC__StreamEncoder *encoder)
 
@@ -54296,10 +54495,6 @@ FLAC__uint64 	FLAC__stream_encoder_get_total_samples_estimate (const FLAC__Strea
 
 TODO export other decoder API functions?:
 
-FLAC__StreamDecoder * 	FLAC__stream_decoder_new (void)
-
-FLAC__bool 	FLAC__stream_decoder_set_md5_checking (FLAC__StreamDecoder *decoder, FLAC__bool value)
-
 FLAC__bool 	FLAC__stream_decoder_set_metadata_respond (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
 
 FLAC__bool 	FLAC__stream_decoder_set_metadata_respond_application (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
@@ -54332,6 +54527,53 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 
  */
 
+	 /**
+	 * Set the compression level
+	 *
+	 * The compression level is roughly proportional to the amount of effort the encoder expends to compress the file. A higher level usually means more computation but higher compression. The default level is suitable for most applications.
+	 *
+	 * Currently the levels range from 0 (fastest, least compression) to 8 (slowest, most compression). A value larger than 8 will be treated as 8.
+	 *
+	 * This function automatically calls the following other set functions with appropriate values, so the client does not need to unless it specifically wants to override them:
+	 * <pre>
+	 *     FLAC__stream_encoder_set_do_mid_side_stereo()
+	 *     FLAC__stream_encoder_set_loose_mid_side_stereo()
+	 *     FLAC__stream_encoder_set_apodization()
+	 *     FLAC__stream_encoder_set_max_lpc_order()
+	 *     FLAC__stream_encoder_set_qlp_coeff_precision()
+	 *     FLAC__stream_encoder_set_do_qlp_coeff_prec_search()
+	 *     FLAC__stream_encoder_set_do_escape_coding()
+	 *     FLAC__stream_encoder_set_do_exhaustive_model_search()
+	 *     FLAC__stream_encoder_set_min_residual_partition_order()
+	 *     FLAC__stream_encoder_set_max_residual_partition_order()
+	 *     FLAC__stream_encoder_set_rice_parameter_search_dist()
+	 * </pre>
+	 * The actual values set for each level are:
+	 * | level  | do mid-side stereo  | loose mid-side stereo  | apodization                                    | max lpc order  | qlp coeff precision  | qlp coeff prec search  | escape coding  | exhaustive model search  | min residual partition order  | max residual partition order  | rice parameter search dist   |
+	 * |--------|---------------------|------------------------|------------------------------------------------|----------------|----------------------|------------------------|----------------|--------------------------|-------------------------------|-------------------------------|------------------------------|
+	 * | 0      | false               | false                  | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            |
+	 * | 1      | true                | true                   | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            |
+	 * | 2      | true                | false                  | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            |
+	 * | 3      | false               | false                  | tukey(0.5)                                     | 6              | 0                    | false                  | false          | false                    | 0                             | 4                             | 0                            |
+	 * | 4      | true                | true                   | tukey(0.5)                                     | 8              | 0                    | false                  | false          | false                    | 0                             | 4                             | 0                            |
+	 * | 5      | true                | false                  | tukey(0.5)                                     | 8              | 0                    | false                  | false          | false                    | 0                             | 5                             | 0                            |
+	 * | 6      | true                | false                  | tukey(0.5);partial_tukey(2)                    | 8              | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            |
+	 * | 7      | true                | false                  | tukey(0.5);partial_tukey(2)                    | 12             | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            |
+	 * | 8      | true                | false                  | tukey(0.5);partial_tukey(2);punchout_tukey(3)  | 12             | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            |
+	 *
+	 * @interface CompressionLevel
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__COMPRESSION_LEVEL_0"} 		0	compression level 0
+	 * @property {"FLAC__COMPRESSION_LEVEL_1"} 		1	compression level 1
+	 * @property {"FLAC__COMPRESSION_LEVEL_2"} 		2	compression level 2
+	 * @property {"FLAC__COMPRESSION_LEVEL_3"} 		3	compression level 3
+	 * @property {"FLAC__COMPRESSION_LEVEL_4"} 		4	compression level 4
+	 * @property {"FLAC__COMPRESSION_LEVEL_5"} 		5	compression level 5
+	 * @property {"FLAC__COMPRESSION_LEVEL_6"} 		6	compression level 6
+	 * @property {"FLAC__COMPRESSION_LEVEL_7"} 		7	compression level 7
+	 * @property {"FLAC__COMPRESSION_LEVEL_8"} 		8	compression level 8
+	 */
 	/**
 	 * Create an encoder.
 	 *
@@ -54341,7 +54583,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 					the number of channels of the input PCM data
 	 * @param {number} bps
 	 * 					bits per sample of the input PCM data
-	 * @param {number} compression_level
+	 * @param {Flac.CompressionLevel} compression_level
 	 * 					the desired Flac compression level: [0, 8]
 	 * @param {number} [total_samples] OPTIONAL
 	 * 					the number of total samples of the input PCM data:<br>
@@ -54436,7 +54678,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @param {number} numberOfBytes the number of bytes in data
 	 * @param {number} samples the number of samples encoded in data
 	 * @param {number} currentFrame the number of the (current) encoded frame in data
-	 * @returns {undefined | false} returning <code>false</code> indicates that an
+	 * @returns {void | false} returning <code>false</code> indicates that an
 	 * 								unrecoverable error occurred and decoding should be aborted
 	 */
 	/**
@@ -54582,11 +54824,20 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @property {boolean}  [error] OPTIONAL value of <code>true</code> indicates that an error occured (decoding will be aborted)
 	 */
 	/**
+	 * Result / return value for {@link Flac~decoder_read_callback_fn} callback function for signifying that there is no more data to read
+	 *
+	 * @interface CompletedReadResult
+	 * @memberOf Flac
+	 * @augments Flac.ReadResult
+	 * @property {TypedArray | undefined}  buffer  a TypedArray (e.g. Uint8Array) with the read data (will be ignored in case readDataLength is <code>0</code>)
+	 * @property {0}  readDataLength the number of read data bytes: The number of <code>0</code> (zero) indicates that the end-of-stream is reached.
+	 */
+	/**
 	 * The callback for reading the FLAC data that will be decoded.
 	 *
 	 * @callback Flac~decoder_read_callback_fn
 	 * @param {number} numberOfBytes the maximal number of bytes that the read callback can return
-	 * @returns {Flac.ReadResult} the result of the reading action/request
+	 * @returns {Flac.ReadResult | Flac.CompletedReadResult} the result of the reading action/request
 	 */
 	/**
 	 * The callback for writing the decoded FLAC data.
@@ -54719,7 +54970,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 				the callback for writing the decoded data:
 	 * 				<pre>write_callback_fn(data: Uint8Array[], frameInfo: Metadata)</pre>
 	 *
-	 * @param {Flac~decoder_error_callback_fn} [error_callback_fn] OPTIONAL
+	 * @param {Flac~decoder_error_callback_fn} error_callback_fn
 	 * 				the error callback:
 	 * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
 	 *
@@ -54853,12 +55104,10 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	FLAC__stream_encoder_process_interleaved: function(encoder, buffer, num_of_samples){
 		// get the length of the data in bytes
 		var numBytes = buffer.length * buffer.BYTES_PER_ELEMENT;
-		// console.log("DEBUG numBytes: " + numBytes);
 		// malloc enough space for the data
 		var ptr = Module._malloc(numBytes);
 		// get a bytes-wise view on the newly allocated buffer
 		var heapBytes= new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
-		// console.log("DEBUG heapBytes: " + heapBytes);
 		// copy data into heapBytes
 		heapBytes.set(new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength));// issue #11 (2): do use byteOffset and byteLength for copying the data in case the underlying buffer/ArrayBuffer of the TypedArray view is larger than the TypedArray
 		var status = Module.ccall('FLAC__stream_encoder_process_interleaved', 'number',
@@ -54869,6 +55118,67 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		return status;
 	},
 
+	/**
+	 * Encode / submit data for encoding.
+	 *
+	 * Submit data for encoding. This version allows you to supply the input data via an array of pointers,
+	 * each pointer pointing to an array of samples samples representing one channel.
+	 * The samples need not be block-aligned, but each channel should have the same number of samples.
+	 *
+	 * Each sample should be a signed integer, right-justified to the resolution set by FLAC__stream_encoder_set_bits_per_sample().
+	 * For example, if the resolution is 16 bits per sample, the samples should all be in the range [-32768,32767].
+	 *
+	 *
+	 * For applications where channel order is important, channels must follow the order as described in the frame header.
+	 *
+	 * @param {number} encoder
+	 * 				the ID of the encoder instance
+	 *
+	 * @param {TypedArray[]} channelBuffers
+	 * 				an array for the audio data channels as typed arrays with signed integers (and size according to the set bits-per-sample setting)
+	 *
+	 * @param {number} num_of_samples
+	 * 				the number of samples in one channel (i.e. one of the buffers)
+	 *
+	 * @returns {boolean} true if successful, else false; in this case, check the encoder state with FLAC__stream_encoder_get_state() to see what went wrong.
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 */
+	FLAC__stream_encoder_process: function(encoder, channelBuffers, num_of_samples){
+		var size=channelBuffers.length;
+		var ptrs = [], ptrData = new Uint32Array(size);
+		var ptrOffsets = new DataView(ptrData.buffer);
+		var buffer, numBytes, heapBytes, ptr;
+		for(var i=0, size; i < size; ++i){
+			buffer = channelBuffers[i];
+			// get the length of the data in bytes
+			numBytes = buffer.length * buffer.BYTES_PER_ELEMENT;
+			// malloc enough space for the data
+			ptr = Module._malloc(numBytes);
+			ptrs.push(ptr);
+			// get a bytes-wise view on the newly allocated buffer
+			heapBytes = new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
+			// copy data into heapBytes
+			heapBytes.set(new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength));// use FIX for issue #11 (2)
+			ptrOffsets.setUint32(i*4, ptr, true);
+		}
+		var nPointerBytes = ptrData.length * ptrData.BYTES_PER_ELEMENT
+		var pointerPtr = Module._malloc(nPointerBytes);
+		var pointerHeap = new Uint8Array(Module.HEAPU8.buffer, pointerPtr, nPointerBytes);
+		pointerHeap.set( new Uint8Array(ptrData.buffer) );
+
+		var status = Module.ccall('FLAC__stream_encoder_process', 'number',
+				['number', 'number', 'number'],
+				[encoder, pointerPtr, num_of_samples]
+		);
+
+		for(var i=0, size=ptrs.length; i < size; ++i){
+			Module._free(ptrs[i]);
+		}
+		Module._free(pointerPtr);
+		return status;
+	},
 	/**
 	 * Decodes a single frame.
 	 *
@@ -54970,19 +55280,43 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	FLAC__stream_encoder_get_state:  Module.cwrap('FLAC__stream_encoder_get_state', 'number', ['number']),
 
 	/**
-	 * Get if MD5 verification is enabled for decoder
+	 * Get if MD5 verification is enabled for the decoder
 	 *
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
 	 * @returns {boolean} <code>true</code> if MD5 verification is enabled
+	 *
 	 * @memberOf Flac#
 	 * @function
+	 *
+	 * @see #FLAC__stream_decoder_set_md5_checking
 	 */
 	FLAC__stream_decoder_get_md5_checking: Module.cwrap('FLAC__stream_decoder_get_md5_checking', 'number', ['number']),
 
-//	/** @returns {boolean} FALSE if the decoder is already initialized, else TRUE. */
-//	FLAC__stream_decoder_set_md5_checking: Module.cwrap('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number']),
+	/**
+	 * Set the "MD5 signature checking" flag. If true, the decoder will compute the MD5 signature of the unencoded audio data while decoding and compare it to the signature from the STREAMINFO block,
+	 * if it exists, during {@link Flac.FLAC__stream_decoder_finish FLAC__stream_decoder_finish()}.
+	 *
+	 * MD5 signature checking will be turned off (until the next {@link Flac.FLAC__stream_decoder_reset FLAC__stream_decoder_reset()}) if there is no signature in the STREAMINFO block or when a seek is attempted.
+	 *
+	 * Clients that do not use the MD5 check should leave this off to speed up decoding.
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
+	 * @param {boolean} is_verify
+	 * 				enable/disable checksum verification during decoding
+	 * @returns {boolean} FALSE if the decoder is already initialized, else TRUE.
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see #FLAC__stream_decoder_get_md5_checking
+	 */
+	FLAC__stream_decoder_set_md5_checking: function(decoder, is_verify){
+		is_verify = is_verify? 1 : 0;
+		return Module.ccall('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number'], [ decoder, is_verify ]);
+	},
 
 	/**
 	 * Finish the encoding process.

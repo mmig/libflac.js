@@ -698,7 +698,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FixedSubFrameData.html">Interface: FixedSubFrameData</h1>
+        <h1 class="page-title" data-filename="Flac.CompletedReadResult.html">Interface: CompletedReadResult</h1>
         
 
 
@@ -709,7 +709,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FixedSubFrameData
+    CompletedReadResult
     </h2>
     
 </header>
@@ -720,7 +720,7 @@
 
     
         
-            <div class="description">metadata for FIXED subframe type</div>
+            <div class="description">Result / return value for <a href="Flac.html#~decoder_read_callback_fn"><code>Flac~decoder_read_callback_fn</code></a> callback function for signifying that there is no more data to read</div>
         
 
         
@@ -755,13 +755,16 @@
 
         <tr>
             
-                <td class="name"><code>order</code></td>
+                <td class="name"><code>buffer</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">number</span>
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray">TypedArray</a></span>
+|
+
+<span class="param-type">undefined</span>
 
 
 
@@ -780,20 +783,20 @@
 
             
 
-            <td class="description last">The polynomial order.</td>
+            <td class="description last">a TypedArray (e.g. Uint8Array) with the read data (will be ignored in case readDataLength is <code>0</code>)</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>warmup</code></td>
+                <td class="name"><code>readDataLength</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+<span class="param-type">0</span>
 
 
 
@@ -812,52 +815,20 @@
 
             
 
-            <td class="description last">Warmup samples to prime the predictor, length == order.</td>
+            <td class="description last">the number of read data bytes: The number of <code>0</code> (zero) indicates that the end-of-stream is reached.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>partition</code></td>
+                <td class="name"><code>error</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type"><a href="Flac.SubFramePartition.html">Flac.SubFramePartition</a></span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last">The residual coding method.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>residual</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
+<span class="param-type">boolean</span>
 
 
 
@@ -873,12 +844,14 @@
                 
 
                 
+                  <span class="inherited"><a href="Flac.ReadResult.html">inherited</a></span>
+                
                 </td>
             
 
             
 
-            <td class="description last">The residual signal, length == (blocksize minus order) samples.									NOTE will only be included if <a href="Flac.CodingOptions.html"><code>CodingOptions.analyseSubframes</code></a> is enabled for the decoder.</td>
+            <td class="description last">OPTIONAL value of <code>true</code> indicates that an error occured (decoding will be aborted)</td>
         </tr>
 
     
@@ -914,6 +887,12 @@
     
     </div>
 
+    
+        <h3 class="subsection-title">Extends</h3>
+
+        <ul>
+            <li><a href="Flac.ReadResult.html">Flac.ReadResult</a></li>
+        </ul>
     
 
     
