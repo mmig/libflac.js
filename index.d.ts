@@ -3,11 +3,11 @@ import * as LibFlac from './dist/index.d';
 
 import type {
 	CreatedEvent, DestroyedEvent, CoderChangedEventData, ReadyEvent,
-	BlockMetadata, Metadata, ReadResult,  StreamMetadata, CodingOptions,
+	BlockMetadata, Metadata, ReadResult, CompletedReadResult,  StreamMetadata, CodingOptions,
 	decoder_error_callback_fn, decoder_read_callback_fn, decoder_write_callback_fn,
 	encoder_write_callback_fn, metadata_callback_fn,
 	FLAC__StreamDecoderErrorStatus, FLAC__StreamDecoderInitStatus, FLAC__StreamDecoderState,
-	FLAC__StreamEncoderInitStatus, FLAC__StreamEncoderState,
+	FLAC__StreamEncoderInitStatus, FLAC__StreamEncoderState, CompressionLevel,
 	SubFrameMetadata, SubFramePartition, SubFramePartitionContent, SubFramePartitionData, FixedSubFrameData,
 	FLAC__SubframeType, FLAC__ChannelAssignment, FLAC__EntropyCodingMethodType, LPCSubFrameData
 } from './dist/index.d';
@@ -33,11 +33,11 @@ declare namespace libFactory {
 	export type Flac = typeof LibFlac & FlacVariant;
 	export {
 		CreatedEvent, DestroyedEvent, CoderChangedEventData, ReadyEvent,
-		BlockMetadata, Metadata, ReadResult,  StreamMetadata, CodingOptions,
+		BlockMetadata, Metadata, ReadResult, CompletedReadResult,  StreamMetadata, CodingOptions,
 		decoder_error_callback_fn, decoder_read_callback_fn, decoder_write_callback_fn,
 		encoder_write_callback_fn, metadata_callback_fn,
 		FLAC__StreamDecoderErrorStatus, FLAC__StreamDecoderInitStatus, FLAC__StreamDecoderState,
-		FLAC__StreamEncoderInitStatus, FLAC__StreamEncoderState,
+		FLAC__StreamEncoderInitStatus, FLAC__StreamEncoderState, CompressionLevel,
 		SubFrameMetadata, SubFramePartition, SubFramePartitionContent, SubFramePartitionData, FixedSubFrameData,
 		FLAC__SubframeType, FLAC__ChannelAssignment, FLAC__EntropyCodingMethodType, LPCSubFrameData
 	}

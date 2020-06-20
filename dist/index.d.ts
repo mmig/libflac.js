@@ -239,6 +239,7 @@ export function off(eventName: string, listener: Function): void;
  * @param {boolean} is_verify  enable/disable checksum verification during encoding
  * @returns {boolean}  <code>false</code> if the encoder is already initialized, else <code>true</code>
  * @see {@link Flac#create_libflac_encoder|create_libflac_encoder}
+ * @see {@link Flac#FLAC__stream_encoder_get_verify|FLAC__stream_encoder_get_verify}
  */
 export function FLAC__stream_encoder_set_verify(encoder: number, is_verify: boolean): boolean;
 /**
@@ -253,12 +254,13 @@ export function FLAC__stream_encoder_set_verify(encoder: number, is_verify: bool
  * NOTE: only use on un-initilized encoder instances!
  * 
  * @param {number} encoder  the ID of the encoder instance
- * @param {number} compression_level  the desired Flac compression level: [0, 8]
+ * @param {CompressionLevel} compression_level  the desired Flac compression level: [0, 8]
  * @returns {boolean}  <code>false</code> if the encoder is already initialized, else <code>true</code>
  * @see {@link Flac#create_libflac_encoder|create_libflac_encoder}
+ * @see Flac.CompressionLevel
  * @see {@link https://xiph.org/flac/api/group__flac__stream__encoder.html#gae49cf32f5256cb47eecd33779493ac85|FLAC API for FLAC__stream_encoder_set_compression_level()}
  */
-export function FLAC__stream_encoder_set_compression_level(encoder: number, compression_level: number): boolean;
+export function FLAC__stream_encoder_set_compression_level(encoder: number, compression_level: CompressionLevel): boolean;
 /**
  * Set the blocksize to use while encoding.
  * The number of samples to use per frame. Use 0 to let the encoder estimate a blocksize; this is usually best.
@@ -273,12 +275,72 @@ export function FLAC__stream_encoder_set_compression_level(encoder: number, comp
  */
 export function FLAC__stream_encoder_set_blocksize(encoder: number, block_size: number): boolean;
 /**
+ * Get the state of the verify stream decoder. Useful when the stream encoder state is FLAC__STREAM_ENCODER_VERIFY_DECODER_ERROR.
+ * 
+ * @param {number} encoder  the ID of the encoder instance
+ * @returns {FLAC__StreamDecoderState}  the verify stream decoder state
+ */
+export function FLAC__stream_encoder_get_verify_decoder_state(encoder: number): FLAC__StreamDecoderState;
+/**
+ * Get the "verify" flag for the encoder.
+ * 
+ * @param {number} encoder  the ID of the encoder instance
+ * @returns {boolean}  the verify flag for the encoder
+ * @see {@link Flac#FLAC__stream_encoder_set_verify|FLAC__stream_encoder_set_verify}
+ */
+export function FLAC__stream_encoder_get_verify(encoder: number): boolean;
+/**
+ * Set the compression level
+ * 
+ * The compression level is roughly proportional to the amount of effort the encoder expends to compress the file. A higher level usually means more computation but higher compression. The default level is suitable for most applications.
+ * 
+ * Currently the levels range from 0 (fastest, least compression) to 8 (slowest, most compression). A value larger than 8 will be treated as 8.
+ * 
+ * This function automatically calls the following other set functions with appropriate values, so the client does not need to unless it specifically wants to override them:
+ * <pre>
+ *     FLAC__stream_encoder_set_do_mid_side_stereo()
+ *     FLAC__stream_encoder_set_loose_mid_side_stereo()
+ *     FLAC__stream_encoder_set_apodization()
+ *     FLAC__stream_encoder_set_max_lpc_order()
+ *     FLAC__stream_encoder_set_qlp_coeff_precision()
+ *     FLAC__stream_encoder_set_do_qlp_coeff_prec_search()
+ *     FLAC__stream_encoder_set_do_escape_coding()
+ *     FLAC__stream_encoder_set_do_exhaustive_model_search()
+ *     FLAC__stream_encoder_set_min_residual_partition_order()
+ *     FLAC__stream_encoder_set_max_residual_partition_order()
+ *     FLAC__stream_encoder_set_rice_parameter_search_dist()
+ * </pre>
+ * The actual values set for each level are:
+ * | level  | do mid-side stereo  | loose mid-side stereo  | apodization                                    | max lpc order  | qlp coeff precision  | qlp coeff prec search  | escape coding  | exhaustive model search  | min residual partition order  | max residual partition order  | rice parameter search dist   |
+ * |--------|---------------------|------------------------|------------------------------------------------|----------------|----------------------|------------------------|----------------|--------------------------|-------------------------------|-------------------------------|------------------------------|
+ * | 0      | false               | false                  | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            |
+ * | 1      | true                | true                   | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            |
+ * | 2      | true                | false                  | tukey(0.5)                                     | 0              | 0                    | false                  | false          | false                    | 0                             | 3                             | 0                            |
+ * | 3      | false               | false                  | tukey(0.5)                                     | 6              | 0                    | false                  | false          | false                    | 0                             | 4                             | 0                            |
+ * | 4      | true                | true                   | tukey(0.5)                                     | 8              | 0                    | false                  | false          | false                    | 0                             | 4                             | 0                            |
+ * | 5      | true                | false                  | tukey(0.5)                                     | 8              | 0                    | false                  | false          | false                    | 0                             | 5                             | 0                            |
+ * | 6      | true                | false                  | tukey(0.5);partial_tukey(2)                    | 8              | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            |
+ * | 7      | true                | false                  | tukey(0.5);partial_tukey(2)                    | 12             | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            |
+ * | 8      | true                | false                  | tukey(0.5);partial_tukey(2);punchout_tukey(3)  | 12             | 0                    | false                  | false          | false                    | 0                             | 6                             | 0                            |
+ * 
+ * @property {"FLAC__COMPRESSION_LEVEL_0"} 0  compression level 0
+ * @property {"FLAC__COMPRESSION_LEVEL_1"} 1  compression level 1
+ * @property {"FLAC__COMPRESSION_LEVEL_2"} 2  compression level 2
+ * @property {"FLAC__COMPRESSION_LEVEL_3"} 3  compression level 3
+ * @property {"FLAC__COMPRESSION_LEVEL_4"} 4  compression level 4
+ * @property {"FLAC__COMPRESSION_LEVEL_5"} 5  compression level 5
+ * @property {"FLAC__COMPRESSION_LEVEL_6"} 6  compression level 6
+ * @property {"FLAC__COMPRESSION_LEVEL_7"} 7  compression level 7
+ * @property {"FLAC__COMPRESSION_LEVEL_8"} 8  compression level 8
+ */
+export type CompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+/**
  * Create an encoder.
  * 
  * @param {number} sample_rate  the sample rate of the input PCM data
  * @param {number} channels  the number of channels of the input PCM data
  * @param {number} bps  bits per sample of the input PCM data
- * @param {number} compression_level  the desired Flac compression level: [0, 8]
+ * @param {CompressionLevel} compression_level  the desired Flac compression level: [0, 8]
  * @param {number} [total_samples]  OPTIONAL
  * 					the number of total samples of the input PCM data:<br>
  * 					 Sets an estimate of the total samples that will be encoded.
@@ -298,7 +360,7 @@ export function FLAC__stream_encoder_set_blocksize(encoder: number, block_size: 
  * 					NOTE: this argument is positional (i.e. total_samples and is_verify must also be given)
  * @returns {number}  the ID of the created encoder instance (or 0, if there was an error)
  */
-export function create_libflac_encoder(sample_rate: number, channels: number, bps: number, compression_level: number, total_samples?: number, is_verify?: boolean, block_size?: number): number;
+export function create_libflac_encoder(sample_rate: number, channels: number, bps: number, compression_level: CompressionLevel, total_samples?: number, is_verify?: boolean, block_size?: number): number;
 /**
  * @use {@link Flac#create_libflac_encoder|create_libflac_encoder} instead
  */
@@ -322,10 +384,10 @@ export function init_libflac_decoder(): void;
  * @param {number} numberOfBytes  the number of bytes in data
  * @param {number} samples  the number of samples encoded in data
  * @param {number} currentFrame  the number of the (current) encoded frame in data
- * @returns {undefined | false}  returning <code>false</code> indicates that an
+ * @returns {void | false}  returning <code>false</code> indicates that an
  * 								unrecoverable error occurred and decoding should be aborted
  */
-export type encoder_write_callback_fn = (data: Uint8Array, numberOfBytes: number, samples: number, currentFrame: number) => undefined | false;
+export type encoder_write_callback_fn = (data: Uint8Array, numberOfBytes: number, samples: number, currentFrame: number) => void | false;
 /**
  * the callback for the metadata of the encoded/decoded Flac data.
  * 
@@ -459,12 +521,34 @@ export interface ReadResult {
   error?: boolean;
 }
 /**
+ * Result / return value for {@link Flac~decoder_read_callback_fn} callback function for signifying that there is no more data to read
+ * 
+ * @augments Flac.ReadResult
+ * @property {TypedArray | undefined} buffer  a TypedArray (e.g. Uint8Array) with the read data (will be ignored in case readDataLength is <code>0</code>)
+ * @property {0} readDataLength  the number of read data bytes: The number of <code>0</code> (zero) indicates that the end-of-stream is reached.
+ * @property {boolean} [error]  OPTIONAL value of <code>true</code> indicates that an error occured (decoding will be aborted)
+ */
+export interface CompletedReadResult {
+  /**
+   * a TypedArray (e.g. Uint8Array) with the read data (will be ignored in case readDataLength is <code>0</code>)
+   */
+  buffer: TypedArray | undefined;
+  /**
+   * the number of read data bytes: The number of <code>0</code> (zero) indicates that the end-of-stream is reached.
+   */
+  readDataLength: 0;
+  /**
+   * OPTIONAL value of <code>true</code> indicates that an error occured (decoding will be aborted)
+   */
+  error?: boolean;
+}
+/**
  * The callback for reading the FLAC data that will be decoded.
  * 
  * @param {number} numberOfBytes  the maximal number of bytes that the read callback can return
- * @returns {ReadResult}  the result of the reading action/request
+ * @returns {ReadResult | CompletedReadResult}  the result of the reading action/request
  */
-export type decoder_read_callback_fn = (numberOfBytes: number) => ReadResult;
+export type decoder_read_callback_fn = (numberOfBytes: number) => ReadResult | CompletedReadResult;
 /**
  * The callback for writing the decoded FLAC data.
  * 
@@ -712,8 +796,7 @@ export type FLAC__EntropyCodingMethodType = 0 | 1;
  * 				<pre>read_callback_fn(numberOfBytes: Number) : {buffer: ArrayBuffer, readDataLength: number, error: boolean}</pre>
  * @param {decoder_write_callback_fn} write_callback_fn  the callback for writing the decoded data:
  * 				<pre>write_callback_fn(data: Uint8Array[], frameInfo: Metadata)</pre>
- * @param {decoder_error_callback_fn} [error_callback_fn]  OPTIONAL
- * 				the error callback:
+ * @param {decoder_error_callback_fn} error_callback_fn  the error callback:
  * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
  * @param {metadata_callback_fn} [metadata_callback_fn]  OPTIONAL
  * 				callback for receiving the metadata of FLAC data that will be decoded:
@@ -725,7 +808,7 @@ export type FLAC__EntropyCodingMethodType = 0 | 1;
  * 				corresponding stream with the serial number from the ogg container will be used.
  * @returns {FLAC__StreamDecoderInitStatus}  the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>)
  */
-export function init_decoder_stream(decoder: number, read_callback_fn: decoder_read_callback_fn, write_callback_fn: decoder_write_callback_fn, error_callback_fn?: decoder_error_callback_fn, metadata_callback_fn?: metadata_callback_fn, ogg_serial_number?: number | boolean): FLAC__StreamDecoderInitStatus;
+export function init_decoder_stream(decoder: number, read_callback_fn: decoder_read_callback_fn, write_callback_fn: decoder_write_callback_fn, error_callback_fn: decoder_error_callback_fn, metadata_callback_fn?: metadata_callback_fn, ogg_serial_number?: number | boolean): FLAC__StreamDecoderInitStatus;
 /**
  * Initialize the decoder for writing to an OGG container.
  * 
@@ -734,8 +817,7 @@ export function init_decoder_stream(decoder: number, read_callback_fn: decoder_r
  * 				<pre>read_callback_fn(numberOfBytes: Number) : {buffer: ArrayBuffer, readDataLength: number, error: boolean}</pre>
  * @param {decoder_write_callback_fn} write_callback_fn  the callback for writing the decoded data:
  * 				<pre>write_callback_fn(data: Uint8Array[], frameInfo: Metadata)</pre>
- * @param {decoder_error_callback_fn} [error_callback_fn]  OPTIONAL
- * 				the error callback:
+ * @param {decoder_error_callback_fn} error_callback_fn  the error callback:
  * 				<pre>error_callback_fn(errorCode: Number, errorDescription: String)</pre>
  * @param {metadata_callback_fn} [metadata_callback_fn]  OPTIONAL
  * 				callback for receiving the metadata of FLAC data that will be decoded:
@@ -745,7 +827,7 @@ export function init_decoder_stream(decoder: number, read_callback_fn: decoder_r
  * 				The default behavior is to use the serial number of the first Ogg page. Setting a serial number here will explicitly specify which stream is to be decoded.
  * @returns {FLAC__StreamDecoderInitStatus}  the decoder status(<code>0</code> for <code>FLAC__STREAM_DECODER_INIT_STATUS_OK</code>)
  */
-export function init_decoder_ogg_stream(decoder: number, read_callback_fn: decoder_read_callback_fn, write_callback_fn: decoder_write_callback_fn, error_callback_fn?: decoder_error_callback_fn, metadata_callback_fn?: metadata_callback_fn, ogg_serial_number?: number): FLAC__StreamDecoderInitStatus;
+export function init_decoder_ogg_stream(decoder: number, read_callback_fn: decoder_read_callback_fn, write_callback_fn: decoder_write_callback_fn, error_callback_fn: decoder_error_callback_fn, metadata_callback_fn?: metadata_callback_fn, ogg_serial_number?: number): FLAC__StreamDecoderInitStatus;
 /**
  * Encode / submit data for encoding.
  * 
@@ -768,6 +850,25 @@ export function init_decoder_ogg_stream(decoder: number, read_callback_fn: decod
  * @returns {boolean}  true if successful, else false; in this case, check the encoder state with FLAC__stream_encoder_get_state() to see what went wrong.
  */
 export function FLAC__stream_encoder_process_interleaved(encoder: number, buffer: TypedArray, num_of_samples: number): boolean;
+/**
+ * Encode / submit data for encoding.
+ * 
+ * Submit data for encoding. This version allows you to supply the input data via an array of pointers,
+ * each pointer pointing to an array of samples samples representing one channel.
+ * The samples need not be block-aligned, but each channel should have the same number of samples.
+ * 
+ * Each sample should be a signed integer, right-justified to the resolution set by FLAC__stream_encoder_set_bits_per_sample().
+ * For example, if the resolution is 16 bits per sample, the samples should all be in the range [-32768,32767].
+ * 
+ * 
+ * For applications where channel order is important, channels must follow the order as described in the frame header.
+ * 
+ * @param {number} encoder  the ID of the encoder instance
+ * @param {Array<TypedArray>} channelBuffers  an array for the audio data channels as typed arrays with signed integers (and size according to the set bits-per-sample setting)
+ * @param {number} num_of_samples  the number of samples in one channel (i.e. one of the buffers)
+ * @returns {boolean}  true if successful, else false; in this case, check the encoder state with FLAC__stream_encoder_get_state() to see what went wrong.
+ */
+export function FLAC__stream_encoder_process(encoder: number, channelBuffers: Array<TypedArray>, num_of_samples: number): boolean;
 /**
  * Decodes a single frame.
  * 
@@ -831,12 +932,27 @@ export type FLAC__StreamEncoderState = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
  */
 export function FLAC__stream_encoder_get_state(encoder: number): FLAC__StreamEncoderState;
 /**
- * Get if MD5 verification is enabled for decoder
+ * Get if MD5 verification is enabled for the decoder
  * 
  * @param {number} decoder  the ID of the decoder instance
  * @returns {boolean}  <code>true</code> if MD5 verification is enabled
+ * @see {@link Flac#FLAC__stream_decoder_set_md5_checking|FLAC__stream_decoder_set_md5_checking}
  */
 export function FLAC__stream_decoder_get_md5_checking(decoder: number): boolean;
+/**
+ * Set the "MD5 signature checking" flag. If true, the decoder will compute the MD5 signature of the unencoded audio data while decoding and compare it to the signature from the STREAMINFO block,
+ * if it exists, during {@link Flac.FLAC__stream_decoder_finish FLAC__stream_decoder_finish()}.
+ * 
+ * MD5 signature checking will be turned off (until the next {@link Flac.FLAC__stream_decoder_reset FLAC__stream_decoder_reset()}) if there is no signature in the STREAMINFO block or when a seek is attempted.
+ * 
+ * Clients that do not use the MD5 check should leave this off to speed up decoding.
+ * 
+ * @param {number} decoder  the ID of the decoder instance
+ * @param {boolean} is_verify  enable/disable checksum verification during decoding
+ * @returns {boolean}  FALSE if the decoder is already initialized, else TRUE.
+ * @see {@link Flac#FLAC__stream_decoder_get_md5_checking|FLAC__stream_decoder_get_md5_checking}
+ */
+export function FLAC__stream_decoder_set_md5_checking(decoder: number, is_verify: boolean): boolean;
 /**
  * Finish the encoding process.
  * 
