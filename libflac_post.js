@@ -1119,8 +1119,6 @@ TODO export other decoder API functions?:
 
 FLAC__StreamDecoder * 	FLAC__stream_decoder_new (void)
 
-FLAC__bool 	FLAC__stream_decoder_set_md5_checking (FLAC__StreamDecoder *decoder, FLAC__bool value)
-
 FLAC__bool 	FLAC__stream_decoder_set_metadata_respond (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
 
 FLAC__bool 	FLAC__stream_decoder_set_metadata_respond_application (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
@@ -1800,19 +1798,43 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	FLAC__stream_encoder_get_state:  Module.cwrap('FLAC__stream_encoder_get_state', 'number', ['number']),
 
 	/**
-	 * Get if MD5 verification is enabled for decoder
+	 * Get if MD5 verification is enabled for the decoder
 	 *
 	 * @param {number} decoder
 	 * 				the ID of the decoder instance
 	 *
 	 * @returns {boolean} <code>true</code> if MD5 verification is enabled
+	 *
 	 * @memberOf Flac#
 	 * @function
+	 *
+	 * @see #FLAC__stream_decoder_set_md5_checking
 	 */
 	FLAC__stream_decoder_get_md5_checking: Module.cwrap('FLAC__stream_decoder_get_md5_checking', 'number', ['number']),
 
-//	/** @returns {boolean} FALSE if the decoder is already initialized, else TRUE. */
-//	FLAC__stream_decoder_set_md5_checking: Module.cwrap('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number']),
+	/**
+	 * Set the "MD5 signature checking" flag. If true, the decoder will compute the MD5 signature of the unencoded audio data while decoding and compare it to the signature from the STREAMINFO block,
+	 * if it exists, during {@link Flac.FLAC__stream_decoder_finish FLAC__stream_decoder_finish()}.
+	 *
+	 * MD5 signature checking will be turned off (until the next {@link Flac.FLAC__stream_decoder_reset FLAC__stream_decoder_reset()}) if there is no signature in the STREAMINFO block or when a seek is attempted.
+	 *
+	 * Clients that do not use the MD5 check should leave this off to speed up decoding.
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
+	 * @param {boolean} is_verify
+	 * 				enable/disable checksum verification during decoding
+	 * @returns {boolean} FALSE if the decoder is already initialized, else TRUE.
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see #FLAC__stream_decoder_get_md5_checking
+	 */
+	FLAC__stream_decoder_set_md5_checking: function(decoder, is_verify){
+		is_verify = is_verify? 1 : 0;
+		return Module.ccall('FLAC__stream_decoder_set_md5_checking', 'number', ['number', 'number'], [ decoder, is_verify ]);
+	},
 
 	/**
 	 * Finish the encoding process.
