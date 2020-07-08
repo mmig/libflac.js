@@ -288,9 +288,9 @@ Flac.onready = function(event){
 };
 
 
-// IMPORTANT: if execution environment does not support Object.defineProperty
-//            setting the handler will have no effect, if Flac is already ready.
-//            In this case, ready-state needs to be checked, and if already ready,
+// IMPORTANT: if execution environment does not support Object.defineProperty, then
+//            setting the handler will have no effect, if Flac is already initialized.
+//            In this case, the ready-state needs to be checked, and if already TRUE,
 //            the handler-code should be triggered immediately insteady of setting
 //            the handler.
 if( !Flac.isReady() ){
@@ -331,6 +331,9 @@ If `FLAC_SCRIPT_LOCATION` is given as `string`, it specifies the path to the `li
 //location example as string:
 FLAC_SCRIPT_LOCATION = 'libs/';
 ```
+Note, that the path/location should end with a slash (`"/"`), e.g. `'some/path/'`
+_(however, the library will try to automatically add a slash, if it is missing)_.
+
 If `FLAC_SCRIPT_LOCATION` is given as an object, it specifies mappings of the file-names to the file-paths of the `libflac.js` files (see examples below), e.g.
 ```javascript
 //location example as object/mapping:
@@ -338,8 +341,6 @@ FLAC_SCRIPT_LOCATION = {
   'libflac.min.js.mem': 'libs/flac.mem'
 };
 ```
-Note, that the path/location should end with a slash (`"/"`), e.g. `'some/path/'`
-(the library will try to automatically add a slash, if it is missing).
 
 An example for specifying the path/location at `libs/` in an HTML file:
 ```html
@@ -359,10 +360,12 @@ Or example for specifying the path/location at `libs/` in Node.js script:
   var Flac = require('./libs/libflac.js');
 ```
 
+
 > NOTE: setting `FLAC_UMD_MODE` has no effect since v5.0.1:
 >   automatic export to global namespace has been dropped in case of loading as AMD or CommonJS module,
 >   i.e. setting `process.env.FLAC_UMD_MODE = true` when running in Node.js will have no effect anymore,
->   instead set manually, e.g. with `global.Flac = require('libflacjs')`.
+>   instead export manually to global namespace, e.g. with `global.Flac = require('libflacjs')()`.
+
 
 Example for specifying custom path and file-name via mapping (`originalFileName -> <newPath/newFileName>`):  
 in this case, the file-name(s) of the additionally required files (e.g. `*.mem` or `.wasm` files)
