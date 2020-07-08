@@ -595,13 +595,40 @@ var view = new DataView(buffer_i32.buffer);
 var volume = 1;
 var index = 0;
 for (var i = 0; i < buf_length; i++){
-    view.setInt32(index, (buffer[i] * (0x7FFF * volume)), true);
-    index += 4;
+  view.setInt32(index, (buffer[i] * (0x7FFF * volume)), true);
+  index += 4;
 }
 
 var flac_return = Flac.FLAC__stream_encoder_process_interleaved(flac_encoder, buffer_i32, buf_length);
 if (flac_return != true){
-    console.log("Error: FLAC__stream_encoder_process_interleaved returned false. " + flac_return);
+  console.log("Error: FLAC__stream_encoder_process_interleaved returned false. " + flac_return);
+}
+
+// encoding mode: either interleaved samples or array of channel-samples
+var mode = 'interleaved';// "interleaved" | "channels"
+
+// do encode the audio data ...
+var flac_return;
+if(mode === 'interleaved'){
+
+  //VARIANT 1: encode interleaved channels: TypedArray -> [ch1_sample1, ch2_sample1, ch1_sample1, ch2_sample2, ch2_sample3, ...
+
+  flac_return = Flac.FLAC__stream_encoder_process_interleaved(flac_encoder, buffer_i32, buf_length);
+
+} else {
+
+  //VARIANT 2: encode channels array: TypedArray[] -> [ [ch1_sample1, ch1_sample2, ch1_sample3, ...], [ch2_sample1, ch2_sample2, ch2_sample3, ...], ...]
+
+  //code example for splitting an interleaved Int32Array into its channels:
+  var ch_buf_i32 = new Array(CHANNELS).fill(null).map(function(){ return new Uint32Array(buf_length/CHANNELS); });
+  for(var i=0; i < buf_length; i += CHANNELS){
+    for(var j=0; j < CHANNELS; ++j){
+      ch_buf_i32[j][i / CHANNELS] = buffer_i32[i + j];
+    }
+  }
+
+  // ... encode the array of channel-data:
+  flac_return = Flac.FLAC__stream_encoder_process(flac_encoder, ch_buf_i32, buf_length / CHANNELS);
 }
 
 
@@ -688,22 +715,22 @@ var size = flacData.buffer.byteLength;
 //function that will be called for reading the input (FLAC) data:
 function read_callback_fn(bufferSize){
 
-    var end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
+  var end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
 
-    var _buffer;
-    var numberOfReadBytes;
-    if(end !== -1){
+  var _buffer;
+  var numberOfReadBytes;
+  if(end !== -1){
 
-      _buffer = flacData.subarray(currentDataOffset, end);
-      numberOfReadBytes = end - currentDataOffset;
+    _buffer = flacData.subarray(currentDataOffset, end);
+    numberOfReadBytes = end - currentDataOffset;
 
-      currentDataOffset = end;
-    } else {
-      //nothing left to read: return zero read bytes (indicates end-of-stream)
-      numberOfReadBytes = 0;
-    }
+    currentDataOffset = end;
+  } else {
+    //nothing left to read: return zero read bytes (indicates end-of-stream)
+    numberOfReadBytes = 0;
+  }
 
-    return {buffer: _buffer, readDataLength: numberOfReadBytes, error: false};
+  return {buffer: _buffer, readDataLength: numberOfReadBytes, error: false};
 }
 
 
@@ -739,7 +766,7 @@ function write_callback_fn(channelsBuffer, frameHeader){
 // [2] (c) optional callbacks for receiving details about errors and/or metadata
 
 function error_callback_fn(err, errMsg, client_data){
-    console.error('decode error callback', err, errMsg);
+  console.error('decode error callback', err, errMsg);
 }
 
 function metadata_callback_fn(data){
