@@ -115,7 +115,7 @@ export function isReady(): boolean;
  * 		doSomethingWithFlac();
  * 	}
  */
-export var onready: (event: ReadyEvent) => void;
+export var onready: ((event: ReadyEvent) => void)|undefined;
 /**
  * Ready event: is fired when the library has been initialized and is ready to be used
  * (e.g. asynchronous loading of binary / WASM modules has been completed).
