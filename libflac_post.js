@@ -2058,7 +2058,7 @@ if(typeof Object.defineProperty === 'function'){
 		get() { return this._onready; },
 		set(newValue) {
 			this._onready = newValue;
-			if(this.isReady()){
+			if(newValue && this.isReady()){
 				check_and_trigger_persisted_event('ready', newValue);
 			}
 		}
