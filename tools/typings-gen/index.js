@@ -274,11 +274,11 @@ function generateCode(el, indent, genType){
 			return '';
 		}
 		code += generateTypeCode(el) + ';';
-	} else if(kind === 'var'){
+	} else if(kind === 'var'){// || kind === 'const'){
 		if(genType === 'types'){
 			return '';
 		}
-		code += ': ' + generateFunctionSigCode(el.params, el.returns, true) + ';';
+		code += ': ' + generateVarFunction(el) + ';';
 	} else {
 		if(genType === 'types'){
 			return '';
@@ -340,6 +340,11 @@ function isFunctionVar(el){
 
 function isFunctionTypeDef(el){
 	return el.kind === 'typedef' && toTypeList(el.type).join(' | ') === 'Function';
+}
+
+function generateVarFunction(el){
+	var sigCode = generateFunctionSigCode(el.params, el.returns, true);
+	return el.defaultvalue? '('+sigCode+')|'+el.defaultvalue : sigCode;
 }
 
 function generateFunctionSigCode(paramList, returns, isType){
