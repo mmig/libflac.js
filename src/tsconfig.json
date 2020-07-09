@@ -3,7 +3,6 @@
   "compilerOptions": {
     "allowJs": false,
     "target": "es2018",
-    "outDir": "../lib",
     "declaration": true,
     "module": "commonjs",
     "strict": true,
