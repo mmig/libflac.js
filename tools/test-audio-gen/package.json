@@ -1,0 +1,14 @@
+{
+  "name": "libflacjs-test-audio-gen",
+  "version": "0.1.0",
+  "description": "generate WAV test files",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "wavefile": "git+https://github.com/rochars/wavefile.git#v11.0.0"
+  }
+}

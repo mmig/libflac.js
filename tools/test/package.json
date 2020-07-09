@@ -1,0 +1,33 @@
+{
+  "name": "libflacjs-test",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --config unit/.mocharc.json unit/*-test.ts",
+    "test:lib": "mocha --config unit/.mocharc.json unit/libflac-test.ts",
+    "test:encdec": "mocha --config unit/.mocharc.json unit/enc-dec-test.ts",
+    "test:util": "mocha --config unit/.mocharc.json unit/utilility-classes-test.ts",
+    "gen:audio": "node index.js"
+  },
+  "author": "russa",
+  "license": "MIT",
+  "dependencies": {
+    "ts-loader": "^8.0.0",
+    "wavefile": "git+https://github.com/rochars/wavefile.git#v11.0.0",
+    "webpack": "^4.43.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.11",
+    "@types/fs-extra": "^9.0.1",
+    "@types/mocha": "^7.0.2",
+    "@types/node": "^14.0.13",
+    "chai": "^4.2.0",
+    "choma": "^1.2.1",
+    "fs-extra": "^9.0.1",
+    "mocha": "^8.0.1",
+    "ts-node": "^8.10.2",
+    "typescript": "^3.9.5",
+    "webpack-cli": "^3.3.12"
+  }
+}
