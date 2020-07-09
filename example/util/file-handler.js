@@ -1,3 +1,4 @@
+"use strict"
 
 function setEnabled(enable){
 
@@ -134,7 +135,7 @@ function initHandlers(onFileLoaded){
 	}
 
 	//fire event on file-chooser to resend same file
-	function handle_process_button_click(evt){
+	function handle_process_button_click(_evt){
 		var event; // The custom event that will be created
 
 		if (document.createEvent) {
