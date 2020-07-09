@@ -87,7 +87,7 @@ function generateDeclaration(jsdocJson, outFileName, callback) {
 		// code += `${nl}${nl}`;
 	});
 
-	log('finished!');
+	log('writing generated typings to '+outFileName);
 
 	fs.writeFile(outFileName, code, 'utf8', callback);
 }
@@ -119,7 +119,7 @@ function addMembers(jsdocJson, rootDict){
 			} else if(!parent.children.find(function(other){other.name === el.name})){
 				parent.children.push(el)
 			} else {
-				log('WARN already present '+el.longname, el);
+				log('WARN when generating typings: already present '+el.longname, el);
 			}
 		}
 	});
@@ -427,7 +427,7 @@ function testRun(){
 	var inFileName = '../temp/libflac_jsdoc.json';
 	var outFileName = '../temp/test_index.d.ts';
 	generateDeclarationFromFile(inFileName, outFileName, function(){
-		log('finished!');
+		log('writing generated typings to '+outFileName);
 	});
 }
 

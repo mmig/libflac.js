@@ -4,10 +4,12 @@ var path = require('path');
 var fs = require('fs-extra');
 var exec = require('child_process').exec;
 var gulp = require('gulp');
+var logGulp = require('fancy-log');
 var jsdoc = require('gulp-jsdoc3');
 var del = require('del');
 
 var dtsGen = require('../typings-gen');
+dtsGen.setLogFunc(logGulp);
 
 var outDir = '../../doc';
 var outAllDir = './doc-all';
@@ -31,15 +33,15 @@ var getFlacJoinedWrapperPath = function(){
 	return path.normalize(path.join(__dirname, '..', 'temp'));
 };
 
-var getSourceDir = function(){
+function getSourceDir(){
 	return path.normalize(path.join(__dirname, '..', '..'));
 };
 
-var normalizeGlob = function(fpath){
+function normalizeGlob(fpath){
 	return path.normalize(fpath).replace(/\\/g, '/');
 }
 
-var getTemplatePath = function(templateId){
+function getTemplatePath(templateId){
 	try {
 		return path.dirname(require.resolve(templateId));
 	} catch(err){
@@ -51,12 +53,12 @@ var getTemplatePath = function(templateId){
 	}
 };
 
-var getJsonConfig = function(fileName) {
+function getJsonConfig(fileName) {
 	var filePath = path.isAbsolute(fileName)? fileName : path.resolve(__dirname+'/'+fileName);
 	return JSON.parse(fs.readFileSync(filePath));
 }
 
-var writeJsDocJsonToFile = function(callback){
+function writeJsDocJsonToFile(callback){
 	var jsonData = [];
 	var handleJsonOutput = function(data){
 		jsonData.push(data);
@@ -92,7 +94,9 @@ var writeJsDocJsonToFile = function(callback){
 	}
 	var __write = process.stdout.write;
 	function write() {
-		__write.apply(process.stdout, arguments);
+		if(process.env.verbose || process.env.npm_config_loglevel === 'verbose'){
+			__write.apply(process.stdout, arguments);
+		}
 		handleJsonOutput.apply(null, arguments);
 	}
 	process.stdout.write = write;
@@ -100,7 +104,7 @@ var writeJsDocJsonToFile = function(callback){
 	return callback;
 }
 
-var generateTypings = function(callback){
+function generateTypings(callback){
 
 	var jsDocJsonPath = path.resolve(getFlacJoinedWrapperPath(), flacJsDocJsonFile);
 	var jsDocJson = getJsonConfig(jsDocJsonPath);
@@ -109,7 +113,7 @@ var generateTypings = function(callback){
 	dtsGen.generateDeclaration(jsDocJson, typingsPath, callback);
 };
 
-var createJoinedWrapperFile = function(sourceDir, callback){
+function createJoinedWrapperFile(sourceDir, callback){
 	var preScript = path.resolve(sourceDir, preFile);
 	var postScript = path.resolve(sourceDir, postFile);
 	var targetFile = path.resolve(getFlacJoinedWrapperPath(), flacJoinedWrapperFile);
@@ -125,17 +129,16 @@ var createJoinedWrapperFile = function(sourceDir, callback){
 	});
 }
 
-var cleanJsDoc = function(callback){
+function cleanJsDoc(callback){
 
 	var outPath = normalizeGlob(outDir);
 	var outAllPath = normalizeGlob(outAllDir);
-	del([outPath + '/**/*', outAllPath + '/**/*'], {force: true}).then(function(dels){
-		console.log(dels)
+	del([outPath + '/**/*', outAllPath + '/**/*'], {force: true}).then(function(){
 		callback();
 	});
 };
 
-var genJsDoc = function(includePrivate, generateJsonOutput, callback) {
+function genJsDoc(includePrivate, generateJsonOutput, callback) {
 
 	var config = getJsonConfig('conf-jsdoc3.json');
 
