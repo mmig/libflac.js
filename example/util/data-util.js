@@ -297,7 +297,7 @@ function addFLACMetaData(chunks, metadata, isOgg){
 	view.setUint8(18 + offset, metadata.total_samples >> 24, true);//36 bit
 	view.setUint8(19 + offset, metadata.total_samples >> 16, true);//36 bit
 	view.setUint8(20 + offset, metadata.total_samples >> 8, true);//36 bit
-	view.setUint8(21, metadata.total_samples, true);//36 bit
+	view.setUint8(21 + offset, metadata.total_samples, true);//36 bit
 
 	writeMd5(view, 22 + offset, metadata.md5sum);//16 * 8 bit
 }
