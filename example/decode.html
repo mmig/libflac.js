@@ -44,7 +44,7 @@
 
 		// load libflac.js library variant and demo scripts after document was loaded:
 		global.onload = function(){
-			loadScripts([libFile, demoType+'-func.js', 'util/data-util.js', 'util/file-handler.js', 'app-'+demoType+'.js'], function(err){
+			loadScripts([libFile, demoType+'-func.js', 'util/download-util.js', 'util/data-util.js', 'util/file-handler.js', 'app-'+demoType+'.js'], function(err){
 				console[err? 'error' : 'info'](err? 'encountered error '+err : 'scripts initialized successfully');
 			});
 		};

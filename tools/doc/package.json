@@ -23,10 +23,14 @@
     "jsdoc": "^3.6.4"
   },
   "scripts": {
-    "build": "gulp jsdoc_and_typings",
+    "build": "gulp jsdoc_and_ts",
     "doc": "gulp",
     "doc:json": "gulp jsdoc_json",
     "doc:all": "gulp jsdoc_all",
-    "build:typings": "gulp gen_typings"
+    "doc:clean": "gulp clean_jsdoc",
+    "build:typings": "gulp gen_typings",
+    "build:utils": "gulp build_ts_utils",
+    "build:example": "gulp build_ts_example",
+    "build:clean": "gulp clean_ts_utils"
   }
 }
