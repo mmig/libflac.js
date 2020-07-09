@@ -211,7 +211,7 @@ gulp.task('gen_typings', gulp.series('gen_jsdoc_json', function(callback) {
 }));
 
 gulp.task('build_ts_utils', function(cb) {
-	exec('"'+tscCmd+'" --project "'+tsUtilsSrcDir+'/tsconfig.json"', function(err, stdout) {
+	exec('"'+tscCmd+'" --project "'+tsUtilsSrcDir+'/tsconfig.lib.json"', function(err, stdout) {
 		if(err) console.error(stdout);
 		cb(err);
 	});
