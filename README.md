@@ -1,8 +1,8 @@
-libflac.js
+[libflac.js][0]
 ==========
 
 [![npm](https://img.shields.io/npm/v/libflacjs)](https://www.npmjs.com/package/libflacjs)
-![GitHub package.json version](https://img.shields.io/github/package-json/v/mmig/libflac.js/master)
+[![GitHub package.json version](https://img.shields.io/github/package-json/v/mmig/libflac.js/master)][0]
 [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/emscripten-core/emscripten?color=green&label=emscripten%40latest)][1]
 [![libFLAC version](https://img.shields.io/badge/libFLAC-1.3.3-yellow)][6]
 [![libogg version](https://img.shields.io/badge/libogg-1.3.4-yellow)][18]
@@ -76,12 +76,8 @@ See [doc/index.html][16] for the API documentation.
 	- [API](#api)
 - [Building](#building)
 	- [Build *nix (libflac 1.3.0 or later)](#build-nix-libflac-130-or-later)
-	- [Build Windows/VisualStudio 10 (libflac 1.3.0)](#build-windowsvisualstudio-10-libflac-130)
-	- [Building *nix (libflac 1.3.2)](#building-nix-libflac-132)
-	- [Building *nix (libflac 1.3.3)](#building-nix-libflac-133)
-	- [Prerequisite: Building *nix (libogg 1.3.4)](#prerequisite-building-nix-libogg-134)
-	- [Prerequisite: Building Windows/ViusalStudio 10 (libogg 1.3.2)](#prerequisite-building-windowsviusalstudio-10-libogg-132)
 	- [Changing The Library API](#changing-the-library-api)
+	- [Legacy Build Instructions](#legacy-build-instructions)
 - [Contributors](#contributors)
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
@@ -1009,7 +1005,7 @@ See the [doc/index.html][16] for the API documentation.
 
 Building libflac.js requires that [emscripten][1] is installed and configured.
 
-See the [documentation][3] and the [main site][2] for
+See the [emscripten documentation][3] and its [main site][2] for
 an introduction, tutorials etc.
 
 For changing the targeted libflac version, modify the `Makefile`:
@@ -1056,120 +1052,6 @@ make
 ```
 (build process was tested on Unbuntu 18.04)
 
-
-### Build Windows/VisualStudio 10 (libflac 1.3.0)
-
-__*EXPERIMENTAL*__
-
- * __Prerequisites:__
-   * VisualStudio 10
-   * Emscripten plugin [vs-tool][4] (automatically installed, if Emscripten Installer was used)
-   * OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)
-
-Open the solution file `FLAC.sln` and select the project `libFLAC_static`.
-
-In the `Configuration Manager`, for `libFLAC_static` select `<New...>`, and then `Emscripten` as platform (`vs-tool` needs to be installed for this); change option `Copy settings from:` to `<Empty>`, and the press `OK`.
-
-Then open the project settings for `libFLAC_static`, and modify settings for `Configuration `:
- * `Clang C/C++`: `Additional Include Directories` add entries:
-   ```
-   .\include
-   ..\..\include
-   ```
- * `Clang C/C++` : `Preprocessor` add entries for `Preprocessor Definitions (-D)`:
-   ```
-   HAVE_SYS_PARAM_H
-   HAVE_LROUND
-   VERSION="1.3.0"
-   ```
-
-   ```
-   DEBUG
-   _LIB
-   FLAC__HAS_OGG
-   VERSION="1.3.0"
-   ```
-
-* modify project (if without OGG support): remove the source files (*.c) and headers (*.h) that start with `ogg*` from project (remove or "Exclude from project"); or include OGG library (cf. README of libflac for details)
-
-
-* Modify sources file:
- * `flac-1.3.0\src\libFLAC\format.c` add the following at the beginning (e.g. after the `#include` statements):
-   ```
-   #define VERSION "1.3.0"
-   ```
-
-
-### Building *nix (libflac 1.3.2)
-
-__NOTE:__ these changes are not neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
-
-For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.
-
- * in `flac-1.3.2/Makefile.in` at line 400, disable (or remove) the last entry `microbench` in the line, e.g. change to:
-   ```
-   SUBDIRS = doc include m4 man src examples test build obj #microbench
-   ```
- * in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
-
-   ```
-   #elif defined __GNUC__
-       uint32_t lo, hi;
-       asm volatile (".byte 0x0f, 0x01, 0xd0" : "=a"(lo), "=d"(hi) : "c" (0));
-       return lo;
-    ```
-
-After these changes, continue compilation with
-```
-make emmake
-```
-
-
-### Building *nix (libflac 1.3.3)
-
-No additional changes are neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
-
-See general instrucitions in section _Building *nix (libflac 1.3.0 and later)_.
-
-
-### Prerequisite: Building *nix (libogg 1.3.4)
-
-__NOTE:__ these changes are not neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
-
-Include libogg in libflac built by specifying
-
-    --with-ogg=<libogg dir>
-
-for libfalc's `./conigure` process (where `<libogg dir>` is the _absolute_ path
-to the libogg directory)
-
-Note that libflac build process expects the libogg headers at
-
-    <libogg dir>/include/**
-
-and the compiled library at
-
-    <libogg dir>/lib/**
-
-if necessary you can create symbolic links for these, that link to the
-actual location, e.g.
-
-    ln -sfn src/.libs lib
-    ln -sfn include/ogg ogg
-
-### Prerequisite: Building Windows/ViusalStudio 10 (libogg 1.3.2)
-
-__*EXPERIMENTAL*__
-
-Build libogg for target platform `Emscripten`, and follow libflac's README
-for coyping the header files.
-
-In libfalc's build configuration (`Emcc Linker -> Input -> Additional Dependencies`),
-explicitly link the additional dependencies
-`framing.o` and `bitwise.o` from the libogg's built, something like
-
-    ..\..\..\libogg-1.3.2\win32\VS2010\Emscripten\Release\framing.o;..\..\..\libogg-1.3.2\win32\VS2010\Emscripten\Release\bitwise.o
-
 ### Changing The Library API
 
 The API for _libflac.js_ (e.g. exported functions) are mainly specified in `libflac_post.js`.
@@ -1199,6 +1081,10 @@ Module.ccall(
   func_name,
 ```
 
+### Legacy Build Instructions
+
+For more details and/or build instructions for older `libflac.js` versions, see
+[CHANGELOG.md][19]
 
 ## Contributors
 ------
@@ -1217,7 +1103,7 @@ This project was inspired by Krennmair's [libmp3lame-js][5] project for [JS mp3]
 libflac.js is compiled from the reference implementation of FLAC (BSD license);
 the additional resources and wrapper-code of this project is published under the MIT license (see file LICENSE).
 
-
+[0]: https://github.com/mmig/libflac.js
 [1]: https://github.com/kripken/emscripten
 [2]: https://kripken.github.io/emscripten-site
 [3]: https://kripken.github.io/emscripten-site/docs
@@ -1236,3 +1122,4 @@ the additional resources and wrapper-code of this project is published under the
 [16]: https://mmig.github.io/libflac.js/doc/
 [17]: http://kripken.github.io/emscripten-site/docs/compiling/WebAssembly.html#webassembly
 [18]: https://xiph.org/ogg/
+[19]: https://github.com/mmig/libflac.js/blob/master/CHANGELOG.md
