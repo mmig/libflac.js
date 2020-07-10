@@ -34,7 +34,7 @@ export class Encoder {
 	/**
 	 * metadata for the encoded data
 	 */
-	private _metadata: StreamMetadata;
+	private _metadata: StreamMetadata | undefined;
 
 	private readonly _onDestroyed: (evt: DestroyedEvent) => void;
 	private readonly _onWrite: encoder_write_callback_fn;
@@ -145,6 +145,7 @@ export class Encoder {
 					}
 				}
 				this._data.splice(0);
+				this._metadata = undefined;
 				this._isInitialized = false;
 				this._isFinished = false;
 

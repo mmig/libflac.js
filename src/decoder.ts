@@ -41,7 +41,7 @@ export class Decoder {
 	/**
 	 * metadata for the decoded data
 	 */
-	private _metadata: StreamMetadata;
+	private _metadata: StreamMetadata | undefined;
 
 	private readonly _onDestroyed: (evt: DestroyedEvent) => void;
 	private readonly _onRead: decoder_read_callback_fn;
@@ -146,6 +146,7 @@ export class Decoder {
 			}
 			this._resetInputCache();
 			this._data.splice(0);
+			this._metadata = undefined;
 			this._onReadData = undefined;
 			this._isInitialized = false;
 			this._isFinished = false;
@@ -266,7 +267,7 @@ export class Decoder {
 			const channels = this.metadata.channels;
 
 			if(isInterleaved){
-				return interleave(this._data, channels, this._metadata.bitsPerSample);
+				return interleave(this._data, channels, this.metadata.bitsPerSample);
 			}
 
 			const data: Uint8Array[] = new Array(channels);
