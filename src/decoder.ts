@@ -107,8 +107,10 @@ export class Decoder {
 			this.addData(data);
 		};
 
-		this._onMetaData = (m: StreamMetadata) => {
-			this._metadata = m;
+		this._onMetaData = (m?: StreamMetadata) => {
+			if(m){
+				this._metadata = m;
+			}
 		};
 
 		this._onError = (code, description) => {

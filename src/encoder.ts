@@ -85,8 +85,10 @@ export class Encoder {
 			this.addData(data);
 		};
 
-		this._onMetaData = (m: StreamMetadata) => {
-			this._metadata = m;
+		this._onMetaData = (m?: StreamMetadata) => {
+			if(m){
+				this._metadata = m;
+			}
 		};
 
 		if(this._id === 0){

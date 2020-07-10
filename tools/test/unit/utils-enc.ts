@@ -9,9 +9,10 @@ export function encode(flac: Flac, sampleRate: number, channels: number, bps: nu
 	flac.init_encoder_stream(enc, (data: Uint8Array) => {
 		// console.log('write data: ', data);
 		fdata.push(data);
-	}, (m: StreamMetadata) => {
-		// console.log('metadata: ', m);
-		metadata = m;
+	}, (m?: StreamMetadata) => {
+		if(m){
+			metadata = m;
+		}
 	});
 
 	if(!encodeInterleaved){
