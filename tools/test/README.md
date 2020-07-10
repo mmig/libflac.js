@@ -11,7 +11,7 @@ Put a least one WAV-file into directory (recommended format: 96 kHz sampling rat
 
 Run wav-generator script:
 ```bash
-npm run gen
+npm run gen:audio
 ```
 
 This will create for each source-file
