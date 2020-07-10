@@ -1,12 +1,14 @@
 
-function decodeFlac(binData, decData, isVerify, isOgg){
+function decodeFlac(binData, decData, isVerify, isOgg, isAllMetadata){
 
 	var flac_decoder,
 		VERIFY = true,
 		flac_ok = 1,
 		analyse_frames = false,
 		analyse_residuals = false,
-		meta_data;
+		meta_data,
+		all_meta_data = isAllMetadata? [] : null,
+		enable_raw_metadata = isAllMetadata;
 
 	var currentDataOffset = 0;
 	var size = binData.buffer.byteLength;
@@ -36,17 +38,26 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 	}
 
 	/** @memberOf decode */
-	function write_callback_fn(buffer, frameHdr){
+	function write_callback_fn(buffer, _frameHdr){
 		// buffer is the decoded audio data, Uint8Array
-//	    console.log('decode write callback', buffer);
-		console.log('  write frame metadata: ', frameHdr);
+		// console.log('decode write callback', buffer);
+		// console.log('  decode write frame metadata: ', _frameHdr);
 		decData.push(buffer);
 	}
 
 	/** @memberOf decode */
-	function metadata_callback_fn(data){
-		console.info('meta data: ', data);
-		meta_data = data;
+	function metadata_callback_fn(data, rawData){
+		if(data){
+			console.info('meta data: ', data);
+			meta_data = data;
+		}
+		if(rawData){
+			console.info('  raw meta data: ', rawData);
+
+			if(all_meta_data){
+				all_meta_data.push(rawData);
+			}
+		}
 	}
 
 	/** @memberOf decode */
@@ -64,8 +75,11 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 	flac_decoder = Flac.create_libflac_decoder(VERIFY);
 
 	if (flac_decoder != 0){
+		if(isAllMetadata){
+			Flac.FLAC__stream_decoder_set_metadata_respond_all(flac_decoder);
+		}
 		var init_status = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, isOgg);
-		Flac.setOptions(flac_decoder, {analyseSubframes: analyse_frames, analyseResiduals: analyse_residuals});
+		Flac.setOptions(flac_decoder, {analyseSubframes: analyse_frames, analyseResiduals: analyse_residuals, enableRawStreamMetadata: enable_raw_metadata});
 		flac_ok &= init_status == 0;
 		console.log("flac init     : " + flac_ok);//DEBUG
 	} else {
@@ -109,6 +123,10 @@ function decodeFlac(binData, decData, isVerify, isOgg){
 	}
 
 	Flac.FLAC__stream_decoder_delete(flac_decoder);
+
+	if(all_meta_data){
+		meta_data.rawMetadata = all_meta_data;
+	}
 
 	return {metaData: meta_data, status: flac_ok};
 }
