@@ -3,7 +3,7 @@
   "compilerOptions": {
     "allowJs": false,
     "target": "es2018",
-    "declaration": true,
+    "declaration": false,
     "module": "commonjs",
     "strict": true,
     "strictPropertyInitialization": false
