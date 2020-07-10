@@ -242,7 +242,8 @@ gulp.task('jsdoc', gulp.series('clean_jsdoc', 'gen_jsdoc'));
 
 gulp.task('jsdoc_and_json', gulp.parallel(['jsdoc', 'gen_jsdoc_json']));
 
+gulp.task('ts_all', gulp.parallel(['gen_typings', 'ts_utils', 'build_ts_example']));
 
-gulp.task('jsdoc_and_ts', gulp.parallel(['jsdoc', 'gen_typings', 'ts_utils', 'build_ts_example']));
+gulp.task('jsdoc_and_ts', gulp.parallel(['jsdoc', 'ts_all']));
 
 gulp.task('default', gulp.series('jsdoc'));
