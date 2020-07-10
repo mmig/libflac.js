@@ -1,6 +1,7 @@
 
 import { Flac, DestroyedEvent, CompressionLevel, encoder_write_callback_fn, metadata_callback_fn, StreamMetadata , FLAC__StreamEncoderState, CodingOptions } from '../index.d';
 import { mergeBuffers , getLength } from './utils/data-utils';
+import { BeforeReadyHandler } from './before-ready-handler';
 
 export interface EncoderOptions extends EncoderResetOptions {
 	sampleRate: number;
@@ -8,6 +9,7 @@ export interface EncoderOptions extends EncoderResetOptions {
 	bitsPerSample: number;
 	compression: CompressionLevel;
 	totalSamples?: number;
+	autoOnReady?: boolean;
 }
 
 export interface EncoderResetOptions extends CodingOptions {
@@ -20,6 +22,8 @@ export interface EncoderResetOptions extends CodingOptions {
 	isOgg?: boolean;
 }
 
+type ChacheableEncoderCalls = '_init' | 'encode' | 'reset';
+
 export class Encoder {
 
 	private _id: number | undefined;
@@ -27,10 +31,12 @@ export class Encoder {
 	private _isInitialized: boolean = false;
 	private _isFinished: boolean = false;
 
+	private _beforeReadyHandler?: BeforeReadyHandler<Encoder, ChacheableEncoderCalls>;
+
 	/**
 	 * cache for the encoded data
 	 */
-	private _data: Uint8Array[] = [];
+	protected data: Uint8Array[] = [];
 	/**
 	 * metadata for the encoded data
 	 */
@@ -53,7 +59,11 @@ export class Encoder {
 	}
 
 	public get rawData(): Uint8Array[] {
-		return this._data;
+		return this.data;
+	}
+
+	public get isWaitOnReady(): boolean {
+		return this._beforeReadyHandler?.isWaitOnReady || false;
 	}
 
 	constructor(private Flac: Flac, private _options: EncoderOptions){
@@ -64,12 +74,15 @@ export class Encoder {
 				this._isInitialized = false;
 				this._isFinished = false;
 				Flac.off('destroyed', this._onDestroyed);
+				if(this._beforeReadyHandler?.enabled){
+					this._beforeReadyHandler.enabled = false;
+				}
 			}
 		};
 		Flac.on('destroyed', this._onDestroyed);
 
 		this._onWrite = (data: Uint8Array) => {
-			this._data.push(data);
+			this.addData(data);
 		};
 
 		this._onMetaData = (m: StreamMetadata) => {
@@ -97,6 +110,8 @@ export class Encoder {
 				this._isInitialized = true;
 				this._isFinished = false;
 			}
+		} else {
+			this._handleBeforeReady('_init', arguments);
 		}
 	}
 
@@ -144,7 +159,7 @@ export class Encoder {
 						this.Flac.FLAC__stream_encoder_set_compression_level(this._id, this._options.compression);
 					}
 				}
-				this._data.splice(0);
+				this.clearData();
 				this._metadata = undefined;
 				this._isInitialized = false;
 				this._isFinished = false;
@@ -153,7 +168,7 @@ export class Encoder {
 				return this._isError;
 			}
 		}
-		return false;
+		return this._handleBeforeReady('reset', arguments);
 	}
 
 	/** finish encoding: the encoder needs to be reset or destroyed afterwards. */
@@ -240,11 +255,11 @@ export class Encoder {
 			// console.log('encoding non-interleaved ('+numberOfSamples+' samples)...');
 			return !!this.Flac.FLAC__stream_encoder_process(this._id, pcmData as Int32Array[], numberOfSamples);
 		}
-		return false;
+		return this._handleBeforeReady('encode', arguments);
 	}
 
 	public getSamples(): Uint8Array {
-		return mergeBuffers(this._data, getLength(this._data));
+		return mergeBuffers(this.data, getLength(this.data));
 	}
 
 	public getState(): FLAC__StreamEncoderState | -1 {
@@ -258,6 +273,17 @@ export class Encoder {
 		if(this._id){
 			this.Flac.FLAC__stream_encoder_delete(this._id);
 		}
+		this._beforeReadyHandler && (this._beforeReadyHandler.enabled = false);
+		this._metadata = void(0);
+		this.clearData();
+	}
+
+	protected addData(decData: Uint8Array): void {
+		this.data.push(decData);
+	}
+
+	protected clearData(): void {
+		this.data.splice(0);
 	}
 
 	private _finish(): boolean {
@@ -266,6 +292,13 @@ export class Encoder {
 				this._isFinished = true;
 				return true;
 			};
+		}
+		return false;
+	}
+
+	private _handleBeforeReady(funcName: ChacheableEncoderCalls, args: ArrayLike<any>): boolean {
+		if(this._beforeReadyHandler){
+			return this._beforeReadyHandler.handleBeforeReady(funcName, args);
 		}
 		return false;
 	}

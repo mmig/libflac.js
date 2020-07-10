@@ -2,11 +2,15 @@
 import { Flac, DestroyedEvent, decoder_read_callback_fn, decoder_write_callback_fn, decoder_error_callback_fn, metadata_callback_fn, StreamMetadata , ReadResult , FLAC__StreamDecoderState, CompletedReadResult , CodingOptions } from '../index.d';
 import { interleave } from './utils/wav-utils';
 import { mergeBuffers , getLength } from './utils/data-utils';
+import { BeforeReadyHandler } from './before-ready-handler';
 
 export interface DecoderOptions extends CodingOptions {
 	verify?: boolean;
 	isOgg?: boolean
+	autoOnReady?: boolean;
 }
+
+type ChacheableDecoderCalls = '_init' | 'decode' | 'decodeChunk' | 'reset';
 
 export class Decoder {
 
@@ -14,6 +18,8 @@ export class Decoder {
 	private _isError: boolean = false;
 	private _isInitialized: boolean = false;
 	private _isFinished: boolean = false;
+
+	private _beforeReadyHandler?: BeforeReadyHandler<Decoder, ChacheableDecoderCalls>;
 
 	/**
 	 * input cache for decoding-chunk modus
@@ -37,7 +43,7 @@ export class Decoder {
 	/**
 	 * cache for the decoded data
 	 */
-	private _data: Uint8Array[][] = [];
+	protected data: Uint8Array[][] = [];
 	/**
 	 * metadata for the decoded data
 	 */
@@ -67,7 +73,11 @@ export class Decoder {
 	}
 
 	public get rawData(): Uint8Array[][] {
-		return this._data;
+		return this.data;
+	}
+
+	public get isWaitOnReady(): boolean {
+		return this._beforeReadyHandler?.isWaitOnReady || false;
 	}
 
 	constructor(private Flac: Flac, private _options: DecoderOptions = {}){
@@ -78,6 +88,9 @@ export class Decoder {
 				this._isInitialized = false;
 				this._isFinished = false;
 				Flac.off('destroyed', this._onDestroyed);
+				if(this._beforeReadyHandler?.enabled){
+					this._beforeReadyHandler.enabled = false;
+				}
 			}
 		};
 		Flac.on('destroyed', this._onDestroyed);
@@ -91,7 +104,7 @@ export class Decoder {
 		}
 
 		this._onWrite = (data: Uint8Array[]) => {
-			this._data.push(data);
+			this.addData(data);
 		};
 
 		this._onMetaData = (m: StreamMetadata) => {
@@ -103,6 +116,10 @@ export class Decoder {
 			// TODO emit error instead!
 			console.error(`Decoder[${this._id}] encoutered error (${code}): ${description}`);
 		};
+
+		if(this._options?.autoOnReady){
+			this._beforeReadyHandler = new BeforeReadyHandler<Decoder, ChacheableDecoderCalls>(this, true, this.Flac);
+		}
 
 		if(this._id === 0){
 			this._isError = true;
@@ -125,6 +142,8 @@ export class Decoder {
 				this._isInitialized = true;
 				this._isFinished = false;
 			}
+		}else {
+			this._handleBeforeReady('_init', arguments);
 		}
 	}
 
@@ -145,7 +164,7 @@ export class Decoder {
 				}
 			}
 			this._resetInputCache();
-			this._data.splice(0);
+			this.clearData();
 			this._metadata = undefined;
 			this._onReadData = undefined;
 			this._isInitialized = false;
@@ -154,17 +173,26 @@ export class Decoder {
 			this._init(this._options.isOgg);
 			return this._isError;
 		}
-		return false;
+		return this._handleBeforeReady('reset', arguments);
 	}
 
+	/**
+	 * decode all data at once (will automatically finishes decoding)
+	 *
+	 * **NOTE**: do not mix with [[decodeChunk]] calls!
+	 *
+	 * @param  flacData the (complete) FLAC data to decode
+	 * @return `true` if encoding was successful
+	 */
 	public decode(flacData: Uint8Array): boolean {
 		if(this._id && this._isInitialized && !this._isFinished){
 			this._onReadData = this._createReadFunc(flacData);
 			if(!!this.Flac.FLAC__stream_decoder_process_until_end_of_stream(this._id)){
 				return this._finish();
 			};
+			return false;
 		}
-		return false;
+		return this._handleBeforeReady('decode', arguments);
 	}
 
 	/** finish decoding */
@@ -176,7 +204,7 @@ export class Decoder {
 	 *
 	 * @param  flacData the data chunk to decode:
 	 *                    if omitted, will finish the decoding (any cached data will be flushed).
-	 * @return <code>true</code> if encoding was successful
+	 * @return `true` if encoding was successful
 	 */
 	public decodeChunk(flacData: Uint8Array): boolean;
 	/**
@@ -184,10 +212,12 @@ export class Decoder {
 	 * if not enough data for decoding is cached, will pause until enough data
 	 * is cached, or flushing of the cache is forced.
 	 *
+	 * **NOTE**: do not mix with [[decode]] calls!
+	 *
 	 * @param  [flacData] the data chunk to decode:
 	 *                    if omitted, will finish the decoding (any cached data will be flushed).
 	 * @param  [flushCache] flush the cached data and finalize decoding
-	 * @return <code>true</code> if encoding was successful
+	 * @return `true` if encoding was successful
 	 */
 	public decodeChunk(flacData?: Uint8Array, flushCache?: boolean): boolean {
 		if (this._id && this._isInitialized && !this._isFinished) {
@@ -235,7 +265,7 @@ export class Decoder {
 				return true;
 			}
 		}
-		return false;
+		return this._handleBeforeReady('decodeChunk', arguments);
 	}
 
 	/**
@@ -255,11 +285,11 @@ export class Decoder {
 	public getSamples(isInterleaved: true): Uint8Array;
 	/**
 	 * get the decoded samples
-	 * @param  isInterleaved if <code>true</code> interleaved WAV samples are returned,
+	 * @param  isInterleaved if `true` interleaved WAV samples are returned,
 	 * 						otherwise, an array of the (raw) PCM samples will be returned
 	 * 						where the length of the array corresponds to the number of channels
-	 * @return the samples: either interleaved as <code>Uint8Array</code> or non-interleaved
-	 *         as <code>Uint8Array[]</code> with the array's length corresponding to the number of channels
+	 * @return the samples: either interleaved as `Uint8Array` or non-interleaved
+	 *         as `Uint8Array[]` with the array's length corresponding to the number of channels
 	 */
 	public getSamples(isInterleaved?: boolean): Uint8Array[] | Uint8Array {
 		if(this.metadata){
@@ -267,12 +297,12 @@ export class Decoder {
 			const channels = this.metadata.channels;
 
 			if(isInterleaved){
-				return interleave(this._data, channels, this.metadata.bitsPerSample);
+				return interleave(this.data, channels, this.metadata.bitsPerSample);
 			}
 
 			const data: Uint8Array[] = new Array(channels);
 			for(let i=channels-1; i >= 0; --i){
-				const chData = this._data.map(d => d[i]);
+				const chData = this.mapData(d => d[i]);
 				data[i] = mergeBuffers(chData, getLength(chData));
 			}
 			return data;
@@ -291,6 +321,22 @@ export class Decoder {
 		if(this._id){
 			this.Flac.FLAC__stream_decoder_delete(this._id);
 		}
+		this._beforeReadyHandler && (this._beforeReadyHandler.enabled = false);
+		this._metadata = void(0);
+		this.clearData();
+		this._inputCache.splice(0);
+	}
+
+	protected addData(decData: Uint8Array[]): void {
+		this.data.push(decData);
+	}
+
+	protected clearData(): void {
+		this.data.splice(0);
+	}
+
+	protected mapData(mapFunc: (val: Uint8Array[], index: number, list: Uint8Array[][]) => Uint8Array): Uint8Array[] {
+		return this.data.map(mapFunc);
 	}
 
 	private _isAnalyse(opt: DecoderOptions){
@@ -399,5 +445,12 @@ export class Decoder {
 				error: false
 			};
 		}
+	}
+
+	private _handleBeforeReady(funcName: ChacheableDecoderCalls, args: ArrayLike<any>): boolean {
+		if(this._beforeReadyHandler){
+			return this._beforeReadyHandler.handleBeforeReady(funcName, args);
+		}
+		return false;
 	}
 }
