@@ -8,7 +8,7 @@
   },
   "author": "",
   "license": "MIT",
-  "dependencies": {
+  "devDependencies": {
     "wavefile": "git+https://github.com/rochars/wavefile.git#v11.0.0"
   }
 }
