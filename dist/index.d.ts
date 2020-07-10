@@ -47,7 +47,10 @@ export type FLAC__StreamDecoderErrorStatus = 0 | 1 | 2 | 3;
  * 
  * @property {boolean} [analyseSubframes]  for decoding: include subframes metadata in write-callback metadata, DEFAULT: false
  * @property {boolean} [analyseResiduals]  for decoding: include residual data in subframes metadata in write-callback metadata, NOTE {@link #analyseSubframes} muste also be enabled, DEFAULT: false
+ * @property {boolean} [enableRawStreamMetadata]  for encoding and decoding: enable receiving raw STREAMINFO metadata as second argument in the metadata-callback, DEFAULT: false
  * @see Flac#setOptions
+ * @see Flac~metadata_callback_fn
+ * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
  */
 export interface CodingOptions {
   /**
@@ -58,7 +61,53 @@ export interface CodingOptions {
    * for decoding: include residual data in subframes metadata in write-callback metadata, NOTE {@link #analyseSubframes} muste also be enabled, DEFAULT: false
    */
   analyseResiduals?: boolean;
+  /**
+   * for encoding and decoding: enable receiving raw STREAMINFO metadata as second argument in the metadata-callback, DEFAULT: false
+   */
+  enableRawStreamMetadata?: boolean;
 }
+/**
+ * FLAC raw metadata
+ * 
+ * @property {FLAC__MetadataType} type  the type of the metadata
+ * @property {boolean} isLast  if it is the last block of metadata
+ * @property {number} length  the length of the metadata block (bytes)
+ * @property {Uint8Array} raw  the raw (binary) metadata
+ */
+export interface RawMetadata {
+  /**
+   * the type of the metadata
+   */
+  type: FLAC__MetadataType;
+  /**
+   * if it is the last block of metadata
+   */
+  isLast: boolean;
+  /**
+   * the length of the metadata block (bytes)
+   */
+  length: number;
+  /**
+   * the raw (binary) metadata
+   */
+  raw: Uint8Array;
+}
+/**
+ * An enumeration of the available metadata block types.
+ * 
+ * @property {"FLAC__METADATA_TYPE_STREAMINFO"} 0  STREAMINFO block
+ * @property {"FLAC__METADATA_TYPE_PADDING"} 1  PADDING block
+ * @property {"FLAC__METADATA_TYPE_APPLICATION"} 2  APPLICATION block
+ * @property {"FLAC__METADATA_TYPE_SEEKTABLE"} 3  SEEKTABLE block
+ * @property {"FLAC__METADATA_TYPE_VORBIS_COMMENT"} 4  VORBISCOMMENT block (a.k.a. FLAC tags)
+ * @property {"FLAC__METADATA_TYPE_CUESHEET"} 5  CUESHEET block
+ * @property {"FLAC__METADATA_TYPE_PICTURE"} 6  PICTURE block
+ * @property {"FLAC__METADATA_TYPE_UNDEFINED"} 7  marker to denote beginning of undefined type range; this number will increase as new metadata types are added
+ * @property {"FLAC__MAX_METADATA_TYPE"} 126  No type will ever be greater than this. There is not enough room in the protocol block.
+ * @see Flac.RawMetadata
+ * @see {@link https://xiph.org/flac/format.html|FLAC format documentation}
+ */
+export type FLAC__MetadataType = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 126;
 /**
  * Set coding options for an encoder / decoder instance (will / should be deleted, when finish()/delete())
  * 
@@ -378,7 +427,7 @@ export function create_libflac_decoder(is_verify?: boolean): number;
  */
 export function init_libflac_decoder(): void;
 /**
- * the callback for writing the encoded FLAC data.
+ * The callback for writing the encoded FLAC data.
  * 
  * @param {Uint8Array} data  the encoded FLAC data
  * @param {number} numberOfBytes  the number of bytes in data
@@ -389,11 +438,21 @@ export function init_libflac_decoder(): void;
  */
 export type encoder_write_callback_fn = (data: Uint8Array, numberOfBytes: number, samples: number, currentFrame: number) => void | false;
 /**
- * the callback for the metadata of the encoded/decoded Flac data.
+ * The callback for the metadata of the encoded/decoded Flac data.
  * 
- * @param {StreamMetadata} metadata  the FLAC meta data
+ * By default, only the STREAMINFO metadata is enabled.
+ * 
+ * For other metadata types {@link Flac.FLAC__MetadataType} they need to be enabled,
+ * see e.g. {@link Flac#FLAC__stream_decoder_set_metadata_respond}
+ * 
+ * @param {StreamMetadata | undefined} metadata  the FLAC meta data (currently only STREAMINFO is supported, for other types, only raw metadata is returned)
+ * @param {RawMetadata} [rawMetadata]  raw meta data (NOTE raw STREAMINFO metadata needs be enabled via coding options)
+ * @see Flac#init_decoder_stream
+ * @see Flac#init_encoder_stream
+ * @see Flac.CodingOptions
+ * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
  */
-export type metadata_callback_fn = (metadata: StreamMetadata) => void;
+export type metadata_callback_fn = (metadata: StreamMetadata | undefined, rawMetadata?: RawMetadata) => void;
 /**
  * FLAC meta data
  * 
@@ -931,6 +990,175 @@ export type FLAC__StreamEncoderState = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
  * @returns {FLAC__StreamEncoderState}  the encoder state
  */
 export function FLAC__stream_encoder_get_state(encoder: number): FLAC__StreamEncoderState;
+/**
+ * Direct the decoder to pass on all metadata blocks of type type.
+ * 
+ * By default, only the STREAMINFO block is returned via the metadata callback.
+ * 
+ * <p>
+ * NOTE: only use on un-initilized decoder instances!
+ * 
+ * @param {number} decoder  the ID of the decoder instance
+ * @param {FLAC__MetadataType} type  the metadata type to be enabled
+ * @returns {boolean}  <code>false</code> if the decoder is already initialized, else <code>true</code>
+ * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
+ */
+export function FLAC__stream_decoder_set_metadata_respond(decoder: number, type: FLAC__MetadataType): boolean;
+/**
+ * Direct the decoder to pass on all APPLICATION metadata blocks of the given id.
+ * 
+ * By default, only the STREAMINFO block is returned via the metadata callback.
+ * 
+ * <p>
+ * NOTE: only use on un-initilized decoder instances!
+ * 
+ * @param {number} decoder  the ID of the decoder instance
+ * @param {number} id  the ID of application metadata
+ * @returns {boolean}  <code>false</code> if the decoder is already initialized, else <code>true</code>
+ * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
+ */
+export function FLAC__stream_decoder_set_metadata_respond_application(decoder: number, id: number): boolean;
+/**
+ * Direct the decoder to pass on all metadata blocks of any type.
+ * 
+ * By default, only the STREAMINFO block is returned via the metadata callback.
+ * 
+ * <p>
+ * NOTE: only use on un-initilized decoder instances!
+ * 
+ * @param {number} decoder  the ID of the decoder instance
+ * @returns {boolean}  <code>false</code> if the decoder is already initialized, else <code>true</code>
+ * @see Flac#FLAC__stream_decoder_set_metadata_ignore_all
+ * @see Flac#FLAC__stream_decoder_set_metadata_respond_application
+ * @see Flac#FLAC__stream_decoder_set_metadata_respond
+ */
+export function FLAC__stream_decoder_set_metadata_respond_all(decoder: number): boolean;
+/**
+ * Direct the decoder to filter out all metadata blocks of type type.
+ * 
+ * By default, only the STREAMINFO block is returned via the metadata callback.
+ * 
+ * <p>
+ * NOTE: only use on un-initilized decoder instances!
+ * 
+ * @param {number} decoder  the ID of the decoder instance
+ * @param {FLAC__MetadataType} type  the metadata type to be ignored
+ * @returns {boolean}  <code>false</code> if the decoder is already initialized, else <code>true</code>
+ * @see Flac#FLAC__stream_decoder_set_metadata_ignore_all
+ */
+export function FLAC__stream_decoder_set_metadata_ignore(decoder: number, type: FLAC__MetadataType): boolean;
+/**
+ * Direct the decoder to filter out all APPLICATION metadata blocks of the given id.
+ * 
+ * By default, only the STREAMINFO block is returned via the metadata callback.
+ * 
+ * <p>
+ * NOTE: only use on un-initilized decoder instances!
+ * 
+ * @param {number} decoder  the ID of the decoder instance
+ * @param {number} id  the ID of application metadata
+ * @returns {boolean}  <code>false</code> if the decoder is already initialized, else <code>true</code>
+ * @see Flac#FLAC__stream_decoder_set_metadata_ignore_all
+ */
+export function FLAC__stream_decoder_set_metadata_ignore_application(decoder: number, id: number): boolean;
+/**
+ * Direct the decoder to filter out all metadata blocks of any type.
+ * 
+ * By default, only the STREAMINFO block is returned via the metadata callback.
+ * 
+ * <p>
+ * NOTE: only use on un-initilized decoder instances!
+ * 
+ * @param {number} decoder  the ID of the decoder instance
+ * @returns {boolean}  <code>false</code> if the decoder is already initialized, else <code>true</code>
+ * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
+ * @see Flac#FLAC__stream_decoder_set_metadata_ignore
+ * @see Flac#FLAC__stream_decoder_set_metadata_ignore_application
+ */
+export function FLAC__stream_decoder_set_metadata_ignore_all(decoder: number): boolean;
+/**
+ * Set the metadata blocks to be emitted to the stream before encoding. A value of NULL, 0 implies no metadata; otherwise, supply an array of pointers to metadata blocks.
+ * The array is non-const since the encoder may need to change the is_last flag inside them, and in some cases update seek point offsets. Otherwise, the encoder
+ * will not modify or free the blocks. It is up to the caller to free the metadata blocks after encoding finishes.
+ * 
+ * <p>
+ *     The encoder stores only copies of the pointers in the metadata array; the metadata blocks themselves must survive at least until after FLAC__stream_encoder_finish() returns.
+ *     Do not free the blocks until then.
+ * 
+ *     The STREAMINFO block is always written and no STREAMINFO block may occur in the supplied array.
+ * 
+ *     By default the encoder does not create a SEEKTABLE. If one is supplied in the metadata array, but the client has specified that it does not support seeking,
+ *     then the SEEKTABLE will be written verbatim. However by itself this is not very useful as the client will not know the stream offsets for the seekpoints ahead of time.
+ *     In order to get a proper seektable the client must support seeking. See next note.
+ * 
+ *     SEEKTABLE blocks are handled specially. Since you will not know the values for the seek point stream offsets, you should pass in a SEEKTABLE 'template', that is,
+ *     a SEEKTABLE object with the required sample numbers (or placeholder points), with 0 for the frame_samples and stream_offset fields for each point.
+ *     If the client has specified that it supports seeking by providing a seek callback to FLAC__stream_encoder_init_stream() or both seek AND read callback to
+ *      FLAC__stream_encoder_init_ogg_stream() (or by using FLAC__stream_encoder_init*_file() or FLAC__stream_encoder_init*_FILE()), then while it is encoding the encoder will
+ *      fill the stream offsets in for you and when encoding is finished, it will seek back and write the real values into the SEEKTABLE block in the stream. There are helper
+ *      routines for manipulating seektable template blocks; see metadata.h: FLAC__metadata_object_seektable_template_*(). If the client does not support seeking,
+ *      the SEEKTABLE will have inaccurate offsets which will slow down or remove the ability to seek in the FLAC stream.
+ * 
+ *     The encoder instance will modify the first SEEKTABLE block as it transforms the template to a valid seektable while encoding, but it is still up to the caller to free
+ *     all metadata blocks after encoding.
+ * 
+ *     A VORBIS_COMMENT block may be supplied. The vendor string in it will be ignored. libFLAC will use it's own vendor string. libFLAC will not modify the passed-in
+ *     VORBIS_COMMENT's vendor string, it will simply write it's own into the stream. If no VORBIS_COMMENT block is present in the metadata array, libFLAC will write an
+ *     empty one, containing only the vendor string.
+ * 
+ *     The Ogg FLAC mapping requires that the VORBIS_COMMENT block be the second metadata block of the stream. The encoder already supplies the STREAMINFO block automatically.
+ * 
+ *     If metadata does not contain a VORBIS_COMMENT block, the encoder will supply that too. Otherwise, if metadata does contain a VORBIS_COMMENT block and it is not the first,
+ *     the init function will reorder metadata by moving the VORBIS_COMMENT block to the front; the relative ordering of the other blocks will remain as they were.
+ * 
+ *     The Ogg FLAC mapping limits the number of metadata blocks per stream to 65535. If num_blocks exceeds this the function will return false.
+ * 
+ * @param {number} encoder  the ID of the encoder instance
+ * @param {PointerInfo} metadataBuffersPointer  
+ * @param {number} num_blocks  
+ * @returns {boolean}  <code>false</code> if the encoder is already initialized, else <code>true</code>. <code>false</code> if the encoder is already initialized, or if num_blocks > 65535 if encoding to Ogg FLAC, else true.
+ * @see Flac.FLAC__MetadataType
+ * @see Flac#_create_pointer_array
+ * @see Flac#_destroy_pointer_array
+ */
+export function FLAC__stream_encoder_set_metadata(encoder: number, metadataBuffersPointer: PointerInfo, num_blocks: number): boolean;
+/**
+ * Helper object for allocating an array of buffers on the (memory) heap.
+ * 
+ * @property {number} pointerPointer  pointer to the array of (pointer) buffers
+ * @property {Array<number>} dataPointer  array of pointers to the allocated data arrays (i.e. buffers)
+ * @see Flac#_create_pointer_array
+ * @see Flac#_destroy_pointer_array
+ */
+export interface PointerInfo {
+  /**
+   * pointer to the array of (pointer) buffers
+   */
+  pointerPointer: number;
+  /**
+   * array of pointers to the allocated data arrays (i.e. buffers)
+   */
+  dataPointer: Array<number>;
+}
+/**
+ * Helper function for creating pointer (and allocating the data) to an array of buffers on the (memory) heap.
+ * 
+ * Use the returned <code>PointerInfo.dataPointer</code> as argument, where the array-pointer is required.
+ * 
+ * NOTE: afer use, the allocated buffers on the heap need be freed, see {@link Flac#_destroy_pointer_array|_destroy_pointer_array}.
+ * 
+ * @param {Array<Uint8Array>} bufferArray  the buffer for which to create
+ * @returns {PointerInfo}  <code>false</code> if the decoder is already initialized, else <code>true</code>
+ * @see Flac#_destroy_pointer_array
+ */
+export function _create_pointer_array(bufferArray: Array<Uint8Array>): PointerInfo;
+/**
+ * Helper function for destroying/freeing a previously created pointer (and allocating the data) of an array of buffers on the (memory) heap.
+ * 
+ * @param {PointerInfo} pointerInfo  the pointer / allocation information that should be destroyed/freed
+ * @see Flac#_create_pointer_array
+ */
+export function _destroy_pointer_array(pointerInfo: PointerInfo): void;
 /**
  * Get if MD5 verification is enabled for the decoder
  * 
