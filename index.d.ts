@@ -24,7 +24,7 @@ interface FlacVariant {
 	 * NOTE this property is only available when the library instance was
 	 *      created by the (Node.js) factory method
 	 */
-	variant: string;
+	variant?: string;
 }
 
 declare function libFactory(libVariant?: string): libFactory.Flac & FlacVariant;
