@@ -47,7 +47,6 @@ __API Documentation__
 See [doc/index.html][16] for the API documentation.
 
 ----
-
 <!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:0 orderedList:0 -->
 
 - [Usage](#usage)
@@ -69,7 +68,11 @@ See [doc/index.html][16] for the API documentation.
 		- [Minified Library:](#minified-library)
 		- [Development Library:](#development-library)
 	- [Encoding with libflac.js](#encoding-with-libflacjs)
+		- [Encoding Example](#encoding-example)
+		- [Barebones Encoding Example](#barebones-encoding-example)
 	- [Decoding with libflac.js](#decoding-with-libflacjs)
+		- [Decoding Example](#decoding-example)
+		- [Barebones Decoding Example](#barebones-decoding-example)
 	- [API](#api)
 - [Building](#building)
 	- [Build *nix (libflac 1.3.0 or later)](#build-nix-libflac-130-or-later)
@@ -498,10 +501,83 @@ Basic steps for encoding:
  4. finish encoding
  5. delete encoder
 
-Small usage example:
+
+#### Encoding Example
+
+Encoding example using the utility class `Encoder`
+```javascript
+
+const Flac = require('libflacjs')();
+//or as import (see section "Including libflac.js" for more details):
+// import * as flacFactory from 'libflacjs';
+// const Flac = flacFactory();
+
+const Encoder = require('libflacjs/lib/encoder').Encoder;
+//or as import:
+//import { Encoder } from 'libflacjs/lib/encoder';
+
+//helper function for converting interleaved audio to list of channel-audio
+//(for actual code, see example in tools/test/util/utils-enc.ts):
+//  function deinterleave(Int32Array, channels) => Int32Array[]
+
+//NOTE if async-library variant is used, should wait for initialization:
+//Flac.onready(function(){ ...
+
+const data = new Int32Array(someAudioData);
+
+const encodingMode = 'interleaved';// "interleaved" | "channels"
+
+const encoder = new Encoder(flac, {
+  sampleRate: sampleRate,         // number, e.g. 44100
+  channels: channels,             // number, e.g. 1 (mono), 2 (stereo), ...
+  bitsPerSample: bitsPerSample,   // number, e.g. 8 or 16 or 24
+  compression: compressionLevel,  // number, value between [0, 8] from low to high compression
+  verify: true                    // boolean (OPTIONAL)
+  isOgg: false                    // boolean (OPTIONAL), if encode FLAC should be wrapped in OGG container
+});
+
+if(encodingMode === 'interleaved'){
+
+  //encode interleaved audio data (call multiple times for multiple audio chunks, i.e. "streaming")
+  encoder.encode(data);
+
+  //NOTE if data is TypedArray other than Int32Array then optional argument numberOfSamples MUST be given:
+  //encoder.encode(data, numberOfSamples);
+
+} else {
+
+  //de-interleave data into channels-array
+  // i.e. a list/array of Int32Arrays (list.length corresponds to channels)
+  const list = deinterleave(data, channels);// returns an Int32Array which's length corresponds to channels
+
+  //do encode to FLAC (call multiple times for multiple audio chunks, i.e. "streaming")
+  encoder.encode(list);
+
+  //NOTE if data was TypedArray other than Int32Array then optional argument numberOfSamples MUST be given:
+  //encoder.encode(list, numberOfSamples);
+}
+encoder.encode();
+
+const encData = encoder.getSamples();
+const metadata = encoder.metadata;
+
+encoder.destroy();
+// or encoder.reset() for reusing the encoder instance
+
+// do something with the encoded FLAC data encData and metadata
+```
+
+
+#### Barebones Encoding Example
+
+Encoding example using the library functions directly
+
 ```javascript
 
 //prerequisite: loaded libflac.js & available via variable Flac
+
+//NOTE if async-library variant is used, should wait for initialization:
+//Flac.onready(function(){ ...
 
 var flac_encoder,
     CHANNELS = 1,
@@ -658,7 +734,7 @@ Flac.FLAC__stream_encoder_delete(flac_encoder);
 
 Generally, `libflac.js` supports a subset of the [libflac decoding interface][7] for decoding audio data from FLAC (no full support yet!).
 
-Supported encoding types:
+Supported decoding types:
  * decode from `FLAC` data to `PCM` data all-at-once
  * decode from `FLAC` data to `PCM` chunk-by-chunk (i.e. _streaming_)
 
@@ -681,10 +757,66 @@ Basic steps for decoding:
  4. finish decoding
  5. delete decoder
 
-Small usage example:
+
+#### Decoding Example
+
+Decoding example using the utility class `Decoder`
+```javascript
+
+const Flac = require('libflacjs')();
+//or as import (see section "Including libflac.js" for more details):
+// import * as flacFactory from 'libflacjs';
+// const Flac = flacFactory();
+
+const Decoder = require('libflacjs/lib/decoder').Decoder;
+//or as import:
+//import { Decoder } from 'libflacjs/lib/decoder';
+
+//NOTE if async-library variant is used, should wait for initialization:
+//Flac.onready(function(){ ...
+
+const binData = new Uint8Array(someFlacData);
+
+const decodingMode = 'single';// "single" | "chunked"
+
+const decoder = new Decoder(Flac, {
+  verify: true    // boolean (OPTIONAL)
+  isOgg: false    // boolean (OPTIONAL), if FLAC audio is wrapped in OGG container
+});
+
+if(decodingMode === 'single'){
+
+  //use as-single-chunk mode: invokce decode once with the complete FLAC data
+  decoder.decode(binData);
+
+} else {
+
+  //use multiple-chunks mode ("streaming"): invoke decodeChunk(...) for each chunk...
+  decoder.decodeChunk(binData);
+  //... and finalize decoding by invoking decodeChunk() without arguments
+  decoder.decodeChunk();
+}
+
+const decData = decoder.getSamples(true);
+const metadata = decoder.metadata;
+
+decoder.destroy();
+// or decoder.reset() for reusing the decoder instance
+
+// do something with the decoded PCM data decData and metadata
+```
+
+
+#### Barebones Decoding Example
+
+Decoding example using the library functions directly
+
 ```javascript
 
 //prerequisite: loaded libflac.js & available via variable Flac
+
+//NOTE if async-library variant is used, should wait for initialization:
+//Flac.onready(function(){ ...
 
 var VERIFY = true,
   USE_OGG = false;
