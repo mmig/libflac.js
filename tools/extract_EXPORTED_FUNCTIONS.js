@@ -3,7 +3,7 @@
 var fs = require('fs'),
 	path = require('path');
 
-var str = fs.readFileSync(path.join('..', 'libflac_post.js'), 'utf8');
+var str = fs.readFileSync(path.join(__dirname, '..', 'libflac_post.js'), 'utf8');
 
 var re = /Module.c((wrap)|(call))\(\s*?['"](.*?)['"]/igm
 
