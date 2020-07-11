@@ -1082,17 +1082,17 @@ Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 5);
 //or enable only all picture metadata:
 Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 6);
 // example vorbis comment metadata:
-{
-  type: 3,            // image type (see docs FLAC__StreamMetadata_Picture_Type)
-  mime_type: "image/jpeg",  //the mime type
-  description: "Cover image for the track",
-  width: 1144,        // the image width in pixel
-  height: 1144,       // the image height in pixel
-  depth: 24,          // the depth in bits
-  colors: 0,          // colors (e.g. for GIF images)
-  data_length: 45496, // the size of the binary image data (in bytes)
-  data: Uint8Array    // the binary image data
-}
+// {
+//   type: 3,            // image type (see docs FLAC__StreamMetadata_Picture_Type)
+//   mime_type: "image/jpeg",  //the mime type
+//   description: "Cover image for the track",
+//   width: 1144,        // the image width in pixel
+//   height: 1144,       // the image height in pixel
+//   depth: 24,          // the depth in bits
+//   colors: 0,          // colors (e.g. for GIF images)
+//   data_length: 45496, // the size of the binary image data (in bytes)
+//   data: Uint8Array    // the binary image data
+// }
 
 
 
