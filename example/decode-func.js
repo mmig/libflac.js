@@ -46,16 +46,15 @@ function decodeFlac(binData, decData, isVerify, isOgg, isAllMetadata){
 	}
 
 	/** @memberOf decode */
-	function metadata_callback_fn(data, rawData){
+	function metadata_callback_fn(data, dataBlock){
 		if(data){
 			console.info('meta data: ', data);
 			meta_data = data;
-		}
-		if(rawData){
-			console.info('  raw meta data: ', rawData);
 
+		} else {
+			console.info('  meta data block: ', dataBlock);
 			if(all_meta_data){
-				all_meta_data.push(rawData);
+				all_meta_data.push(dataBlock);
 			}
 		}
 	}
@@ -77,6 +76,8 @@ function decodeFlac(binData, decData, isVerify, isOgg, isAllMetadata){
 	if (flac_decoder != 0){
 		if(isAllMetadata){
 			Flac.FLAC__stream_decoder_set_metadata_respond_all(flac_decoder);
+			// // only enable picture metadata:
+			// Flac.FLAC__stream_decoder_set_metadata_respond(flac_decoder, 6);
 		}
 		var init_status = Flac.init_decoder_stream(flac_decoder, read_callback_fn, write_callback_fn, error_callback_fn, metadata_callback_fn, isOgg);
 		Flac.setOptions(flac_decoder, {analyseSubframes: analyse_frames, analyseResiduals: analyse_residuals, enableRawStreamMetadata: enable_raw_metadata});

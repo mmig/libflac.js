@@ -42,10 +42,11 @@ function onFlacLoad(evt) {
 	fileInfoEl.innerHTML = fileInfo.join('');
 
 	if(metadataLinks.length > 0){
+		//insert download links for binary metadata
 		metadataLinks.forEach(function(l){
 			var sp = document.getElementById(l.id);
 			l.id = 'a'+l.id;
-			sp.appendChild(l);
+			sp.parentElement.replaceChild(l, sp);
 		});
 	}
 
@@ -54,9 +55,8 @@ function onFlacLoad(evt) {
 		//using data-util.js utility function(s)
 		var blob = exportWavFile(decData, metaData.sampleRate, metaData.channels, metaData.bitsPerSample);
 
-		var fileName = getFileName(evt.fileName, 'wav');
-
 		//using data-util.js utility function(s)
+		var fileName = getFileName(evt.fileName, 'wav');
 
 		//using data-util.js utility function(s)
 		if(isDownload()){
@@ -86,10 +86,24 @@ function getMetadataName(val){
 
 function fileInfoItemToStr(val, linkList){
 	return !Array.isArray(val)? val : val.map(function(val, i){
-		var l = getDownloadLink(new Blob([val.raw.buffer], {type: 'application/octet-stream'}), 'Metadata'+i+'_'+getMetadataName(val)+'.bin')
-		l.id = 'mdlink'+i;
-		linkList.push(l);
-		return '<span id="mdlink'+i+'"></span>';
+		var label = '', name = 'Metadata_'+i+'_'+getMetadataName(val);
+		if(val.data && val.data.data){
+			//for picture metadata: create Blob download link from image's Uint8Array
+			var mime = val.data.mime_type;
+			var l = getDownloadLink(new Blob([val.data.data.buffer], {type: mime}), name+'.'+mime.replace(/^.*?\//, ''));
+			val.data.data = void(0);
+			l.id = 'mdlink'+i;
+			linkList.push(l);
+			label = '<span id="mdlink'+i+'"></span>';
+		} else {
+			label = name;
+		}
+
+		//create tooltip with the metadata's JSON
+		var jsonStr = JSON.stringify(val.data || val, null, 2);
+		label +=  '&nbsp;<span class="hint" title=\''+jsonStr+'\'></span>'
+
+		return '<span>'+label+'</span>';
 	}).join(', ');
 }
 
