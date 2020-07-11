@@ -313,14 +313,3 @@
 312:legalstub$FLAC__stream_encoder_set_total_samples_estimate
 313:legalstub$dynCall_jiji
 314:legalfunc$__wasi_fd_seek
-315:wasm2js_scratch_load_i32
-316:wasm2js_scratch_store_i32
-317:wasm2js_scratch_load_f64
-318:wasm2js_scratch_store_f64
-319:_ZN17compiler_builtins3int3mul3Mul3mul17h070e9a1c69faec5bE
-320:_ZN17compiler_builtins3int4udiv10divmod_u6417h6026910b5ed08e40E
-321:__wasm_ctz_i32
-322:__wasm_i64_mul
-323:__wasm_i64_udiv
-324:__wasm_i64_urem
-325:__wasm_rotl_i32

@@ -19,7 +19,7 @@ files for the `libflac.js` JavaScript library, as well as a minified version.
 
 > Complied from `libFLAC` (static `C` library) version: 1.3.3\
 > Used library `libogg` (static `C` library) version: 1.3.4\
-> Used compiler `Emscripten` version: 1.39.18\
+> Used compiler `Emscripten` version: 1.39.19\
 > Used compiler `Emscripten` toolchain: LLVM (upstream)
 
 In order to build _libflac.js_, make sure you have _emscripten_ installed (with toolchain `LLVM/upstream`; default since version 1.39.x).
