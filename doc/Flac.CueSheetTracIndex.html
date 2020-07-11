@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.CueSheetTracIndex.html">Interface: CueSheetTracIndex</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    CueSheetTracIndex
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">FLAC track index data for cue sheet metadata</div>
         
 
         
@@ -1083,13 +1083,13 @@
 
         <tr>
             
-                <td class="name"><code>0</code></td>
+                <td class="name"><code>offset</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1100,20 +1100,20 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">Offset in samples, relative to the track offset, of the index point.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>1</code></td>
+                <td class="name"><code>number</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1124,55 +1124,7 @@
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>2</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>3</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">The index point number.</td>
         </tr>
 
     
@@ -1198,6 +1150,13 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.CueSheetTrack.html">Flac.CueSheetTrack</a></li>
+        </ul>
+    </dd>
     
 
     

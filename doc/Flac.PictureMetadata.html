@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.PictureMetadata.html">Interface: PictureMetadata</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    PictureMetadata
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">FLAC picture metadata block</div>
         
 
         
@@ -1083,13 +1083,13 @@
 
         <tr>
             
-                <td class="name"><code>0</code></td>
+                <td class="name"><code>type</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type"><a href="Flac.FLAC__StreamMetadata_Picture_Type.html">Flac.FLAC__StreamMetadata_Picture_Type</a></span>
 
 
 
@@ -1100,20 +1100,20 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">The kind of picture stored.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>1</code></td>
+                <td class="name"><code>mime_type</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type">string</span>
 
 
 
@@ -1124,20 +1124,20 @@
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
+            <td class="description last">Picture data's MIME type, in ASCII printable characters 0x20-0x7e, NUL terminated. For best compatibility with players, use picture data of MIME type image/jpeg or image/png. A MIME type of '–>' is also allowed, in which case the picture data should be a complete URL.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>2</code></td>
+                <td class="name"><code>description</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
+<span class="param-type">string</span>
 
 
 
@@ -1148,20 +1148,20 @@
 
             
 
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
+            <td class="description last">Picture's description.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>3</code></td>
+                <td class="name"><code>width</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1172,7 +1172,127 @@
 
             
 
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">Picture's width in pixels.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>height</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Picture's height in pixels.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>depth</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Picture's color depth in bits-per-pixel.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>colors</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">For indexed palettes (like GIF), picture's number of colors (the number of palette entries), or 0 for non-indexed (i.e. 2^depth).</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>data_length</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Length of binary picture data in bytes.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>data</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array">Uint8Array</a></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Binary picture data.</td>
         </tr>
 
     

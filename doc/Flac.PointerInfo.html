@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.PointerInfo.html">Interface: PointerInfo</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    PointerInfo
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">Helper object for allocating an array of buffers on the (memory) heap.</div>
         
 
         
@@ -1083,13 +1083,13 @@
 
         <tr>
             
-                <td class="name"><code>0</code></td>
+                <td class="name"><code>pointerPointer</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1100,20 +1100,20 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">pointer to the array of (pointer) buffers</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>1</code></td>
+                <td class="name"><code>dataPointer</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;number></span>
 
 
 
@@ -1124,55 +1124,7 @@
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>2</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>3</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">array of pointers to the allocated data arrays (i.e. buffers)</td>
         </tr>
 
     
@@ -1198,6 +1150,15 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.html#_create_pointer_array">Flac#_create_pointer_array</a></li>
+        
+            <li><a href="Flac.html#_destroy_pointer_array">Flac#_destroy_pointer_array</a></li>
+        </ul>
+    </dd>
     
 
     

@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.SeekTableMetadata.html">Interface: SeekTableMetadata</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    SeekTableMetadata
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">FLAC seek table metadata block<p>From the format specification:The seek points must be sorted by ascending sample number.Each seek point's sample number must be the first sample of the target frame.Each seek point's sample number must be unique within the tableExistence of a SEEKTABLE block implies a correct setting of total_samples in the stream_info block.Behavior is undefined when more than one SEEKTABLE block is present in a stream.</div>
         
 
         
@@ -1083,13 +1083,13 @@
 
         <tr>
             
-                <td class="name"><code>0</code></td>
+                <td class="name"><code>num_points</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1100,20 +1100,20 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">the number of seek points</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>1</code></td>
+                <td class="name"><code>points</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;<a href="Flac.SeekPoint.html">Flac.SeekPoint</a>></span>
 
 
 
@@ -1124,55 +1124,7 @@
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>2</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>3</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">the seek points</td>
         </tr>
 
     
@@ -1198,6 +1150,13 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li>Flac.FLAC__MetadataType#FLAC__METADATA_TYPE_SEEKTABLE</li>
+        </ul>
+    </dd>
     
 
     

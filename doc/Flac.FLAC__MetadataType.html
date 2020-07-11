@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.FLAC__MetadataType.html">Interface: FLAC__MetadataType</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    FLAC__MetadataType
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">An enumeration of the available metadata block types.</div>
         
 
         
@@ -1089,7 +1089,7 @@
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type">"FLAC__METADATA_TYPE_STREAMINFO"</span>
 
 
 
@@ -1100,7 +1100,7 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">STREAMINFO block</td>
         </tr>
 
     
@@ -1113,7 +1113,7 @@
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type">"FLAC__METADATA_TYPE_PADDING"</span>
 
 
 
@@ -1124,7 +1124,7 @@
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
+            <td class="description last">PADDING block</td>
         </tr>
 
     
@@ -1137,7 +1137,7 @@
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
+<span class="param-type">"FLAC__METADATA_TYPE_APPLICATION"</span>
 
 
 
@@ -1148,7 +1148,7 @@
 
             
 
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
+            <td class="description last">APPLICATION block</td>
         </tr>
 
     
@@ -1161,7 +1161,7 @@
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
+<span class="param-type">"FLAC__METADATA_TYPE_SEEKTABLE"</span>
 
 
 
@@ -1172,7 +1172,127 @@
 
             
 
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">SEEKTABLE block</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>4</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__METADATA_TYPE_VORBIS_COMMENT"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">VORBISCOMMENT block (a.k.a. FLAC tags)</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>5</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__METADATA_TYPE_CUESHEET"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">CUESHEET block</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>6</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__METADATA_TYPE_PICTURE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">PICTURE block</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>7</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__METADATA_TYPE_UNDEFINED"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">marker to denote beginning of undefined type range; this number will increase as new metadata types are added</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>126</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__MAX_METADATA_TYPE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">No type will ever be greater than this. There is not enough room in the protocol block.</td>
         </tr>
 
     
@@ -1198,6 +1318,15 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.MetadataBlock.html">Flac.MetadataBlock</a></li>
+        
+            <li><a target='_blank' href="https://xiph.org/flac/format.html">FLAC format documentation</a></li>
+        </ul>
+    </dd>
     
 
     

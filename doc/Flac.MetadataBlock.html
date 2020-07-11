@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.MetadataBlock.html">Interface: MetadataBlock</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    MetadataBlock
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">FLAC raw metadata</div>
         
 
         
@@ -1071,6 +1071,8 @@
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -1083,13 +1085,13 @@
 
         <tr>
             
-                <td class="name"><code>0</code></td>
+                <td class="name"><code>type</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type"><a href="Flac.FLAC__MetadataType.html">Flac.FLAC__MetadataType</a></span>
 
 
 
@@ -1097,23 +1099,31 @@
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">the type of the metadata</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>1</code></td>
+                <td class="name"><code>isLast</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type">boolean</span>
 
 
 
@@ -1121,23 +1131,31 @@
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
+            <td class="description last">if it is the last block of metadata</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>2</code></td>
+                <td class="name"><code>length</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1145,23 +1163,46 @@
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
+            <td class="description last">the length of the metadata block (bytes)</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>3</code></td>
+                <td class="name"><code>data</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
+<span class="param-type"><a href="Flac.StreamMetadata.html">Flac.StreamMetadata</a></span>
+|
+
+<span class="param-type"><a href="Flac.PaddingMetadata.html">Flac.PaddingMetadata</a></span>
+|
+
+<span class="param-type"><a href="Flac.ApplicationMetadata.html">Flac.ApplicationMetadata</a></span>
+|
+
+<span class="param-type"><a href="Flac.SeekTableMetadata.html">Flac.SeekTableMetadata</a></span>
+|
+
+<span class="param-type"><a href="Flac.CueSheetMetadata.html">Flac.CueSheetMetadata</a></span>
+|
+
+<span class="param-type"><a href="Flac.PictureMetadata.html">Flac.PictureMetadata</a></span>
 
 
 
@@ -1169,10 +1210,54 @@
             </td>
 
             
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
 
             
 
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">the metadata (omitted for unknown metadata types)</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>raw</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array">Uint8Array</a></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">raw metadata (for debugging: enable via <a href="Flac.html#setOptions"><code>Flac#setOptions</code></a>)</td>
         </tr>
 
     

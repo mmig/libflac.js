@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.SeekPoint.html">Interface: SeekPoint</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    SeekPoint
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">FLAC seek point data</div>
         
 
         
@@ -1083,13 +1083,13 @@
 
         <tr>
             
-                <td class="name"><code>0</code></td>
+                <td class="name"><code>sample_number</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1100,20 +1100,20 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">The sample number of the target frame. NOTE <code>-1</code> for a placeholder point.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>1</code></td>
+                <td class="name"><code>stream_offset</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1124,20 +1124,20 @@
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
+            <td class="description last">The offset, in bytes, of the target frame with respect to beginning of the first frame.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>2</code></td>
+                <td class="name"><code>frame_samples</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1148,31 +1148,7 @@
 
             
 
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>3</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">The number of samples in the target frame.</td>
         </tr>
 
     
@@ -1198,6 +1174,13 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.SeekTableMetadata.html">Flac.SeekTableMetadata</a></li>
+        </ul>
+    </dd>
     
 
     

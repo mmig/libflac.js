@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.CueSheetMetadata.html">Interface: CueSheetMetadata</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    CueSheetMetadata
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">FLAC cue sheet metadata block</div>
         
 
         
@@ -1083,13 +1083,13 @@
 
         <tr>
             
-                <td class="name"><code>0</code></td>
+                <td class="name"><code>media_catalog_number</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type">string</span>
 
 
 
@@ -1100,20 +1100,20 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">Media catalog number, in ASCII printable characters 0x20-0x7e. In general, the media catalog number may be 0 to 128 bytes long.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>1</code></td>
+                <td class="name"><code>lead_in</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1124,20 +1124,20 @@
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
+            <td class="description last">The number of lead-in samples.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>2</code></td>
+                <td class="name"><code>is_cd</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
+<span class="param-type">boolean</span>
 
 
 
@@ -1148,20 +1148,20 @@
 
             
 
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
+            <td class="description last">true if CUESHEET corresponds to a Compact Disc, else false.</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>3</code></td>
+                <td class="name"><code>num_tracks</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1172,7 +1172,31 @@
 
             
 
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">The number of tracks.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>tracks</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a target='_blank' href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array">Array</a>.&lt;<a href="Flac.CueSheetTrack.html">Flac.CueSheetTrack</a>></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the tracks</td>
         </tr>
 
     
@@ -1198,6 +1222,13 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li>Flac.FLAC__MetadataType#FLAC__METADATA_TYPE_CUESHEET</li>
+        </ul>
+    </dd>
     
 
     

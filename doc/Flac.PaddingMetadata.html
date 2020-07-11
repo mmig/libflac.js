@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.PaddingMetadata.html">Interface: PaddingMetadata</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    PaddingMetadata
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">FLAC padding metadata block</div>
         
 
         
@@ -1083,13 +1083,13 @@
 
         <tr>
             
-                <td class="name"><code>0</code></td>
+                <td class="name"><code>dummy</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type">number</span>
 
 
 
@@ -1100,79 +1100,7 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>1</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>2</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>3</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">Conceptually this is an empty struct since we don't store the padding bytes. Empty structs are not allowed by some C compilers, hence the dummy.</td>
         </tr>
 
     
@@ -1198,6 +1126,13 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li>Flac.FLAC__MetadataType#FLAC__METADATA_TYPE_PADDING</li>
+        </ul>
+    </dd>
     
 
     

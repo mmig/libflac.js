@@ -1028,7 +1028,7 @@
 </div>
 
     <div class="main">
-        <h1 class="page-title" data-filename="Flac.FLAC__StreamDecoderErrorStatus.html">Interface: FLAC__StreamDecoderErrorStatus</h1>
+        <h1 class="page-title" data-filename="Flac.FLAC__StreamMetadata_Picture_Type.html">Interface: FLAC__StreamMetadata_Picture_Type</h1>
         
 
 
@@ -1039,7 +1039,7 @@
     <h2>
         <span class="ancestors"><a href="Flac.html">Flac</a>.</span>
     
-    FLAC__StreamDecoderErrorStatus
+    FLAC__StreamMetadata_Picture_Type
     </h2>
     
 </header>
@@ -1050,7 +1050,7 @@
 
     
         
-            <div class="description">Decoding error codes.<br>If the error code is not known, value <code>FLAC__STREAM_DECODER_ERROR__UNKNOWN__</code> is used.</div>
+            <div class="description">An enumeration of the PICTURE types (see FLAC__StreamMetadataPicture and id3 v2.4 APIC tag).</div>
         
 
         
@@ -1089,7 +1089,7 @@
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC"</span>
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_OTHER"</span>
 
 
 
@@ -1100,7 +1100,7 @@
 
             
 
-            <td class="description last">An error in the stream caused the decoder to lose synchronization.</td>
+            <td class="description last">Other</td>
         </tr>
 
     
@@ -1113,7 +1113,7 @@
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER"</span>
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_FILE_ICON_STANDARD"</span>
 
 
 
@@ -1124,7 +1124,7 @@
 
             
 
-            <td class="description last">The decoder encountered a corrupted frame header.</td>
+            <td class="description last">32x32 pixels 'file icon' (PNG only)</td>
         </tr>
 
     
@@ -1137,7 +1137,7 @@
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"</span>
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_FILE_ICON"</span>
 
 
 
@@ -1148,7 +1148,7 @@
 
             
 
-            <td class="description last">The frame's data did not match the CRC in the footer.</td>
+            <td class="description last">Other file icon</td>
         </tr>
 
     
@@ -1161,7 +1161,7 @@
             <td class="type">
             
                 
-<span class="param-type">"FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM"</span>
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_FRONT_COVER"</span>
 
 
 
@@ -1172,7 +1172,415 @@
 
             
 
-            <td class="description last">The decoder encountered reserved fields in use in the stream.</td>
+            <td class="description last">Cover (front)</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>4</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_BACK_COVER"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Cover (back)</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>5</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_LEAFLET_PAGE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Leaflet page</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>6</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_MEDIA"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Media (e.g. label side of CD)</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>7</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_LEAD_ARTIST"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Lead artist/lead performer/soloist</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>8</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_ARTIST"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Artist/performer</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>9</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_CONDUCTOR"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Conductor</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>10</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_BAND"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Band/Orchestra</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>11</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_COMPOSER"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Composer</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>12</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_LYRICIST"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Lyricist/text writer</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>13</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_RECORDING_LOCATION"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Recording Location</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>14</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_DURING_RECORDING"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">During recording</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>15</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_DURING_PERFORMANCE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">During performance</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>16</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_VIDEO_SCREEN_CAPTURE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Movie/video screen capture</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>17</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_FISH"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">A bright coloured fish</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>18</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_ILLUSTRATION"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Illustration</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>19</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_BAND_LOGOTYPE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Band/artist logotype</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>20</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">"FLAC__STREAM_METADATA_PICTURE_TYPE_PUBLISHER_LOGOTYPE"</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Publisher/Studio logotype</td>
         </tr>
 
     
@@ -1198,6 +1606,13 @@
 
     
 
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="Flac.PictureMetadata.html">Flac.PictureMetadata</a></li>
+        </ul>
+    </dd>
     
 
     
