@@ -74,6 +74,7 @@ See [doc/index.html][16] for the API documentation.
 	- [Decoding with libflac.js](#decoding-with-libflacjs)
 		- [Decoding Example](#decoding-example)
 		- [Barebones Decoding Example](#barebones-decoding-example)
+		- [Decoding Metadata Example](#decoding-metadata-example)
 	- [API](#api)
 - [Building](#building)
 	- [Build *nix (libflac 1.3.0 or later)](#build-nix-libflac-130-or-later)
