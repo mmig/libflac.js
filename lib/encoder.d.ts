@@ -5,6 +5,7 @@ export interface EncoderOptions extends EncoderResetOptions {
     bitsPerSample: number;
     compression: CompressionLevel;
     totalSamples?: number;
+    autoOnReady?: boolean;
 }
 export interface EncoderResetOptions extends CodingOptions {
     compression?: CompressionLevel;
@@ -18,10 +19,11 @@ export declare class Encoder {
     private _isError;
     private _isInitialized;
     private _isFinished;
+    private _beforeReadyHandler?;
     /**
      * cache for the encoded data
      */
-    private _data;
+    protected data: Uint8Array[];
     /**
      * metadata for the encoded data
      */
@@ -33,6 +35,7 @@ export declare class Encoder {
     get finished(): boolean;
     get metadata(): StreamMetadata | undefined;
     get rawData(): Uint8Array[];
+    get isWaitOnReady(): boolean;
     constructor(Flac: Flac, _options: EncoderOptions);
     private _init;
     /**
@@ -83,5 +86,8 @@ export declare class Encoder {
     getSamples(): Uint8Array;
     getState(): FLAC__StreamEncoderState | -1;
     destroy(): void;
+    protected addData(decData: Uint8Array): void;
+    protected clearData(): void;
     private _finish;
+    private _handleBeforeReady;
 }

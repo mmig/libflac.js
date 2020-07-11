@@ -2,6 +2,7 @@ import { Flac, StreamMetadata, FLAC__StreamDecoderState, CodingOptions } from '.
 export interface DecoderOptions extends CodingOptions {
     verify?: boolean;
     isOgg?: boolean;
+    autoOnReady?: boolean;
 }
 export declare class Decoder {
     private Flac;
@@ -10,6 +11,7 @@ export declare class Decoder {
     private _isError;
     private _isInitialized;
     private _isFinished;
+    private _beforeReadyHandler?;
     /**
      * input cache for decoding-chunk modus
      */
@@ -31,7 +33,7 @@ export declare class Decoder {
     /**
      * cache for the decoded data
      */
-    private _data;
+    protected data: Uint8Array[][];
     /**
      * metadata for the decoded data
      */
@@ -50,6 +52,7 @@ export declare class Decoder {
     get finished(): boolean;
     get metadata(): StreamMetadata | undefined;
     get rawData(): Uint8Array[][];
+    get isWaitOnReady(): boolean;
     constructor(Flac: Flac, _options?: DecoderOptions);
     private _init;
     /**
@@ -57,6 +60,14 @@ export declare class Decoder {
      * resets internal state and clears cached input/output data.
      */
     reset(options?: DecoderOptions): boolean;
+    /**
+     * decode all data at once (will automatically finishes decoding)
+     *
+     * **NOTE**: do not mix with [[decodeChunk]] calls!
+     *
+     * @param  flacData the (complete) FLAC data to decode
+     * @return `true` if encoding was successful
+     */
     decode(flacData: Uint8Array): boolean;
     /** finish decoding */
     decodeChunk(): boolean;
@@ -67,7 +78,7 @@ export declare class Decoder {
      *
      * @param  flacData the data chunk to decode:
      *                    if omitted, will finish the decoding (any cached data will be flushed).
-     * @return <code>true</code> if encoding was successful
+     * @return `true` if encoding was successful
      */
     decodeChunk(flacData: Uint8Array): boolean;
     /**
@@ -87,6 +98,9 @@ export declare class Decoder {
     getSamples(isInterleaved: true): Uint8Array;
     getState(): FLAC__StreamDecoderState | -1;
     destroy(): void;
+    protected addData(decData: Uint8Array[]): void;
+    protected clearData(): void;
+    protected mapData(mapFunc: (val: Uint8Array[], index: number, list: Uint8Array[][]) => Uint8Array): Uint8Array[];
     private _isAnalyse;
     private _finish;
     private _createReadFunc;
@@ -94,4 +108,5 @@ export declare class Decoder {
     private _canReadChunk;
     private _resetInputCache;
     private _createReadChunkFunc;
+    private _handleBeforeReady;
 }
