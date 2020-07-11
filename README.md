@@ -7,12 +7,14 @@
 [![libFLAC version](https://img.shields.io/badge/libFLAC-1.3.3-yellow)][6]
 [![libogg version](https://img.shields.io/badge/libogg-1.3.4-yellow)][18]
 
-[FLAC][6] data stream encoder and decoder compiled in JavaScript using _emscripten_.
+[FLAC][6] data stream encoder and decoder compiled to JavaScript using _emscripten_.
 
 __Features__  
  * available as pure JavaScript, JavaScript+_binary_, JavaScript+WASM
+ * can be used in browsers as well as in `node.js`
  * encode/decode data all-at-once (~ _file_) or chunk-by-chunk (~ _stream_)
- * supported container formats: native FLAC container (`*.flac`), OGG container (`*.ogg`)
+ * supported container formats: native FLAC container (`*.flac`), OGG container (`*.ogg`, `*.oga`)
+ * support for FLAC metadata extraction when decoding (STREAMINFO, VORBIS_COMMENT, PICTURE, CUESHEET, SEEKTABLE)
 
 For immediate use, the `/dist` sub-directory contains the compiled
 files for the `libflac.js` JavaScript library, as well as a minified version.
@@ -40,7 +42,7 @@ Try the [Encoding Demo][14] for encoding `*.wav` files to FLAC.
 Or try the [speech-to-flac][12] [demo][13] that encodes the audio stream from a microphone to FLAC.
 
 __Decoder Demo__  
-Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.
+Try the [Decoding Demo][15] for decoding `*.flac` files to `*.wav` files.  
 _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).
 
 __API Documentation__  
@@ -1020,7 +1022,7 @@ Flac.FLAC__stream_decoder_delete(flac_decoder);
 
 #### Decoding Metadata Example
 
-Example for extracting the metadata while decoding FALC audio
+Example for extracting metadata when decoding FLAC audio
 
 ```javascript
 
@@ -1047,9 +1049,9 @@ Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 3);
 Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 4);
 // example vorbis comment metadata:
 // {
-//   comments: ["TRACKNUMBER=2/9"],
-//   entry: "reference libFLAC 1.3.3 20190804",
-//   num_comments: 1
+//   vendor_string: "reference libFLAC 1.3.3 20190804",
+//   num_comments: 1,
+//   comments: ["TRACKNUMBER=2/9"]
 // }
 
 //or enable only cue sheet metadata:
