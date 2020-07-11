@@ -1,4 +1,36 @@
 
+# Version 5.4.0
+
+ * added tests in `tools/test`
+
+ * added utility classes for encoding and decoding (TypeScript in `src/**`, JavaScript in `lib/**`)
+
+ * added support for metadata (other than default STREAMINFO):
+   * if enabled, metadata (other than STREAMINFO) is returned in the 2nd argument of `metadata_callback_fn` callback
+   * changed signature for `metadata_callback_fn`:
+     * old signature: `metadata_callback_fn(data: StreamMetadata)`
+     * new signature: `metadata_callback_fn(data: StreamMetadata | undefined, rawData: MetadataBlock | undefined)`
+   * decoding: enable/disable (raw) metadata output (in metadata callback)
+     * FLAC__stream_decoder_set_metadata_respond(..)
+     * FLAC__stream_decoder_set_metadata_respond_application(..)
+     * FLAC__stream_decoder_set_metadata_respond_all(..)
+     * FLAC__stream_decoder_set_metadata_ignore(..)
+     * FLAC__stream_decoder_set_metadata_ignore_application(..)
+     * FLAC__stream_decoder_set_metadata_ignore_all(..)
+     * for debugging: enable raw metadata via `Flac.setOptions(id, {enableRawMetadata: true})`
+   * encoding: EXPERIMENTAL add metadata blocks (as binary data)
+     * FLAC__stream_encoder_set_metadata(..)
+
+ * added example code for `Flac.FLAC__stream_encoder_process(enc, TypedArray[], numberOfSamples)`
+
+ * fixed `onready` for `undefined`:
+   * typings: allow (re-)setting `Flac.onready` to `undefined`
+   * BUGFIX: do not try to invoke `onready` hook, if set to `undefined`
+
+ * BUGFIX example/utils/data-utils::addFLACMetaData(): do use `offset` when writing `total_samples` to FLAC header
+
+ * recompiled with `emscripten` v1.39.19 (llvm toolchain)
+
 # Version 5.3.0
 
  * FIX incorrect API documentation: error-callback for decoder is not optional
