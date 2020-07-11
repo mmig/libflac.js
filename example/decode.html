@@ -44,7 +44,7 @@
 
 		// load libflac.js library variant and demo scripts after document was loaded:
 		global.onload = function(){
-			loadScripts([libFile, demoType+'-func.js', 'util/data-util.js', 'util/file-handler.js', 'app-'+demoType+'.js'], function(err){
+			loadScripts([libFile, demoType+'-func.js', 'util/download-util.js', 'util/data-util.js', 'util/file-handler.js', 'app-'+demoType+'.js'], function(err){
 				console[err? 'error' : 'info'](err? 'encountered error '+err : 'scripts initialized successfully');
 			});
 		};
@@ -169,6 +169,7 @@
 	<input type="checkbox" id="check_verify" checked>Verify&nbsp;<div class="hint" title="Checksum verification during decoding
 (disable for faster decoding)"></div>
 	<input type="checkbox" id="check_ogg">OGG&nbsp;<div class="hint" title="force treating source as OGG container file (otherwise detect from file extension)"></div>
+	<input type="checkbox" id="check_raw_metadata">Extract Metadata&nbsp;<div class="hint" title="extract metadata blocks"></div>
 
 	<!--input type="button" id="files_button" value="process file"-->
 	<output id="list"></output>

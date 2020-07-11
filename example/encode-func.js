@@ -67,7 +67,30 @@ function encodeFlac(binData, recBuffers, isVerify, isUseOgg){
 		return {error: msg, status: 1};
 	}
 
-	var flac_return = Flac.FLAC__stream_encoder_process_interleaved(flac_encoder, buffer_i32, buffer_i32.length / wav_parameters.channels);
+
+	var isEndocdeInterleaved = true;
+	var flac_return;
+	if(isEndocdeInterleaved){
+
+		//variant 1: encode interleaved channels: TypedArray -> [ch1_sample1, ch2_sample1, ch1_sample1, ch2_sample2, ch2_sample3, ...
+
+		flac_return = Flac.FLAC__stream_encoder_process_interleaved(flac_encoder, buffer_i32, buffer_i32.length / wav_parameters.channels);
+
+	} else {
+
+		//variant 2: encode channels array: TypedArray[] -> [ [ch1_sample1, ch1_sample2, ch1_sample3, ...], [ch2_sample1, ch2_sample2, ch2_sample3, ...], ...]
+
+		var ch = wav_parameters.channels;
+		var len = buffer_i32.length;
+		var channels = new Array(ch).fill(null).map(function(){ return new Uint32Array(len/ch)});
+		for(var i=0; i < len; i+=ch){
+			for(var j=0; j < ch; ++j){
+				channels[j][i/ch] = buffer_i32[i+j];
+			}
+		}
+
+		flac_return = Flac.FLAC__stream_encoder_process(flac_encoder, channels, buffer_i32.length / wav_parameters.channels);
+	}
 
 	if (flac_return != true){
 		console.error("Error: FLAC__stream_encoder_process_interleaved returned false. " + flac_return);

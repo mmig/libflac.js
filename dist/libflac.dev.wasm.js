@@ -698,7 +698,7 @@ var noExitRuntime;if (Module['noExitRuntime']) noExitRuntime = Module['noExitRun
 
 
 if (typeof WebAssembly !== 'object') {
-  abort('No WebAssembly support found. Build with -s WASM=0 to target JavaScript instead.');
+  abort('no native wasm support detected');
 }
 
 
@@ -1378,11 +1378,11 @@ function updateGlobalBufferAndViews(buf) {
 }
 
 var STATIC_BASE = 1024,
-    STACK_BASE = 5257200,
+    STACK_BASE = 5257216,
     STACKTOP = STACK_BASE,
-    STACK_MAX = 14320,
-    DYNAMIC_BASE = 5257200,
-    DYNAMICTOP_PTR = 14160;
+    STACK_MAX = 14336,
+    DYNAMIC_BASE = 5257216,
+    DYNAMICTOP_PTR = 14176;
 
 assert(STACK_BASE % 16 === 0, 'stack must start aligned');
 assert(DYNAMIC_BASE % 16 === 0, 'heap must start aligned');
@@ -1887,6 +1887,8 @@ function createWasm() {
       return WebAssembly.instantiate(binary, info);
     }).then(receiver, function(reason) {
       err('failed to asynchronously prepare wasm: ' + reason);
+
+
       abort(reason);
     });
   }
@@ -1944,7 +1946,7 @@ var ASM_CONSTS = {
 
 
 
-// STATICTOP = STATIC_BASE + 13296;
+// STATICTOP = STATIC_BASE + 13312;
 /* global initializers */  __ATINIT__.push({ func: function() { ___wasm_call_ctors() } });
 
 
@@ -2001,7 +2003,7 @@ var ASM_CONSTS = {
     }
 
   function _emscripten_get_sbrk_ptr() {
-      return 14160;
+      return 14176;
     }
 
   function _emscripten_memcpy_big(dest, src, num) {
@@ -4648,6 +4650,24 @@ var _FLAC__stream_decoder_set_ogg_serial_number = Module["_FLAC__stream_decoder_
 var _FLAC__stream_decoder_set_md5_checking = Module["_FLAC__stream_decoder_set_md5_checking"] = createExportWrapper("FLAC__stream_decoder_set_md5_checking");
 
 /** @type {function(...*):?} */
+var _FLAC__stream_decoder_set_metadata_respond = Module["_FLAC__stream_decoder_set_metadata_respond"] = createExportWrapper("FLAC__stream_decoder_set_metadata_respond");
+
+/** @type {function(...*):?} */
+var _FLAC__stream_decoder_set_metadata_respond_application = Module["_FLAC__stream_decoder_set_metadata_respond_application"] = createExportWrapper("FLAC__stream_decoder_set_metadata_respond_application");
+
+/** @type {function(...*):?} */
+var _FLAC__stream_decoder_set_metadata_respond_all = Module["_FLAC__stream_decoder_set_metadata_respond_all"] = createExportWrapper("FLAC__stream_decoder_set_metadata_respond_all");
+
+/** @type {function(...*):?} */
+var _FLAC__stream_decoder_set_metadata_ignore = Module["_FLAC__stream_decoder_set_metadata_ignore"] = createExportWrapper("FLAC__stream_decoder_set_metadata_ignore");
+
+/** @type {function(...*):?} */
+var _FLAC__stream_decoder_set_metadata_ignore_application = Module["_FLAC__stream_decoder_set_metadata_ignore_application"] = createExportWrapper("FLAC__stream_decoder_set_metadata_ignore_application");
+
+/** @type {function(...*):?} */
+var _FLAC__stream_decoder_set_metadata_ignore_all = Module["_FLAC__stream_decoder_set_metadata_ignore_all"] = createExportWrapper("FLAC__stream_decoder_set_metadata_ignore_all");
+
+/** @type {function(...*):?} */
 var _FLAC__stream_decoder_get_state = Module["_FLAC__stream_decoder_get_state"] = createExportWrapper("FLAC__stream_decoder_get_state");
 
 /** @type {function(...*):?} */
@@ -4700,6 +4720,9 @@ var _FLAC__stream_encoder_set_blocksize = Module["_FLAC__stream_encoder_set_bloc
 
 /** @type {function(...*):?} */
 var _FLAC__stream_encoder_set_total_samples_estimate = Module["_FLAC__stream_encoder_set_total_samples_estimate"] = createExportWrapper("FLAC__stream_encoder_set_total_samples_estimate");
+
+/** @type {function(...*):?} */
+var _FLAC__stream_encoder_set_metadata = Module["_FLAC__stream_encoder_set_metadata"] = createExportWrapper("FLAC__stream_encoder_set_metadata");
 
 /** @type {function(...*):?} */
 var _FLAC__stream_encoder_get_state = Module["_FLAC__stream_encoder_get_state"] = createExportWrapper("FLAC__stream_encoder_get_state");
@@ -4843,6 +4866,8 @@ if (!Object.getOwnPropertyDescriptor(Module, "UNWIND_CACHE")) Module["UNWIND_CAC
 if (!Object.getOwnPropertyDescriptor(Module, "readAsmConstArgs")) Module["readAsmConstArgs"] = function() { abort("'readAsmConstArgs' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "jstoi_q")) Module["jstoi_q"] = function() { abort("'jstoi_q' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "jstoi_s")) Module["jstoi_s"] = function() { abort("'jstoi_s' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "listenOnce")) Module["listenOnce"] = function() { abort("'listenOnce' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "autoResumeAudioContext")) Module["autoResumeAudioContext"] = function() { abort("'autoResumeAudioContext' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "abortStackOverflow")) Module["abortStackOverflow"] = function() { abort("'abortStackOverflow' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "reallyNegative")) Module["reallyNegative"] = function() { abort("'reallyNegative' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "formatString")) Module["formatString"] = function() { abort("'formatString' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
@@ -4879,6 +4904,7 @@ if (!Object.getOwnPropertyDescriptor(Module, "emscriptenWebGLGet")) Module["emsc
 if (!Object.getOwnPropertyDescriptor(Module, "emscriptenWebGLGetTexPixelData")) Module["emscriptenWebGLGetTexPixelData"] = function() { abort("'emscriptenWebGLGetTexPixelData' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "emscriptenWebGLGetUniform")) Module["emscriptenWebGLGetUniform"] = function() { abort("'emscriptenWebGLGetUniform' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "emscriptenWebGLGetVertexAttrib")) Module["emscriptenWebGLGetVertexAttrib"] = function() { abort("'emscriptenWebGLGetVertexAttrib' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
+if (!Object.getOwnPropertyDescriptor(Module, "writeGLArray")) Module["writeGLArray"] = function() { abort("'writeGLArray' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "AL")) Module["AL"] = function() { abort("'AL' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "SDL_unicode")) Module["SDL_unicode"] = function() { abort("'SDL_unicode' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
 if (!Object.getOwnPropertyDescriptor(Module, "SDL_ttfContext")) Module["SDL_ttfContext"] = function() { abort("'SDL_ttfContext' was not exported. add it to EXTRA_EXPORTED_RUNTIME_METHODS (see the FAQ)") };
@@ -5403,6 +5429,285 @@ function _readSubFrameHdrResidual(p_subframe_data_res, block_size, order){
 	return res;
 }
 
+function _readConstChar(ptr, length, sb){
+	sb.splice(0);
+	var ch;
+	for(var i=0; i < length; ++i){
+		ch = Module.getValue(ptr + i,'i8');
+		if(ch === 0){
+			break;
+		}
+		sb.push(String.fromCodePoint(ch));
+	}
+	return sb.join('');
+}
+
+function _readNullTerminatedChar(ptr, sb){
+	sb.splice(0);
+	var ch = 1, i = 0;
+	while(ch > 0){
+		ch = Module.getValue(ptr + i++, 'i8');
+		if(ch === 0){
+			break;
+		}
+		sb.push(String.fromCodePoint(ch));
+	}
+	return sb.join('');
+}
+
+
+/**
+ * HELPER read/extract padding metadata meta-data from meta-data block
+ * @param {POINTER} p_padding_metadata
+ * @returns PaddingMetadata
+ */
+function _readPaddingMetadata(p_padding_metadata){//-> FLAC__StreamMetadata.type (FLAC__MetadataType) === FLAC__METADATA_TYPE_PADDING (1)
+
+	//FLAC__StreamMetadata_Padding:
+	//		int 	dummy
+	return {
+		dummy: Module.getValue(p_padding_metadata,'i32')
+	}
+}
+
+/**
+ * HELPER read/extract application metadata meta-data from meta-data block
+ * @param {POINTER} p_application_metadata
+ * @returns ApplicationMetadata
+ */
+function _readApplicationMetadata(p_application_metadata){//-> FLAC__StreamMetadata.type (FLAC__MetadataType) === FLAC__METADATA_TYPE_APPLICATION (2)
+
+	//FLAC__StreamMetadata_Application:
+	// FLAC__byte 	id [4]
+	// FLAC__byte * 	data
+	return {
+		id : Module.getValue(p_application_metadata,'i32'),
+		data: Module.getValue(p_application_metadata + 4,'i32')//TODO should read (binary) data?
+	}
+}
+
+
+/**
+ * HELPER read/extract seek table metadata meta-data from meta-data block
+ * @param {POINTER} p_seek_table_metadata
+ * @returns SeekTableMetadata
+ */
+function _readSeekTableMetadata(p_seek_table_metadata){//-> FLAC__StreamMetadata.type (FLAC__MetadataType) === FLAC__METADATA_TYPE_SEEKTABLE (3)
+
+	//FLAC__StreamMetadata_SeekTable:
+	// 	unsigned 	num_points
+	// 	FLAC__StreamMetadata_SeekPoint * 	points
+
+	var num_points = Module.getValue(p_seek_table_metadata,'i32');
+
+	var ptrPoints = Module.getValue(p_seek_table_metadata + 4,'i32');
+	var points = [];
+	for(var i=0; i < num_points; ++i){
+
+		//FLAC__StreamMetadata_SeekPoint:
+		// 	FLAC__uint64 	sample_number
+		// 	FLAC__uint64 	stream_offset
+		// 	unsigned 	frame_samples
+
+		points.push({
+			sample_number: Module.getValue(ptrPoints + (i * 24),'i64'),
+			stream_offset: Module.getValue(ptrPoints + (i * 24) + 8,'i64'),
+			frame_samples: Module.getValue(ptrPoints + (i * 24) + 16,'i32')
+		});
+	}
+
+	return {
+		num_points: num_points,
+		points: points
+	}
+}
+
+/**
+ * HELPER read/extract vorbis comment meta-data from meta-data block
+ * @param {POINTER} p_vorbiscomment
+ * @returns VorbisComment
+ */
+function _readVorbisComment(p_vorbiscomment){//-> FLAC__StreamMetadata.type (FLAC__MetadataType) === FLAC__METADATA_TYPE_VORBIS_COMMENT (4)
+
+	// FLAC__StreamMetadata_VorbisComment
+	// FLAC__StreamMetadata_VorbisComment_Entry vendor_string:
+	// 		FLAC__uint32 	length
+	// 		FLAC__byte * 	entry
+	var length = Module.getValue(p_vorbiscomment,'i32');
+	var entry = Module.getValue(p_vorbiscomment + 4,'i32');
+
+	var sb = [];
+	var strEntry = _readConstChar(entry, length, sb);
+
+	// FLAC__uint32 	num_comments
+	var num_comments = Module.getValue(p_vorbiscomment + 8,'i32');
+
+	// FLAC__StreamMetadata_VorbisComment_Entry * 	comments
+	var comments = [], clen, centry;
+	var pc = Module.getValue(p_vorbiscomment + 12, 'i32')
+	for(var i=0; i < num_comments; ++i){
+
+		// FLAC__StreamMetadata_VorbisComment_Entry
+		// 		FLAC__uint32 	length
+		// 		FLAC__byte * 	entry
+
+		clen = Module.getValue(pc + (i*8), 'i32');
+		if(clen === 0){
+			continue;
+		}
+
+		centry = Module.getValue(pc + (i*8) + 4, 'i32');
+		comments.push(_readConstChar(centry, clen, sb));
+	}
+
+	return {
+		vendor_string: strEntry,
+		num_comments: num_comments,
+		comments: comments
+	}
+}
+
+/**
+ * HELPER read/extract cue sheet meta-data from meta-data block
+ * @param {POINTER} p_cue_sheet
+ * @returns CueSheetMetadata
+ */
+function _readCueSheetMetadata(p_cue_sheet){//-> FLAC__StreamMetadata.type (FLAC__MetadataType) === FLAC__METADATA_TYPE_CUESHEET (5)
+
+	// char 	media_catalog_number [129]
+	// FLAC__uint64 	lead_in
+	// FLAC__bool 	is_cd
+	// unsigned 	num_tracks
+	// FLAC__StreamMetadata_CueSheet_Track * 	tracks
+
+	var sb = [];
+	var media_catalog_number = _readConstChar(p_cue_sheet, 129, sb);
+
+	var lead_in = Module.getValue(p_cue_sheet + 136,'i64');
+
+	var is_cd = Module.getValue(p_cue_sheet + 144,'i8');
+	var num_tracks = Module.getValue(p_cue_sheet + 148,'i32');
+
+	var ptrTrack = Module.getValue(p_cue_sheet + 152,'i32');
+	var tracks = [], trackOffset = ptrTrack;
+	if(ptrTrack !== 0){
+
+		for(var i=0; i < num_tracks; ++i){
+
+			var tr = _readCueSheetMetadata_track(trackOffset, sb);
+			tracks.push(tr);
+			trackOffset += 32;
+		}
+	}
+
+	return {
+		media_catalog_number: media_catalog_number,
+		lead_in: lead_in,
+		is_cd: is_cd,
+		num_tracks: num_tracks,
+		tracks: tracks
+	}
+}
+
+/**
+ * helper read track data for cue-sheet metadata
+ * @param       {POINTER} p_cue_sheet_track pointer to the track data
+ * @param       {string[]} sb "string buffer" temporary buffer for reading string (may be reset)
+ * @return      {CueSheetTrack}
+ */
+function _readCueSheetMetadata_track(p_cue_sheet_track, sb){
+
+	// FLAC__StreamMetadata_CueSheet_Track:
+	// 		FLAC__uint64 	offset
+	// 		FLAC__byte 	number
+	// 		char 	isrc [13]
+	//		 unsigned 	type:1
+	// 		unsigned 	pre_emphasis:1
+	// 		FLAC__byte 	num_indices
+	// 		FLAC__StreamMetadata_CueSheet_Index * 	indices
+
+	var typePremph = Module.getValue(p_cue_sheet_track + 22,'i8');
+	var num_indices = Module.getValue(p_cue_sheet_track + 23,'i8');
+
+	var indices = [];
+	var track = {
+		offset: Module.getValue(p_cue_sheet_track,'i64'),
+		number: Module.getValue(p_cue_sheet_track + 8,'i8') &255,
+		isrc: _readConstChar(p_cue_sheet_track + 9, 13, sb),
+		type: typePremph & 1? 'NON_AUDIO' : 'AUDIO',
+		pre_emphasis: !!(typePremph & 2),
+		num_indices: num_indices,
+		indices: indices
+	}
+
+	var idx;
+	if(num_indices > 0){
+		idx = Module.getValue(p_cue_sheet_track + 24,'i32');
+
+		//FLAC__StreamMetadata_CueSheet_Index:
+		// 	FLAC__uint64 	offset
+		// 	FLAC__byte 	number
+
+		for(var i=0; i < num_indices; ++i){
+			indices.push({
+				offset: Module.getValue(idx + (i*16),'i64'),
+				number: Module.getValue(idx + (i*16) + 8,'i8')
+			});
+		}
+	}
+
+	return track;
+}
+
+/**
+ * HELPER read/extract picture meta-data from meta-data block
+ * @param {POINTER} p_picture_metadata
+ * @returns PictureMetadata
+ */
+function _readPictureMetadata(p_picture_metadata){//-> FLAC__StreamMetadata.type (FLAC__MetadataType) === FLAC__METADATA_TYPE_PICTURE (6)
+
+	// FLAC__StreamMetadata_Picture_Type 	type
+	// char * 	mime_type
+	// FLAC__byte * 	description
+	// FLAC__uint32 	width
+	// FLAC__uint32 	height
+	// FLAC__uint32 	depth
+	// FLAC__uint32 	colors
+	// FLAC__uint32 	data_length
+	// FLAC__byte * 	data
+
+	var type = Module.getValue(p_picture_metadata,'i32');
+
+	var mime = Module.getValue(p_picture_metadata + 4,'i32');
+
+	var sb = [];
+	var mime_type = _readNullTerminatedChar(mime, sb);
+
+	var desc = Module.getValue(p_picture_metadata + 8,'i32');
+	var description = _readNullTerminatedChar(desc, sb);
+
+	var width  = Module.getValue(p_picture_metadata + 12,'i32');
+	var height = Module.getValue(p_picture_metadata + 16,'i32');
+	var depth  = Module.getValue(p_picture_metadata + 20,'i32');
+	var colors = Module.getValue(p_picture_metadata + 24,'i32');
+	var data_length = Module.getValue(p_picture_metadata + 28,'i32');
+
+	var data = Module.getValue(p_picture_metadata + 32,'i32');
+
+	var buffer = Uint8Array.from(Module.HEAPU8.subarray(data, data + data_length));
+
+	return {
+		type: type,
+		mime_type: mime_type,
+		description: description,
+		width: width,
+		height: height,
+		depth: depth,
+		colors: colors,
+		data_length: data_length,
+		data: buffer
+	}
+}
 
 /**
  * HELPER workaround / fix for returned write-buffer when decoding FLAC
@@ -5806,14 +6111,57 @@ var metadata_fn_ptr = addFunction(function(p_coder, p_metadata, p_client_data){
 	var is_last = Module.getValue(p_metadata+4,'i32');//4 bytes
 	var length = Module.getValue(p_metadata+8,'i64');//8 bytes
 
-	var metadata_callback_fn = getCallback(p_coder, 'metadata');
-	var meta_data;
-	if(type === 0){// === FLAC__METADATA_TYPE_STREAMINFO
-		meta_data = _readStreamInfo(p_metadata+16);
+	var meta_data = {
+		type: type,
+		isLast: is_last,
+		length: length,
+		data: void(0)
+	};
 
-		metadata_callback_fn(meta_data);
+	var metadata_callback_fn = getCallback(p_coder, 'metadata');
+	if(type === 0){// === FLAC__METADATA_TYPE_STREAMINFO
+
+		meta_data.data = _readStreamInfo(p_metadata+16);
+		metadata_callback_fn(meta_data.data, meta_data);
+
+	} else {
+
+		var data;
+		switch(type){
+			case 1: //FLAC__METADATA_TYPE_PADDING
+				data = _readPaddingMetadata(p_metadata+16);
+				break;
+			case 2: //FLAC__METADATA_TYPE_APPLICATION
+				data =  readApplicationMetadata(p_metadata+16);
+				break;
+			case 3: //FLAC__METADATA_TYPE_SEEKTABLE
+				data = _readSeekTableMetadata(p_metadata+16);
+				break;
+
+			case 4: //FLAC__METADATA_TYPE_VORBIS_COMMENT
+				data = _readVorbisComment(p_metadata+16);
+				break;
+
+			case 5: //FLAC__METADATA_TYPE_CUESHEET
+				data = _readCueSheetMetadata(p_metadata+16);
+				break;
+
+			case 6: //FLAC__METADATA_TYPE_PICTURE
+				data = _readPictureMetadata(p_metadata+16);
+				break;
+			default: { //NOTE this should not happen, and the raw data is very likely not correct!
+				var cod_opts = _getOptions(p_coder);
+				if(cod_opts && cod_opts.enableRawMetadata){
+					var buffer = Uint8Array.from(HEAPU8.subarray(p_metadata+16, p_metadata+16+length));
+					meta_data.raw = buffer;
+				}
+			}
+
+		}
+
+		meta_data.data = data;
+		metadata_callback_fn(void(0), meta_data);
 	}
-	//TODO handle other meta data too
 
 }, 'viii');
 
@@ -5909,8 +6257,192 @@ var _exported = {
 	 * @memberOf Flac
 	 * @property {boolean}  [analyseSubframes] for decoding: include subframes metadata in write-callback metadata, DEFAULT: false
 	 * @property {boolean}  [analyseResiduals] for decoding: include residual data in subframes metadata in write-callback metadata, NOTE {@link #analyseSubframes} muste also be enabled, DEFAULT: false
+	 * @property {boolean}  [enableRawMetadata] DEBUG option for decoding: enable receiving raw metadata for unknown metadata types in second argument in the metadata-callback, DEFAULT: false
 	 *
 	 * @see Flac#setOptions
+	 * @see Flac~metadata_callback_fn
+	 * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
+	 */
+	/**
+	 * FLAC raw metadata
+	 *
+	 * @interface MetadataBlock
+	 * @memberOf Flac
+	 * @property {Flac.FLAC__MetadataType}  type the type of the metadata
+	 * @property {boolean}  isLast if it is the last block of metadata
+	 * @property {number}  length the length of the metadata block (bytes)
+	 * @property {Flac.StreamMetadata | Flac.PaddingMetadata | Flac.ApplicationMetadata | Flac.SeekTableMetadata | Flac.CueSheetMetadata | Flac.PictureMetadata}  [data] the metadata (omitted for unknown metadata types)
+	 * @property {Uint8Array}  [raw] raw metadata (for debugging: enable via {@link Flac#setOptions})
+	 */
+	/**
+	 * FLAC padding metadata block
+	 *
+	 * @interface PaddingMetadata
+	 * @memberOf Flac
+	 * @property {number}  dummy Conceptually this is an empty struct since we don't store the padding bytes. Empty structs are not allowed by some C compilers, hence the dummy.
+	 *
+	 * @see Flac.FLAC__MetadataType#FLAC__METADATA_TYPE_PADDING
+	 */
+	/**
+	 * FLAC application metadata block
+	 *
+	 * NOTE the application meta data type is not really supported, i.e. the
+	 *      (binary) data is only a pointer to the memory heap.
+	 *
+	 * @interface ApplicationMetadata
+	 * @memberOf Flac
+	 * @property {number}  id the application ID
+	 * @property {number}  data (pointer)
+	 *
+	 * @see Flac.FLAC__MetadataType#FLAC__METADATA_TYPE_APPLICATION
+	 * @see <a href="https://xiph.org/flac/format.html#metadata_block_application">application block format specification</a>
+	 */
+	/**
+	 * FLAC seek table metadata block
+	 *
+	 * <p>
+	 * From the format specification:
+	 *
+	 * The seek points must be sorted by ascending sample number.
+	 *
+	 * Each seek point's sample number must be the first sample of the target frame.
+	 *
+	 * Each seek point's sample number must be unique within the table
+	 *
+	 * Existence of a SEEKTABLE block implies a correct setting of total_samples in the stream_info block.
+	 *
+	 * Behavior is undefined when more than one SEEKTABLE block is present in a stream.
+	 *
+	 * @interface SeekTableMetadata
+	 * @memberOf Flac
+	 * @property {number}  num_points the number of seek points
+	 * @property {Flac.SeekPoint[]}  points the seek points
+	 *
+	 * @see Flac.FLAC__MetadataType#FLAC__METADATA_TYPE_SEEKTABLE
+	 */
+	/**
+	 * FLAC seek point data
+	 *
+	 * @interface SeekPoint
+	 * @memberOf Flac
+	 * @property {number}  sample_number The sample number of the target frame. NOTE <code>-1</code> for a placeholder point.
+	 * @property {number}  stream_offset The offset, in bytes, of the target frame with respect to beginning of the first frame.
+	 * @property {number}  frame_samples The number of samples in the target frame.
+	 *
+	 * @see Flac.SeekTableMetadata
+	 */
+	/**
+	 * FLAC vorbis comment metadata block
+	 *
+	 * @interface VorbisCommentMetadata
+	 * @memberOf Flac
+	 * @property {string}  vendor_string the vendor string
+	 * @property {number}  num_comments the number of comments
+	 * @property {string[]}  comments the comments
+	 *
+	 * @see Flac.FLAC__MetadataType#FLAC__METADATA_TYPE_VORBIS_COMMENT
+	 */
+	 /**
+	 * FLAC cue sheet metadata block
+	 *
+	 * @interface CueSheetMetadata
+	 * @memberOf Flac
+	 * @property {string}  media_catalog_number Media catalog number, in ASCII printable characters 0x20-0x7e. In general, the media catalog number may be 0 to 128 bytes long.
+	 * @property {number}  lead_in The number of lead-in samples.
+	 * @property {boolean}  is_cd true if CUESHEET corresponds to a Compact Disc, else false.
+	 * @property {number}  num_tracks The number of tracks.
+	 * @property {Flac.CueSheetTrack[]}  tracks the tracks
+	 *
+	 * @see Flac.FLAC__MetadataType#FLAC__METADATA_TYPE_CUESHEET
+	 */
+	 /**
+	 * FLAC cue sheet track data
+	 *
+	 * @interface CueSheetTrack
+	 * @memberOf Flac
+	 * @property {number}  offset Track offset in samples, relative to the beginning of the FLAC audio stream.
+	 * @property {number}  number The track number.
+	 * @property {string}  isrc Track ISRC. This is a 12-digit alphanumeric code.
+	 * @property {"AUDIO" | "NON_AUDIO"}  type The track type: audio or non-audio.
+	 * @property {boolean}  pre_emphasis The pre-emphasis flag
+	 * @property {number}  num_indices The number of track index points.
+	 * @property {Flac.CueSheetTracIndex}  indices The track index points.
+	 *
+	 * @see Flac.CueSheetMetadata
+	 */
+	/**
+	 * FLAC track index data for cue sheet metadata
+	 *
+	 * @interface CueSheetTracIndex
+	 * @memberOf Flac
+	 * @property {number}  offset Offset in samples, relative to the track offset, of the index point.
+	 * @property {number}  number The index point number.
+	 *
+	 * @see Flac.CueSheetTrack
+	 */
+	/**
+	 * FLAC picture metadata block
+	 *
+	 * @interface PictureMetadata
+	 * @memberOf Flac
+	 * @property {Flac.FLAC__StreamMetadata_Picture_Type}  type The kind of picture stored.
+	 * @property {string}  mime_type Picture data's MIME type, in ASCII printable characters 0x20-0x7e, NUL terminated. For best compatibility with players, use picture data of MIME type image/jpeg or image/png. A MIME type of '–>' is also allowed, in which case the picture data should be a complete URL.
+	 * @property {string}  description Picture's description.
+	 * @property {number}  width Picture's width in pixels.
+	 * @property {number}  height Picture's height in pixels.
+	 * @property {number}  depth Picture's color depth in bits-per-pixel.
+	 * @property {number}  colors For indexed palettes (like GIF), picture's number of colors (the number of palette entries), or 0 for non-indexed (i.e. 2^depth).
+	 * @property {number}  data_length Length of binary picture data in bytes.
+	 * @property {Uint8Array}  data Binary picture data.
+	 */
+	/**
+	 * An enumeration of the PICTURE types (see FLAC__StreamMetadataPicture and id3 v2.4 APIC tag).
+	 *
+	 * @interface FLAC__StreamMetadata_Picture_Type
+	 * @memberOf Flac
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_OTHER"} 					0		Other
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_FILE_ICON_STANDARD"} 		1		32x32 pixels 'file icon' (PNG only)
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_FILE_ICON"} 				2		Other file icon
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_FRONT_COVER"} 			3		Cover (front)
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_BACK_COVER"} 				4		Cover (back)
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_LEAFLET_PAGE"} 			5		Leaflet page
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_MEDIA"} 					6		Media (e.g. label side of CD)
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_LEAD_ARTIST"} 			7		Lead artist/lead performer/soloist
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_ARTIST"} 					8		Artist/performer
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_CONDUCTOR"} 				9		Conductor
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_BAND"} 					10		Band/Orchestra
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_COMPOSER"} 				11		Composer
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_LYRICIST"} 				12		Lyricist/text writer
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_RECORDING_LOCATION"} 		13		Recording Location
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_DURING_RECORDING"} 		14		During recording
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_DURING_PERFORMANCE"} 		15		During performance
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_VIDEO_SCREEN_CAPTURE"} 	16		Movie/video screen capture
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_FISH"} 					17		A bright coloured fish
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_ILLUSTRATION"} 			18		Illustration
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_BAND_LOGOTYPE"} 			19		Band/artist logotype
+	 * @property {"FLAC__STREAM_METADATA_PICTURE_TYPE_PUBLISHER_LOGOTYPE"} 		20		Publisher/Studio logotype
+	 *
+	 * @see Flac.PictureMetadata
+	 */
+
+	/**
+	 * An enumeration of the available metadata block types.
+	 *
+	 * @interface FLAC__MetadataType
+	 * @memberOf Flac
+	 *
+	 * @property {"FLAC__METADATA_TYPE_STREAMINFO"} 		0	STREAMINFO block
+	 * @property {"FLAC__METADATA_TYPE_PADDING"} 			1	PADDING block
+	 * @property {"FLAC__METADATA_TYPE_APPLICATION"} 		2	APPLICATION block
+	 * @property {"FLAC__METADATA_TYPE_SEEKTABLE"} 			3	SEEKTABLE block
+	 * @property {"FLAC__METADATA_TYPE_VORBIS_COMMENT"} 	4	VORBISCOMMENT block (a.k.a. FLAC tags)
+	 * @property {"FLAC__METADATA_TYPE_CUESHEET"} 			5	CUESHEET block
+	 * @property {"FLAC__METADATA_TYPE_PICTURE"} 			6	PICTURE block
+	 * @property {"FLAC__METADATA_TYPE_UNDEFINED"} 			7	marker to denote beginning of undefined type range; this number will increase as new metadata types are added
+	 * @property {"FLAC__MAX_METADATA_TYPE"} 				126	No type will ever be greater than this. There is not enough room in the protocol block.
+	 *
+	 * @see Flac.MetadataBlock
+	 * @see <a href="https://xiph.org/flac/format.html">FLAC format documentation</a>
 	 */
 	/**
 	 * @function
@@ -6228,18 +6760,6 @@ FLAC__uint64 	FLAC__stream_encoder_get_total_samples_estimate (const FLAC__Strea
 
 TODO export other decoder API functions?:
 
-FLAC__bool 	FLAC__stream_decoder_set_metadata_respond (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
-
-FLAC__bool 	FLAC__stream_decoder_set_metadata_respond_application (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
-
-FLAC__bool 	FLAC__stream_decoder_set_metadata_respond_all (FLAC__StreamDecoder *decoder)
-
-FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
-
-FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore_application (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
-
-FLAC__bool 	FLAC__stream_decoder_set_metadata_ignore_all (FLAC__StreamDecoder *decoder)
-
 
 const char * 	FLAC__stream_decoder_get_resolved_state_string (const FLAC__StreamDecoder *decoder)
 
@@ -6404,7 +6924,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 		return this.create_libflac_decoder.apply(this, arguments);
 	},
 	/**
-	 * the callback for writing the encoded FLAC data.
+	 * The callback for writing the encoded FLAC data.
 	 *
 	 * @callback Flac~encoder_write_callback_fn
 	 * @param {Uint8Array} data the encoded FLAC data
@@ -6415,9 +6935,21 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * 								unrecoverable error occurred and decoding should be aborted
 	 */
 	/**
-	 * the callback for the metadata of the encoded/decoded Flac data.
+	 * The callback for the metadata of the encoded/decoded Flac data.
+	 *
+	 * By default, only the STREAMINFO metadata is enabled.
+	 *
+	 * For other metadata types {@link Flac.FLAC__MetadataType} they need to be enabled,
+	 * see e.g. {@link Flac#FLAC__stream_decoder_set_metadata_respond}
+	 *
 	 * @callback Flac~metadata_callback_fn
-	 * @param {Flac.StreamMetadata} metadata the FLAC meta data
+	 * @param {Flac.StreamMetadata | undefined} metadata the FLAC meta data, NOTE only STREAMINFO is returned in first argument, for other types use 2nd argument's <code>metadataBlock.data<code>
+	 * @param {Flac.MetadataBlock} metadataBlock the detailed meta data block
+	 *
+	 * @see Flac#init_decoder_stream
+	 * @see Flac#init_encoder_stream
+	 * @see Flac.CodingOptions
+	 * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
 	 */
 	/**
 	 * FLAC meta data
@@ -6879,37 +7411,16 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @function
 	 */
 	FLAC__stream_encoder_process: function(encoder, channelBuffers, num_of_samples){
-		var size=channelBuffers.length;
-		var ptrs = [], ptrData = new Uint32Array(size);
-		var ptrOffsets = new DataView(ptrData.buffer);
-		var buffer, numBytes, heapBytes, ptr;
-		for(var i=0, size; i < size; ++i){
-			buffer = channelBuffers[i];
-			// get the length of the data in bytes
-			numBytes = buffer.length * buffer.BYTES_PER_ELEMENT;
-			// malloc enough space for the data
-			ptr = Module._malloc(numBytes);
-			ptrs.push(ptr);
-			// get a bytes-wise view on the newly allocated buffer
-			heapBytes = new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
-			// copy data into heapBytes
-			heapBytes.set(new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength));// use FIX for issue #11 (2)
-			ptrOffsets.setUint32(i*4, ptr, true);
-		}
-		var nPointerBytes = ptrData.length * ptrData.BYTES_PER_ELEMENT
-		var pointerPtr = Module._malloc(nPointerBytes);
-		var pointerHeap = new Uint8Array(Module.HEAPU8.buffer, pointerPtr, nPointerBytes);
-		pointerHeap.set( new Uint8Array(ptrData.buffer) );
+
+		var ptrInfo = this._create_pointer_array(channelBuffers);
+		var pointerPtr = ptrInfo.pointerPointer;
 
 		var status = Module.ccall('FLAC__stream_encoder_process', 'number',
 				['number', 'number', 'number'],
 				[encoder, pointerPtr, num_of_samples]
 		);
 
-		for(var i=0, size=ptrs.length; i < size; ++i){
-			Module._free(ptrs[i]);
-		}
-		Module._free(pointerPtr);
+		this._destroy_pointer_array(ptrInfo);
 		return status;
 	},
 	/**
@@ -7011,7 +7522,267 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * @function
 	 */
 	FLAC__stream_encoder_get_state:  Module.cwrap('FLAC__stream_encoder_get_state', 'number', ['number']),
+	/**
+	 * Direct the decoder to pass on all metadata blocks of type type.
+	 *
+	 * By default, only the STREAMINFO block is returned via the metadata callback.
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized decoder instances!
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
+	 *
+	 * @param {Flac.FLAC__MetadataType} type  the metadata type to be enabled
+	 *
+	 * @returns {boolean} <code>false</code> if the decoder is already initialized, else <code>true</code>
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
+	 */
+	FLAC__stream_decoder_set_metadata_respond: Module.cwrap('FLAC__stream_decoder_set_metadata_respond', 'number', ['number', 'number']),
+	/**
+	 * Direct the decoder to pass on all APPLICATION metadata blocks of the given id.
+	 *
+	 * By default, only the STREAMINFO block is returned via the metadata callback.
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized decoder instances!
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
+	 *
+	 * @param {number} id  the ID of application metadata
+	 *
+	 * @returns {boolean} <code>false</code> if the decoder is already initialized, else <code>true</code>
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
+	 */
+	FLAC__stream_decoder_set_metadata_respond_application: Module.cwrap('FLAC__stream_decoder_set_metadata_respond_application', 'number', ['number', 'number']),// (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
+	/**
+	 * Direct the decoder to pass on all metadata blocks of any type.
+	 *
+	 * By default, only the STREAMINFO block is returned via the metadata callback.
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized decoder instances!
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
+	 *
+	 * @returns {boolean} <code>false</code> if the decoder is already initialized, else <code>true</code>
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac#FLAC__stream_decoder_set_metadata_ignore_all
+	 * @see Flac#FLAC__stream_decoder_set_metadata_respond_application
+	 * @see Flac#FLAC__stream_decoder_set_metadata_respond
+	 */
+	FLAC__stream_decoder_set_metadata_respond_all: Module.cwrap('FLAC__stream_decoder_set_metadata_respond_all', 'number', ['number']),// (FLAC__StreamDecoder *decoder)
+	/**
+	 * Direct the decoder to filter out all metadata blocks of type type.
+	 *
+	 * By default, only the STREAMINFO block is returned via the metadata callback.
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized decoder instances!
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
+	 *
+	 * @param {Flac.FLAC__MetadataType} type  the metadata type to be ignored
+	 *
+	 * @returns {boolean} <code>false</code> if the decoder is already initialized, else <code>true</code>
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac#FLAC__stream_decoder_set_metadata_ignore_all
+	 */
+	FLAC__stream_decoder_set_metadata_ignore: Module.cwrap('FLAC__stream_decoder_set_metadata_ignore', 'number', ['number', 'number']),// (FLAC__StreamDecoder *decoder, FLAC__MetadataType type)
+	/**
+	 * Direct the decoder to filter out all APPLICATION metadata blocks of the given id.
+	 *
+	 * By default, only the STREAMINFO block is returned via the metadata callback.
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized decoder instances!
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
+	 *
+	 * @param {number} id  the ID of application metadata
+	 *
+	 * @returns {boolean} <code>false</code> if the decoder is already initialized, else <code>true</code>
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac#FLAC__stream_decoder_set_metadata_ignore_all
+	 */
+	FLAC__stream_decoder_set_metadata_ignore_application: Module.cwrap('FLAC__stream_decoder_set_metadata_ignore_application', 'number', ['number', 'number']),// (FLAC__StreamDecoder *decoder, const FLAC__byte id[4])
+	/**
+	 * Direct the decoder to filter out all metadata blocks of any type.
+	 *
+	 * By default, only the STREAMINFO block is returned via the metadata callback.
+	 *
+	 * <p>
+	 * NOTE: only use on un-initilized decoder instances!
+	 *
+	 * @param {number} decoder
+	 * 				the ID of the decoder instance
+	 *
+	 * @returns {boolean} <code>false</code> if the decoder is already initialized, else <code>true</code>
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac#FLAC__stream_decoder_set_metadata_respond_all
+	 * @see Flac#FLAC__stream_decoder_set_metadata_ignore
+	 * @see Flac#FLAC__stream_decoder_set_metadata_ignore_application
+	 */
+	FLAC__stream_decoder_set_metadata_ignore_all: Module.cwrap('FLAC__stream_decoder_set_metadata_ignore_all', 'number', ['number']),// (FLAC__StreamDecoder *decoder)
+	/**
+	 * Set the metadata blocks to be emitted to the stream before encoding. A value of NULL, 0 implies no metadata; otherwise, supply an array of pointers to metadata blocks.
+	 * The array is non-const since the encoder may need to change the is_last flag inside them, and in some cases update seek point offsets. Otherwise, the encoder
+	 * will not modify or free the blocks. It is up to the caller to free the metadata blocks after encoding finishes.
+	 *
+	 * <p>
+	 *     The encoder stores only copies of the pointers in the metadata array; the metadata blocks themselves must survive at least until after FLAC__stream_encoder_finish() returns.
+	 *     Do not free the blocks until then.
+	 *
+	 *     The STREAMINFO block is always written and no STREAMINFO block may occur in the supplied array.
+	 *
+	 *     By default the encoder does not create a SEEKTABLE. If one is supplied in the metadata array, but the client has specified that it does not support seeking,
+	 *     then the SEEKTABLE will be written verbatim. However by itself this is not very useful as the client will not know the stream offsets for the seekpoints ahead of time.
+	 *     In order to get a proper seektable the client must support seeking. See next note.
+	 *
+	 *     SEEKTABLE blocks are handled specially. Since you will not know the values for the seek point stream offsets, you should pass in a SEEKTABLE 'template', that is,
+	 *     a SEEKTABLE object with the required sample numbers (or placeholder points), with 0 for the frame_samples and stream_offset fields for each point.
+	 *     If the client has specified that it supports seeking by providing a seek callback to FLAC__stream_encoder_init_stream() or both seek AND read callback to
+	 *      FLAC__stream_encoder_init_ogg_stream() (or by using FLAC__stream_encoder_init*_file() or FLAC__stream_encoder_init*_FILE()), then while it is encoding the encoder will
+	 *      fill the stream offsets in for you and when encoding is finished, it will seek back and write the real values into the SEEKTABLE block in the stream. There are helper
+	 *      routines for manipulating seektable template blocks; see metadata.h: FLAC__metadata_object_seektable_template_*(). If the client does not support seeking,
+	 *      the SEEKTABLE will have inaccurate offsets which will slow down or remove the ability to seek in the FLAC stream.
+	 *
+	 *     The encoder instance will modify the first SEEKTABLE block as it transforms the template to a valid seektable while encoding, but it is still up to the caller to free
+	 *     all metadata blocks after encoding.
+	 *
+	 *     A VORBIS_COMMENT block may be supplied. The vendor string in it will be ignored. libFLAC will use it's own vendor string. libFLAC will not modify the passed-in
+	 *     VORBIS_COMMENT's vendor string, it will simply write it's own into the stream. If no VORBIS_COMMENT block is present in the metadata array, libFLAC will write an
+	 *     empty one, containing only the vendor string.
+	 *
+	 *     The Ogg FLAC mapping requires that the VORBIS_COMMENT block be the second metadata block of the stream. The encoder already supplies the STREAMINFO block automatically.
+	 *
+	 *     If metadata does not contain a VORBIS_COMMENT block, the encoder will supply that too. Otherwise, if metadata does contain a VORBIS_COMMENT block and it is not the first,
+	 *     the init function will reorder metadata by moving the VORBIS_COMMENT block to the front; the relative ordering of the other blocks will remain as they were.
+	 *
+	 *     The Ogg FLAC mapping limits the number of metadata blocks per stream to 65535. If num_blocks exceeds this the function will return false.
+	 *
+	 * @param {number} encoder
+	 * 				the ID of the encoder instance
+	 *
+	 * @param {Flac.PointerInfo} metadataBuffersPointer
+	 *
+	 * @param {number} num_blocks
+	 *
+	 * @returns {boolean} <code>false</code> if the encoder is already initialized, else <code>true</code>. <code>false</code> if the encoder is already initialized, or if num_blocks > 65535 if encoding to Ogg FLAC, else true.
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac.FLAC__MetadataType
+	 * @see Flac#_create_pointer_array
+	 * @see Flac#_destroy_pointer_array
+	 */
+	FLAC__stream_encoder_set_metadata: function(encoder, metadataBuffersPointer, num_blocks){// ( FLAC__StreamEncoder *  encoder, FLAC__StreamMetadata **  metadata, unsigned  num_blocks)
+		var status = Module.ccall('FLAC__stream_encoder_set_metadata', 'number',
+				['number', 'number', 'number'],
+				[encoder, metadataBuffersPointer.pointerPointer, num_blocks]
+		);
+		return status;
+	},
+	/**
+	 * Helper object for allocating an array of buffers on the (memory) heap.
+	 *
+	 * @interface PointerInfo
+	 * @memberOf Flac
+	 * @property {number}  pointerPointer pointer to the array of (pointer) buffers
+	 * @property {number[]}  dataPointer array of pointers to the allocated data arrays (i.e. buffers)
+	 *
+	 * @see Flac#_create_pointer_array
+	 * @see Flac#_destroy_pointer_array
+	 */
+	/**
+	 * Helper function for creating pointer (and allocating the data) to an array of buffers on the (memory) heap.
+	 *
+	 * Use the returned <code>PointerInfo.dataPointer</code> as argument, where the array-pointer is required.
+	 *
+	 * NOTE: afer use, the allocated buffers on the heap need be freed, see {@link #_destroy_pointer_array}.
+	 *
+	 * @param {Uint8Array[]} bufferArray
+	 * 						the buffer for which to create
+	 *
+	 * @returns {Flac.PointerInfo} <code>false</code> if the decoder is already initialized, else <code>true</code>
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac#_destroy_pointer_array
+	 */
+	_create_pointer_array: function(bufferArray){
+		var size=bufferArray.length;
+		var ptrs = [], ptrData = new Uint32Array(size);
+		var ptrOffsets = new DataView(ptrData.buffer);
+		var buffer, numBytes, heapBytes, ptr;
+		for(var i=0, size; i < size; ++i){
+			buffer = bufferArray[i];
+			// get the length of the data in bytes
+			numBytes = buffer.length * buffer.BYTES_PER_ELEMENT;
+			// malloc enough space for the data
+			ptr = Module._malloc(numBytes);
+			ptrs.push(ptr);
+			// get a bytes-wise view on the newly allocated buffer
+			heapBytes = new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
+			// copy data into heapBytes
+			heapBytes.set(new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength));// use FIX for issue #11 (2)
+			ptrOffsets.setUint32(i*4, ptr, true);
+		}
+		var nPointerBytes = ptrData.length * ptrData.BYTES_PER_ELEMENT
+		var pointerPtr = Module._malloc(nPointerBytes);
+		var pointerHeap = new Uint8Array(Module.HEAPU8.buffer, pointerPtr, nPointerBytes);
+		pointerHeap.set( new Uint8Array(ptrData.buffer) );
 
+		return {
+			dataPointer: ptrs,
+			pointerPointer: pointerPtr
+		};
+	},
+	/**
+	 * Helper function for destroying/freeing a previously created pointer (and allocating the data) of an array of buffers on the (memory) heap.
+	 *
+	 * @param {Flac.PointerInfo} pointerInfo
+	 * 						the pointer / allocation information that should be destroyed/freed
+	 *
+	 *
+	 * @memberOf Flac#
+	 * @function
+	 *
+	 * @see Flac#_create_pointer_array
+	 */
+	_destroy_pointer_array: function(pointerInfo){
+		var pointerArray = pointerInfo.dataPointer;
+		for(var i=0, size=pointerArray.length; i < size; ++i){
+			Module._free(pointerArray[i]);
+		}
+		Module._free(pointerInfo.pointerPointer);
+	},
 	/**
 	 * Get if MD5 verification is enabled for the decoder
 	 *
@@ -7141,7 +7912,7 @@ if(typeof Object.defineProperty === 'function'){
 		get() { return this._onready; },
 		set(newValue) {
 			this._onready = newValue;
-			if(this.isReady()){
+			if(newValue && this.isReady()){
 				check_and_trigger_persisted_event('ready', newValue);
 			}
 		}

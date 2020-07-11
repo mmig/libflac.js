@@ -1,4 +1,36 @@
 
+# Version 5.4.0
+
+ * added tests in `tools/test`
+
+ * added utility classes for encoding and decoding (TypeScript in `src/**`, JavaScript in `lib/**`)
+
+ * added support for metadata (other than default STREAMINFO):
+   * if enabled, metadata (other than STREAMINFO) is returned in the 2nd argument of `metadata_callback_fn` callback
+   * changed signature for `metadata_callback_fn`:
+     * old signature: `metadata_callback_fn(data: StreamMetadata)`
+     * new signature: `metadata_callback_fn(data: StreamMetadata | undefined, rawData: MetadataBlock | undefined)`
+   * decoding: enable/disable (raw) metadata output (in metadata callback)
+     * FLAC__stream_decoder_set_metadata_respond(..)
+     * FLAC__stream_decoder_set_metadata_respond_application(..)
+     * FLAC__stream_decoder_set_metadata_respond_all(..)
+     * FLAC__stream_decoder_set_metadata_ignore(..)
+     * FLAC__stream_decoder_set_metadata_ignore_application(..)
+     * FLAC__stream_decoder_set_metadata_ignore_all(..)
+     * for debugging: enable raw metadata via `Flac.setOptions(id, {enableRawMetadata: true})`
+   * encoding: EXPERIMENTAL add metadata blocks (as binary data)
+     * FLAC__stream_encoder_set_metadata(..)
+
+ * added example code for `Flac.FLAC__stream_encoder_process(enc, TypedArray[], numberOfSamples)`
+
+ * fixed `onready` for `undefined`:
+   * typings: allow (re-)setting `Flac.onready` to `undefined`
+   * BUGFIX: do not try to invoke `onready` hook, if set to `undefined`
+
+ * BUGFIX example/utils/data-utils::addFLACMetaData(): do use `offset` when writing `total_samples` to FLAC header
+
+ * recompiled with `emscripten` v1.39.19 (llvm toolchain)
+
 # Version 5.3.0
 
  * FIX incorrect API documentation: error-callback for decoder is not optional
@@ -10,7 +42,7 @@
    * `FLAC__stream_decoder_get_md5_checking(decoder, boolean)`
    * `FLAC__stream_encoder_get_verify_decoder_state(encoder)`
    * `FLAC__stream_encoder_get_verify(encoder)`
-   
+
  * added support for non-interleaved encoding method:  
    `FLAC__stream_encoder_process(encoder, channelBuffers, numberOfSamples)`
 
@@ -113,3 +145,123 @@ dist/dev/libflac4-1.3.2.dev.xxx  ->  dist/libflac.dev.xxx
 # Version 4.x
 
 library primarily targeted browser platform
+
+
+# Legacy Build Instructions
+
+## Legacy Build Instructions for Windows
+
+### Build Windows/VisualStudio 10 (libflac 1.3.0)
+
+__*EXPERIMENTAL*__
+
+ * __Prerequisites:__
+   * VisualStudio 10
+   * Emscripten plugin [vs-tool][4] (automatically installed, if Emscripten Installer was used)
+   * OGG library: compile and include OGG in libflac for avoiding errors (or edit sources/project to remove OGG dependency); see README of libflac for more details (section for compiling in Windows)
+
+Open the solution file `FLAC.sln` and select the project `libFLAC_static`.
+
+In the `Configuration Manager`, for `libFLAC_static` select `<New...>`, and then `Emscripten` as platform (`vs-tool` needs to be installed for this); change option `Copy settings from:` to `<Empty>`, and the press `OK`.
+
+Then open the project settings for `libFLAC_static`, and modify settings for `Configuration `:
+ * `Clang C/C++`: `Additional Include Directories` add entries:
+   ```
+   .\include
+   ..\..\include
+   ```
+ * `Clang C/C++` : `Preprocessor` add entries for `Preprocessor Definitions (-D)`:
+   ```
+   HAVE_SYS_PARAM_H
+   HAVE_LROUND
+   VERSION="1.3.0"
+   ```
+
+   ```
+   DEBUG
+   _LIB
+   FLAC__HAS_OGG
+   VERSION="1.3.0"
+   ```
+
+* modify project (if without OGG support): remove the source files (*.c) and headers (*.h) that start with `ogg*` from project (remove or "Exclude from project"); or include OGG library (cf. README of libflac for details)
+
+
+* Modify sources file:
+ * `flac-1.3.0\src\libFLAC\format.c` add the following at the beginning (e.g. after the `#include` statements):
+   ```
+   #define VERSION "1.3.0"
+   ```
+
+### Prerequisite: Building Windows/ViusalStudio 10 (libogg 1.3.2)
+
+__*EXPERIMENTAL*__
+
+Build libogg for target platform `Emscripten`, and follow libflac's README
+for coyping the header files.
+
+In libfalc's build configuration (`Emcc Linker -> Input -> Additional Dependencies`),
+explicitly link the additional dependencies
+`framing.o` and `bitwise.o` from the libogg's built, something like
+
+    ..\..\..\libogg-1.3.2\win32\VS2010\Emscripten\Release\framing.o;..\..\..\libogg-1.3.2\win32\VS2010\Emscripten\Release\bitwise.o
+
+
+## Legacy Build Instructions for *nix
+
+### Building *nix (libflac 1.3.2)
+
+__NOTE:__ these changes are not neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
+
+For libflac version 1.3.2, the sources / configuration require some changes, before libflac.js can be successfully built.
+
+* in `flac-1.3.2/Makefile.in` at line 400, disable (or remove) the last entry `microbench` in the line, e.g. change to:
+```
+SUBDIRS = doc include m4 man src examples test build obj #microbench
+```
+* in `flac-1.3.2/src/libFLAC/cpu.c` at line 89, disable (or remove) the following lines:
+
+```
+#elif defined __GNUC__
+    uint32_t lo, hi;
+    asm volatile (".byte 0x0f, 0x01, 0xd0" : "=a"(lo), "=d"(hi) : "c" (0));
+    return lo;
+ ```
+
+After these changes, continue compilation with
+```
+make emmake
+```
+
+
+### Building *nix (libflac 1.3.3)
+
+No additional changes are neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
+
+See general instrucitions in section _Building *nix (libflac 1.3.0 and later)_.
+
+
+### Prerequisite: Building *nix (libogg 1.3.4)
+
+__NOTE:__ these changes are not neccessary anymore since `libflac.js` version 5.x, due to use of new `emscripten` toolchain
+
+Include libogg in libflac built by specifying
+
+ --with-ogg=<libogg dir>
+
+for libfalc's `./conigure` process (where `<libogg dir>` is the _absolute_ path
+to the libogg directory)
+
+Note that libflac build process expects the libogg headers at
+
+ <libogg dir>/include/**
+
+and the compiled library at
+
+ <libogg dir>/lib/**
+
+if necessary you can create symbolic links for these, that link to the
+actual location, e.g.
+
+ ln -sfn src/.libs lib
+ ln -sfn include/ogg ogg

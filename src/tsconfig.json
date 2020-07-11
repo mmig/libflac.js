@@ -1,0 +1,11 @@
+{
+  "exclude": ["*.d.ts"],
+  "compilerOptions": {
+    "allowJs": false,
+    "target": "es2018",
+    "declaration": false,
+    "module": "commonjs",
+    "strict": true,
+    "strictPropertyInitialization": false
+  }
+}

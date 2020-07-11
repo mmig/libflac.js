@@ -14,19 +14,24 @@
   "devDependencies": {
     "@types/fs-extra": "^9.0.1",
     "@types/gulp": "^4.0.6",
-    "@types/webpack": "^4.41.13",
+    "@types/webpack": "^4.41.21",
     "del": "^5.1.0",
-    "fs-extra": "^9.0.0",
+    "fs-extra": "^9.0.1",
     "gulp": "^4.0.2",
     "gulp-jsdoc3": "^3.0.0",
     "jaguarjs-jsdoc": "git+https://github.com/mmig/jaguarjs-jsdoc.git#patched",
     "jsdoc": "^3.6.4"
   },
   "scripts": {
-    "build": "gulp jsdoc_and_typings",
+    "build": "gulp jsdoc_and_ts",
     "doc": "gulp",
     "doc:json": "gulp jsdoc_json",
     "doc:all": "gulp jsdoc_all",
-    "build:typings": "gulp gen_typings"
+    "doc:clean": "gulp clean_jsdoc",
+    "build:ts": "gulp ts_all",
+    "build:typings": "gulp gen_typings",
+    "build:utils": "gulp build_ts_utils",
+    "build:example": "gulp build_ts_example",
+    "build:clean": "gulp clean_ts_utils"
   }
 }

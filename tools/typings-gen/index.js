@@ -87,7 +87,7 @@ function generateDeclaration(jsdocJson, outFileName, callback) {
 		// code += `${nl}${nl}`;
 	});
 
-	log('finished!');
+	log('writing generated typings to '+outFileName);
 
 	fs.writeFile(outFileName, code, 'utf8', callback);
 }
@@ -119,7 +119,7 @@ function addMembers(jsdocJson, rootDict){
 			} else if(!parent.children.find(function(other){other.name === el.name})){
 				parent.children.push(el)
 			} else {
-				log('WARN already present '+el.longname, el);
+				log('WARN when generating typings: already present '+el.longname, el);
 			}
 		}
 	});
@@ -274,11 +274,11 @@ function generateCode(el, indent, genType){
 			return '';
 		}
 		code += generateTypeCode(el) + ';';
-	} else if(kind === 'var'){
+	} else if(kind === 'var'){// || kind === 'const'){
 		if(genType === 'types'){
 			return '';
 		}
-		code += ': ' + generateFunctionSigCode(el.params, el.returns, true) + ';';
+		code += ': ' + generateVarFunction(el) + ';';
 	} else {
 		if(genType === 'types'){
 			return '';
@@ -340,6 +340,11 @@ function isFunctionVar(el){
 
 function isFunctionTypeDef(el){
 	return el.kind === 'typedef' && toTypeList(el.type).join(' | ') === 'Function';
+}
+
+function generateVarFunction(el){
+	var sigCode = generateFunctionSigCode(el.params, el.returns, true);
+	return el.defaultvalue? '('+sigCode+')|'+el.defaultvalue : sigCode;
 }
 
 function generateFunctionSigCode(paramList, returns, isType){
@@ -422,7 +427,7 @@ function testRun(){
 	var inFileName = '../temp/libflac_jsdoc.json';
 	var outFileName = '../temp/test_index.d.ts';
 	generateDeclarationFromFile(inFileName, outFileName, function(){
-		log('finished!');
+		log('writing generated typings to '+outFileName);
 	});
 }
 

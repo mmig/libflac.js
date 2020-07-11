@@ -2,11 +2,14 @@
 
 var path = require('path');
 var fs = require('fs-extra');
+var exec = require('child_process').exec;
 var gulp = require('gulp');
+var logGulp = require('fancy-log');
 var jsdoc = require('gulp-jsdoc3');
 var del = require('del');
 
 var dtsGen = require('../typings-gen');
+dtsGen.setLogFunc(logGulp);
 
 var outDir = '../../doc';
 var outAllDir = './doc-all';
@@ -17,18 +20,28 @@ var targetTypingsDir = '../../dist';
 var preFile = 'libflac_pre.js';
 var postFile = 'libflac_post.js';
 var flacJoinedWrapperFile = 'libflac_pre-post.js';
+
 var flacJsDocJsonFile = 'libflac_jsdoc.json';
 var typingsFile = 'index.d.ts';
+
+var tsUtilsSrcDir = '../../src';
+var tsUtilsOutDir = '../../lib';
+var tscCmd = '../test/node_modules/.bin/tsc';
+var webpackCmd = '../test/node_modules/.bin/webpack';
 
 var getFlacJoinedWrapperPath = function(){
 	return path.normalize(path.join(__dirname, '..', 'temp'));
 };
 
-var getSourceDir = function(){
+function getSourceDir(){
 	return path.normalize(path.join(__dirname, '..', '..'));
 };
 
-var getTemplatePath = function(templateId){
+function normalizeGlob(fpath){
+	return path.normalize(fpath).replace(/\\/g, '/');
+}
+
+function getTemplatePath(templateId){
 	try {
 		return path.dirname(require.resolve(templateId));
 	} catch(err){
@@ -40,12 +53,12 @@ var getTemplatePath = function(templateId){
 	}
 };
 
-var getJsonConfig = function(fileName) {
+function getJsonConfig(fileName) {
 	var filePath = path.isAbsolute(fileName)? fileName : path.resolve(__dirname+'/'+fileName);
 	return JSON.parse(fs.readFileSync(filePath));
 }
 
-var writeJsDocJsonToFile = function(callback){
+function writeJsDocJsonToFile(callback){
 	var jsonData = [];
 	var handleJsonOutput = function(data){
 		jsonData.push(data);
@@ -81,7 +94,9 @@ var writeJsDocJsonToFile = function(callback){
 	}
 	var __write = process.stdout.write;
 	function write() {
-		__write.apply(process.stdout, arguments);
+		if(process.env.verbose || process.env.npm_config_loglevel === 'verbose'){
+			__write.apply(process.stdout, arguments);
+		}
 		handleJsonOutput.apply(null, arguments);
 	}
 	process.stdout.write = write;
@@ -89,7 +104,7 @@ var writeJsDocJsonToFile = function(callback){
 	return callback;
 }
 
-var generateTypings = function(callback){
+function generateTypings(callback){
 
 	var jsDocJsonPath = path.resolve(getFlacJoinedWrapperPath(), flacJsDocJsonFile);
 	var jsDocJson = getJsonConfig(jsDocJsonPath);
@@ -98,7 +113,7 @@ var generateTypings = function(callback){
 	dtsGen.generateDeclaration(jsDocJson, typingsPath, callback);
 };
 
-var createJoinedWrapperFile = function(sourceDir, callback){
+function createJoinedWrapperFile(sourceDir, callback){
 	var preScript = path.resolve(sourceDir, preFile);
 	var postScript = path.resolve(sourceDir, postFile);
 	var targetFile = path.resolve(getFlacJoinedWrapperPath(), flacJoinedWrapperFile);
@@ -114,16 +129,16 @@ var createJoinedWrapperFile = function(sourceDir, callback){
 	});
 }
 
-var cleanJsDoc = function(callback){
+function cleanJsDoc(callback){
 
-	var outPath = path.normalize(outDir);
-	var outAllPath = path.normalize(outAllDir);
-	del([outPath + '/**/*', outAllPath + '/**/*']).then(function(){
+	var outPath = normalizeGlob(outDir);
+	var outAllPath = normalizeGlob(outAllDir);
+	del([outPath + '/**/*', outAllPath + '/**/*'], {force: true}).then(function(){
 		callback();
 	});
 };
 
-var genJsDoc = function(includePrivate, generateJsonOutput, callback) {
+function genJsDoc(includePrivate, generateJsonOutput, callback) {
 
 	var config = getJsonConfig('conf-jsdoc3.json');
 
@@ -195,12 +210,40 @@ gulp.task('gen_typings', gulp.series('gen_jsdoc_json', function(callback) {
 	});
 }));
 
+gulp.task('build_ts_utils', function(cb) {
+	exec('"'+tscCmd+'" --project "'+tsUtilsSrcDir+'/tsconfig.lib.json"', function(err, stdout) {
+		if(err) console.error(stdout);
+		cb(err);
+	});
+});
+
+gulp.task('clean_ts_utils', function(cb) {
+
+	var outPath = normalizeGlob(tsUtilsOutDir);
+	del([outPath + '/**/*'], {force: true}).then(function(){
+		cb();
+	});
+});
+
+gulp.task('build_ts_example', function(cb) {
+	const cwd = path.dirname(path.dirname(path.dirname(webpackCmd)));
+	exec('"'+webpackCmd+'" --config "'+tsUtilsSrcDir+'/webpack.config.example.js"', {cwd: cwd}, function(err, stdout) {
+		if(err) console.error(stdout);
+		cb(err);
+	});
+});
+
+gulp.task('ts_utils', gulp.series('clean_ts_utils', 'build_ts_utils'));
+
+
 gulp.task('jsdoc_all', gulp.series('clean_jsdoc', gulp.parallel(['gen_jsdoc', 'gen_jsdoc_private', 'gen_jsdoc_json'])));
 
 gulp.task('jsdoc', gulp.series('clean_jsdoc', 'gen_jsdoc'));
 
 gulp.task('jsdoc_and_json', gulp.parallel(['jsdoc', 'gen_jsdoc_json']));
 
-gulp.task('jsdoc_and_typings', gulp.parallel(['jsdoc', 'gen_typings']))
+gulp.task('ts_all', gulp.parallel(['gen_typings', 'ts_utils', 'build_ts_example']));
+
+gulp.task('jsdoc_and_ts', gulp.parallel(['jsdoc', 'ts_all']));
 
 gulp.task('default', gulp.series('jsdoc'));

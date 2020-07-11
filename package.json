@@ -1,6 +1,6 @@
 {
   "name": "libflacjs",
-  "version": "5.3.0",
+  "version": "5.4.0",
   "main": "index.js",
   "description": "FLAC data stream encoder and decoder compiled in JavaScript using emscripten.",
   "directories": {
@@ -24,6 +24,7 @@
     "encode",
     "decode",
     "emscripten",
-    "stream"
+    "stream",
+    "metadata"
   ]
 }
