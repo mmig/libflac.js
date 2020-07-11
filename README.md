@@ -1016,6 +1016,110 @@ Flac.FLAC__stream_decoder_delete(flac_decoder);
 
 ```
 
+
+#### Decoding Metadata Example
+
+Example for extracting the metadata while decoding FALC audio
+
+```javascript
+
+// prerequisites: loaded & initialized Flac library
+
+//... create decoder flacDecoder (see code examples above)
+
+//enable all metadata types:
+Flac.FLAC__stream_decoder_set_metadata_respond_all(flacDecoder);
+
+//or enable only seek table metadata:
+Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 3);
+// example seek table metadata (see docs for details):
+// {
+//   num_points: 1,
+//   points: [{
+//     frame_samples: 4096,
+//     sample_number: 0,
+//     stream_offset: 0
+//   }]
+// }
+
+//or enable only vorbis comment metadata:
+Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 4);
+// example vorbis comment metadata:
+// {
+//   comments: ["TRACKNUMBER=2/9"],
+//   entry: "reference libFLAC 1.3.3 20190804",
+//   num_comments: 1
+// }
+
+//or enable only cue sheet metadata:
+Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 5);
+// example cue sheet metadata (see docs for details):
+// {
+//   is_cd: 0,
+//   lead_in: 88200,
+//   media_catalog_number: "1234567890123",
+//   num_tracks: 2,
+//   tracks: [{
+//     isrc: "",
+//     num_indices: 1,
+//     indices: [{offset: 0, number: 1}],
+//     number: 1,
+//     offset: 0,
+//     pre_emphasis: false,
+//     type: "AUDIO"
+//   }, {
+//     isrc: "",
+//     num_indices: 0,
+//     indices: [],
+//     number: 170,
+//     offset: 267776,
+//     pre_emphasis: false,
+//     type: "AUDIO"
+//   }]
+// }
+
+//or enable only all picture metadata:
+Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 6);
+// example vorbis comment metadata:
+{
+  type: 3,            // image type (see docs FLAC__StreamMetadata_Picture_Type)
+  mime_type: "image/jpeg",  //the mime type
+  description: "Cover image for the track",
+  width: 1144,        // the image width in pixel
+  height: 1144,       // the image height in pixel
+  depth: 24,          // the depth in bits
+  colors: 0,          // colors (e.g. for GIF images)
+  data_length: 45496, // the size of the binary image data (in bytes)
+  data: Uint8Array    // the binary image data
+}
+
+
+
+//the metadata callback which stores the metadata in a list:
+var streamMetadata, metadataList = [];
+function metadata_callback_fn(data, dataBlock){
+  if(data){
+    // the stream metadata:
+    streamMetadata = data;
+  } else {
+    // other metadata types:
+    metadataList.push(dataBlock);
+
+    // dataBlock[example]:
+    // {
+    //   data: METADATA, // the metadata, e.g. stream info, seek table, vorbis comment, picture,...
+    //   isLast: 0,      // wether the metadata block is the last block befor the audio data
+    //   length: 1032,   // the length/size of the metadata (in byte)
+    //   type: 4,        // metadata type, [0, 6] (higher metadata types are as of yet UNKNOWN)
+    // }
+  }
+}
+
+//... initilize decoder flacDecoder with metadata_callback_fn,
+//    and decode flac data (see code examples above)
+
+```
+
 ### API
 
 See the [doc/index.html][16] for the API documentation.
