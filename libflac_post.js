@@ -70,7 +70,7 @@ function _readMd5(p_md5){
  * HELPER: read frame data
  *
  * @param {POINTER} p_frame
- * @param {CodingOptions} [enc_opt]
+ * @param {Flac.CodingOptions} [enc_opt]
  * @returns FrameHeader
  */
 function _readFrameHdr(p_frame, enc_opt){
@@ -821,7 +821,7 @@ function _getOptions(p_coder){
  *
  * @param {Number} p_coder
  * 			the encoder/decoder pointer (ID)
- * @param {CodingOptions} options
+ * @param {Flac.CodingOptions} options
  * 			the coding options
  * @private
  * @memberOf Flac
