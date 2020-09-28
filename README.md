@@ -16,24 +16,14 @@ __Features__
  * supported container formats: native FLAC container (`*.flac`), OGG container (`*.ogg`, `*.oga`)
  * support for FLAC metadata extraction when decoding (STREAMINFO, VORBIS_COMMENT, PICTURE, CUESHEET, SEEKTABLE)
 
-For immediate use, the `/dist` sub-directory contains the compiled
-files for the `libflac.js` JavaScript library, as well as a minified version.
-
 > Complied from `libFLAC` (static `C` library) version: 1.3.3\
 > Used library `libogg` (static `C` library) version: 1.3.4\
 > Used compiler `Emscripten` version: 1.39.19\
 > Used compiler `Emscripten` toolchain: LLVM (upstream)
 
-In order to build _libflac.js_, make sure you have _emscripten_ installed (with toolchain `LLVM/upstream`; default since version 1.39.x).
-
-On running `make`, the build process will download the sources for the
-FLAC and OGG libraries, extract them, and build the JavaScript version of libflac.
-
 ----
 > __IMPORTANT__ changes for version `5.x`: simplified naming scheme and library location!  
-> * removed version information from library file names, e.g.  
->   `libflac4-1.3.2.min.js -> libflac.min.js`
-> * moved all library files directly into `dist/`, i.e. there are _no_ sub-directories `dist/min/` and `dist/dev/` anymore
+> See details in 'CHANGELOG.md'.
 ----
 
 
@@ -93,6 +83,11 @@ See [doc/index.html][16] for the API documentation.
 
 ### Including libflac.js
 
+For immediate use, the `/dist` sub-directory contains the compiled
+files for the `libflac.js` JavaScript library, as well as a _minified_
+version and a _development_ (with additional/extend debug output) version.  
+For more details, see section [Library Variants](#library-variants).
+
 #### Browser
 
 Include the library file, e.g. if library file(s) `libflac.js` is in the same
@@ -148,7 +143,7 @@ can also be `require`d directly:
 ```javascript
 // for example:
 var Flac = require('libflacjs/dist/libflac.js');
-// or
+// or e.g. the WASM variant:
 var Flac = require('libflacjs/dist/libflac.wasm.js');
 ```
 
@@ -159,7 +154,7 @@ install with `npm` (see above), and `require()` the library file directly, like
 ```javascript
 // for example:
 var Flac = require('libflacjs/dist/libflac.js');
-// or
+// or e.g. the WASM variant:
 var Flac = require('libflacjs/dist/libflac.wasm.js');
 ```
 
@@ -175,7 +170,7 @@ install with `npm` (see above), and `import` the library file directly, like
 ```typescript
 // for example:
 import * as Flac from 'libflacjs/dist/libflac';
-// or
+// or e.g. the WASM variant:
 import * as Flac from 'libflacjs/dist/libflac.wasm';
 ```
 
@@ -351,13 +346,6 @@ Or example for specifying the path/location at `libs/` in Node.js script:
   var Flac = require('./libs/libflac.js');
 ```
 
-
-> NOTE: setting `FLAC_UMD_MODE` has no effect since v5.0.1:
->   automatic export to global namespace has been dropped in case of loading as AMD or CommonJS module,
->   i.e. setting `process.env.FLAC_UMD_MODE = true` when running in Node.js will have no effect anymore,
->   instead export manually to global namespace, e.g. with `global.Flac = require('libflacjs')()`.
-
-
 Example for specifying custom path and file-name via mapping (`originalFileName -> <newPath/newFileName>`):  
 in this case, the file-name(s) of the additionally required files (e.g. `*.mem` or `.wasm` files)
 need to be mapped to the custom path/file-name(s), that is,
@@ -461,33 +449,33 @@ NOTES for dynamically loaded library variants:
 #### Default Library:
 _(see [`/dist`](dist))_
  * ASM.js Variant:
-    * `libflac.js`
+    * `libflac.js` (**required**)
  * WebAssembly variant _(dynamically loaded)_:
-    * `libflac.wasm.js`
+    * `libflac.wasm.js` (**required**)
     * `libflac.wasm.wasm` (**required**; will be loaded by the library)
-    * `libflac.wasm.js.symbols` (optional; contains renaming information)
+    * `libflac.wasm.js.symbols` (_optional_; contains renaming information)
 
 #### Minified Library:
 _(see [`/dist`](dist))_
  * ASM.js Variant _(dynamically loaded)_:
-     * `libflac.min.js`
+     * `libflac.min.js` (**required**)
      * `libflac.min.js.mem` (**required**; will be loaded by the library)
      * `libflac.min.js.symbols` (optional; contains renaming information)
  * WebAssembly variant _(dynamically loaded)_:
-     * `libflac.min.wasm.js`
+     * `libflac.min.wasm.js` (**required**)
      * `libflac.min.wasm.wasm` (**required**; will be loaded by the library)
-     * `libflac.min.wasm.js.symbols` (optional; contains renaming information)
+     * `libflac.min.wasm.js.symbols` (_optional_; contains renaming information)
 
 #### Development Library:
 _(see [`/dist`](dist))_
  * ASM.js Variant:
-   * `libflac.dev.js`
-   * ~~`libflac.dev.js.map` (optional; mapping to C code)~~ _currently not supported by LLVM toolchain_
-   * `libflac.dev.js.symbols` (optional; contains renaming information)
+   * `libflac.dev.js` (**required**)
+   * ~~`libflac.dev.js.map` (_optional_; mapping to C code)~~ _currently not supported by LLVM toolchain_
+   * `libflac.dev.js.symbols` (_optional_; contains renaming information)
  * WebAssembly variant _(dynamically loaded)_:
-   * `libflac.dev.wasm.js`
+   * `libflac.dev.wasm.js` (**required**)
    * `libflac.dev.wasm.wasm` (**required**; will be loaded by the library)
-   * `libflac.dev.wasm.js.map` (optional; mapping to C code)
+   * `libflac.dev.wasm.js.map` (_optional_; mapping to C code)
 
 
 ### Encoding with libflac.js
@@ -533,7 +521,7 @@ const Encoder = require('libflacjs/lib/encoder').Encoder;
 //or as import:
 //import { Encoder } from 'libflacjs/lib/encoder';
 
-//helper function for converting interleaved audio to list of channel-audio
+//helper function for converting interleaved audio to list of channel-audio arrays
 //(for actual code, see example in tools/test/util/utils-enc.ts):
 //  function deinterleave(Int32Array, channels) => Int32Array[]
 
@@ -544,7 +532,7 @@ const data = new Int32Array(someAudioData);//<- someAudioData: PCM audio data co
 
 const encodingMode = 'interleaved';// "interleaved" | "channels"
 
-const encoder = new Encoder(flac, {
+const encoder = new Encoder(Flac, {
   sampleRate: sampleRate,         // number, e.g. 44100
   channels: channels,             // number, e.g. 1 (mono), 2 (stereo), ...
   bitsPerSample: bitsPerSample,   // number, e.g. 8 or 16 or 24
@@ -563,9 +551,9 @@ if(encodingMode === 'interleaved'){
 
 } else {
 
-  //de-interleave data into channels-array
-  // i.e. a list/array of Int32Arrays (list.length corresponds to channels)
-  const list = deinterleave(data, channels);// returns an Int32Array which's length corresponds to channels
+  //if necessary, de-interleave data into channels-array
+  // i.e. a list/array of Int32Arrays, one for each channel (list.length corresponds to channels); see comments above
+  const list = deinterleave(data, channels);// should return an list of Int32Arrays which's length corresponds to the number of channels
 
   //do encode to FLAC (call multiple times for multiple audio chunks, i.e. "streaming")
   encoder.encode(list);
@@ -573,7 +561,7 @@ if(encodingMode === 'interleaved'){
   //NOTE if data was TypedArray other than Int32Array then optional argument numberOfSamples MUST be given:
   //encoder.encode(list, numberOfSamples);
 }
-encoder.encode();
+encoder.encode();//<- finalize encoding by invoking encode() without arguments
 
 const encData = encoder.getSamples();
 const metadata = encoder.metadata;
@@ -803,7 +791,7 @@ const decoder = new Decoder(Flac, {
 
 if(decodingMode === 'single'){
 
-  //use as-single-chunk mode: invokce decode once with the complete FLAC data
+  //use as-single-chunk mode: invoke decode once with the complete FLAC data
   decoder.decode(binData);
 
 } else {
@@ -1143,6 +1131,11 @@ FLAC_VERSION:=1.3.2
 ```
 
 ### Build *nix (libflac 1.3.0 or later)
+
+In order to build _libflac.js_, make sure you have _emscripten_ installed (with toolchain `LLVM/upstream`; default toolchain since version 1.39.x).
+
+When running `make`, the build process will download the sources for the
+`FLAC` and `OGG` libraries, extract them, and build the JavaScript version of libflac.
 
 If necessary, activate the appropriate `emscripten` toolchain (e.g. `llvm` or the older `fastcomp` toolchain; default is `llvm`)
 ```bash
