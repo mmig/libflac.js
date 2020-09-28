@@ -93,7 +93,7 @@ export declare class Decoder {
     getSamples(isInterleaved: false): Uint8Array[];
     /**
      * get interleaved samples:
-     * the returned array length corresponds to the number of channels
+     * the returned array contains the data of all channels interleaved
      */
     getSamples(isInterleaved: true): Uint8Array;
     getState(): FLAC__StreamDecoderState | -1;
