@@ -552,7 +552,7 @@ if(encodingMode === 'interleaved'){
 } else {
 
   //if necessary, de-interleave data into channels-array
-  // i.e. a list/array of Int32Arrays, one for each channel (list.length corresponds to channels); see comments above
+  // i.e. a list/array of Int32Arrays, one for each channel (list.length corresponds to channels); see comments about function deinterleave above
   const list = deinterleave(data, channels);// should return an list of Int32Arrays which's length corresponds to the number of channels
 
   //do encode to FLAC (call multiple times for multiple audio chunks, i.e. "streaming")
