@@ -6,7 +6,8 @@
   "directories": {
     "doc": "doc",
     "bin": "dist",
-    "example": "example"
+    "example": "example",
+    "test": "tools/test"
   },
   "repository": {
     "type": "git",
