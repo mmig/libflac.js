@@ -83,3 +83,61 @@ export function runEncodeDecode(Flac: Flac, inFile: string, encFunc: TestEncodeF
 		}, useInterleavedEncoding);
 	});
 }
+
+function getMultiMinMax(bitDepth: number) {
+	switch(bitDepth) {
+		case 8:
+			return [ 0x7F, -128, 127 ];
+		case 16:
+			return [ 0x7FFF, -32768, 32767 ];
+		case 24:
+			return [ 0x7FFFFF, -8388608, 8388607 ];
+		case 32:
+			return [ 0x7FFFFFFF, -2147483648, 2147483647];
+	}
+	throw new Error(`Invalid bit depth`);
+}
+
+export function generateSineWave(
+	frequency: number,
+	seconds: number,
+	samplingRate: number,
+	bitDepth: number,
+	amplitude: number = 1.0): Int32Array {
+
+	const numSamples = samplingRate * seconds;
+	const samples = new Int32Array(numSamples);
+
+	const radsPerSample = 
+		2 * Math.PI * frequency / samplingRate;
+	let pos: number = 0;
+
+	const [ multiplicator, minValue, maxValue ] = getMultiMinMax(bitDepth);
+	const transform = (v: number) => Math.min(Math.max(Math.round(v * multiplicator), minValue), maxValue);
+
+	for (let i = 0; i < numSamples; i++) {
+		samples[i] = transform(Math.sin(pos) * amplitude);
+		pos += radsPerSample;
+	}
+
+	return samples;
+}
+
+export interface TypedArray extends ArrayLike<number> {
+    readonly length: number;
+    set(array: ArrayLike<number>, offset?: number): void;
+  }
+  
+export function concatTypedArrays<T extends TypedArray>(
+    constructor: (new (count: number) => T), ...arrays: T[]) {
+    arrays = arrays.filter(a => (a?.length ?? 0) > 0);
+    
+    const totalLength = arrays.reduce((sum, cur) => cur.length + sum, 0);
+    const concatenated = new constructor(totalLength);
+    let offset = 0;
+    arrays.forEach(array => {
+    concatenated.set(array, offset);
+    offset += array.length;
+    });
+    return concatenated;
+}

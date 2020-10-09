@@ -2,8 +2,7 @@
 import { Flac , StreamMetadata } from '../../../index.d';
 import { interleave } from '../../../src/utils/wav-utils';
 
-export function decode(flac: Flac, binData: Uint8Array, cb: (data: Uint8Array[][], metadata: StreamMetadata) => void, isDecPartial: boolean){
-
+export function decode(flac: Flac, binData: Uint8Array, cb: (data: Uint8Array[][], metadata: StreamMetadata) => void, isDecPartial: boolean, chunkSizeCb: (numAvailable: number) => number = num => num){
 	const dec = flac.create_libflac_decoder(true);
 	const wdata: Uint8Array[][] = [];
 	let metadata: StreamMetadata | undefined= undefined;
@@ -15,15 +14,15 @@ export function decode(flac: Flac, binData: Uint8Array, cb: (data: Uint8Array[][
 		const end = currentDataOffset === size? -1 : Math.min(currentDataOffset + bufferSize, size);
 
 		if(end !== -1){
-			const _buffer = binData.subarray(currentDataOffset, end);
-			const numberOfReadBytes = end - currentDataOffset;
+			const numberOfReadBytes = chunkSizeCb(end - currentDataOffset);
+			const _buffer = binData.subarray(currentDataOffset, currentDataOffset + numberOfReadBytes);
 
-			currentDataOffset = end;
+			currentDataOffset += numberOfReadBytes;
 
-			return {buffer: _buffer, readDataLength: numberOfReadBytes, error: false};
+			return {buffer: _buffer, readDataLength: numberOfReadBytes, error: false, endOfStream: false};
 		}
 
-		return {buffer: undefined, readDataLength: 0};
+		return {buffer: undefined, readDataLength: 0, endOfStream: true};
 	}, buffer => {
 		wdata.push(buffer);
 	}, (err, msg) => {

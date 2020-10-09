@@ -1,7 +1,11 @@
 import * as libFactory from "../../../index";
+import { Flac } from '../../../index';
 
 import {assert} from "chai"
-import { libVariants } from './utils';
+
+import { libVariants, generateSineWave, concatTypedArrays } from './utils';
+import { encode } from "./utils-enc";
+import { decode } from "./utils-dec";
 
 describe("Flac", function() {
 	describe("exports", function() {
@@ -112,5 +116,54 @@ describe("Flac", function() {
 		})
 
 	})
+
+	describe("chunked decode test with temporary out-of-data", function() {
+
+		libVariants.forEach(variant => {
+			let Flac: Flac;
+			before(function () {
+				Flac = libFactory(variant);
+				return new Promise(resolve => {
+					Flac.onready = () => resolve();
+				});
+			});
+			[1000, 100, 10].forEach(chunkSize => {
+				it(`should decode correctly when fed with small data chunks of ${chunkSize} bytes. lib variant is ${variant}`, function(cb) {
+					const samplingRate = 48000; 
+					const bitDepth = 16;
+
+					const sineWave = generateSineWave(400, 10, samplingRate, bitDepth, 0.8);
+
+					const encodedChunks: Uint8Array[] = [];
+					encode(Flac, samplingRate, 1, bitDepth, 5, sineWave, data => encodedChunks.push(...data), true);
+					const encoded = concatTypedArrays(Uint8Array, ...encodedChunks);
+
+					const decodedChannelChunks: Uint8Array[][] = [];
+
+					let counter = 0;
+					decode(Flac, encoded, data => decodedChannelChunks.push(...data), true, num => {
+						// every 10th time a chunk is requested, return 0 bytes to simulate temporary stalling.
+						return (++counter % 10 === 0) ? 0 : Math.min(num, chunkSize)
+					});
+
+					assert.isTrue(decodedChannelChunks.every(u => u.length === 1));
+					const decodedChunks = decodedChannelChunks.map(c => c[0]);
+					const decodedBinary = concatTypedArrays(Uint8Array, ...decodedChunks);
+					assert.equal(decodedBinary.length % (bitDepth / 8), 0);
+					const decoded = new Int16Array(decodedBinary.buffer, decodedBinary.byteOffset, decodedBinary.length / (bitDepth / 8));
+
+					assert.equal(decoded.length, sineWave.length);
+					for (let i = 0; i < sineWave.length; i++) {
+						if (sineWave[i] != decoded[i]) {
+							assert.equal(decoded[i], sineWave[i], `At position ${i}`);
+						}
+					}
+					cb();
+				});
+			});
+		})
+
+	})
+
 
 })

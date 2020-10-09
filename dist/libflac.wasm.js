@@ -1603,7 +1603,6 @@ function abort(what) {
   }
 
   what += '';
-  out(what);
   err(what);
 
   ABORT = true;
@@ -1611,10 +1610,15 @@ function abort(what) {
 
   what = 'abort(' + what + '). Build with -s ASSERTIONS=1 for more info.';
 
-  // Throw a wasm runtime error, because a JS error might be seen as a foreign
+  // Use a wasm runtime error, because a JS error might be seen as a foreign
   // exception, which means we'd run destructors on it. We need the error to
   // simply make the program stop.
-  throw new WebAssembly.RuntimeError(what);
+  var e = new WebAssembly.RuntimeError(what);
+
+  // Throw the error whether or not MODULARIZE is set because abort is used
+  // in code paths apart from instantiation where an exception is expected
+  // to be thrown when abort is called.
+  throw e;
 }
 
 
@@ -2433,8 +2437,10 @@ var ASM_CONSTS = {
   
           // Appending to an existing file and we need to reallocate, or source data did not come as a typed array.
           MEMFS.expandFileStorage(node, position+length);
-          if (node.contents.subarray && buffer.subarray) node.contents.set(buffer.subarray(offset, offset + length), position); // Use typed array write if available.
-          else {
+          if (node.contents.subarray && buffer.subarray) {
+            // Use typed array write which is available.
+            node.contents.set(buffer.subarray(offset, offset + length), position);
+          } else {
             for (var i = 0; i < length; i++) {
              node.contents[position + i] = buffer[offset + i]; // Or fall back to manual write if not.
             }
@@ -2483,7 +2489,7 @@ var ASM_CONSTS = {
               }
             }
             allocated = true;
-            ptr = _malloc(length);
+            ptr = FS.mmapAlloc(length);
             if (!ptr) {
               throw new FS.ErrnoError(48);
             }
@@ -4131,6 +4137,11 @@ var ASM_CONSTS = {
           transaction.onerror = onerror;
         };
         openRequest.onerror = onerror;
+      },mmapAlloc:function(size) {
+        var alignedSize = alignMemory(size, 16384);
+        var ptr = _malloc(alignedSize);
+        while (size < alignedSize) HEAP8[ptr + size++] = 0;
+        return ptr;
       }};var SYSCALLS={mappings:{},DEFAULT_POLLMASK:5,umask:511,calculateAt:function(dirfd, path) {
         if (path[0] !== '/') {
           // relative path
@@ -5026,7 +5037,7 @@ function _readMd5(p_md5){
  * HELPER: read frame data
  *
  * @param {POINTER} p_frame
- * @param {CodingOptions} [enc_opt]
+ * @param {Flac.CodingOptions} [enc_opt]
  * @returns FrameHeader
  */
 function _readFrameHdr(p_frame, enc_opt){
@@ -5777,7 +5788,7 @@ function _getOptions(p_coder){
  *
  * @param {Number} p_coder
  * 			the encoder/decoder pointer (ID)
- * @param {CodingOptions} options
+ * @param {Flac.CodingOptions} options
  * 			the coding options
  * @private
  * @memberOf Flac
@@ -5822,6 +5833,7 @@ var dec_read_fn_ptr = addFunction(function(p_decoder, buffer, bytes, p_client_da
 	//in case of END_OF_STREAM or an error, readResult.readDataLength must be returned with 0
 
 	var readLen = readResult.readDataLength;
+	var endOfStream = readResult.endOfStream;
 	Module.setValue(bytes, readLen, 'i32');
 
 	if(readResult.error){
@@ -5829,7 +5841,15 @@ var dec_read_fn_ptr = addFunction(function(p_decoder, buffer, bytes, p_client_da
 	}
 
 	if(readLen === 0){
-		return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
+		if (endOfStream === undefined || endOfStream === null) {
+			endOfStream = true;
+		}
+		if (endOfStream) {
+			return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
+		}
+		else {
+			return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
+		}
 	}
 
 	var readBuf = readResult.buffer;

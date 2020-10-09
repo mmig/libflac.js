@@ -866,6 +866,7 @@ var dec_read_fn_ptr = addFunction(function(p_decoder, buffer, bytes, p_client_da
 	//in case of END_OF_STREAM or an error, readResult.readDataLength must be returned with 0
 
 	var readLen = readResult.readDataLength;
+	var endOfStream = readResult.endOfStream;
 	Module.setValue(bytes, readLen, 'i32');
 
 	if(readResult.error){
@@ -873,7 +874,15 @@ var dec_read_fn_ptr = addFunction(function(p_decoder, buffer, bytes, p_client_da
 	}
 
 	if(readLen === 0){
-		return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
+		if (endOfStream === undefined || endOfStream === null) {
+			endOfStream = true;
+		}
+		if (endOfStream) {
+			return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
+		}
+		else {
+			return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
+		}
 	}
 
 	var readBuf = readResult.buffer;
