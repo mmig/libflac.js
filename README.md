@@ -574,7 +574,7 @@ encoder.destroy();
 
 // -> do something with the encoded FLAC data encData and metadata
 
-//    e.g. update header with final metadata & create FLAC file Blob
+//    e.g. update header with final metadata & create FLAC file Blob:
 const exportFlacFile = require('libflacjs/lib/utils').exportFlacFile;
 const flacBlob = exportFlacFile(encData, metadata, /* if encode in OGG container: */ false);
 ```
@@ -792,7 +792,7 @@ const binData = new Uint8Array(someFlacData);// <- someFlacData: binary FLAC dat
 const decodingMode = 'single';// "single" | "chunked"
 
 const decoder = new Decoder(Flac, {
-  verify: true    // boolean (OPTIONAL)
+  verify: true,   // boolean (OPTIONAL)
   isOgg: false    // boolean (OPTIONAL), if FLAC audio is wrapped in OGG container
 });
 
@@ -805,7 +805,7 @@ if(decodingMode === 'single'){
 
   //use multiple-chunks mode ("streaming"): invoke decodeChunk(...) for each chunk...
   decoder.decodeChunk(binData);
-  //... and finalize decoding by invoking decodeChunk() without arguments
+  //... and finalize decoding by invoking decodeChunk() without arguments:
   decoder.decodeChunk();
 }
 
