@@ -38,8 +38,10 @@ _TODO_ example for decoding a FLAC audio stream (i.e. where data/size is not kno
 __API Documentation__  
 See [doc/index.html][16] for the API documentation.
 
+
+
 ----
-<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:0 orderedList:0 -->
+<!-- TOC depthFrom:2 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
 
 - [Usage](#usage)
 	- [Including libflac.js](#including-libflacjs)
@@ -160,7 +162,7 @@ var Flac = require('libflacjs/dist/libflac.wasm.js');
 
 > NOTE `min` and `wasm` variants will most likely require
 >   additional configuration of the build system, see also
->   section about `webpack` integration
+>   section about [async `webpack` integration](#async-initialization-with-webpack)
 
 
 #### Angular/webpack
@@ -537,8 +539,8 @@ const encoder = new Encoder(Flac, {
   channels: channels,             // number, e.g. 1 (mono), 2 (stereo), ...
   bitsPerSample: bitsPerSample,   // number, e.g. 8 or 16 or 24
   compression: compressionLevel,  // number, value between [0, 8] from low to high compression
-  verify: true                    // boolean (OPTIONAL)
-  isOgg: false                    // boolean (OPTIONAL), if encode FLAC should be wrapped in OGG container
+  verify: true,                   // boolean (OPTIONAL)
+  isOgg: false                    // boolean (OPTIONAL), if encoded FLAC should be wrapped in OGG container
 });
 
 if(encodingMode === 'interleaved'){
@@ -563,6 +565,7 @@ if(encodingMode === 'interleaved'){
 }
 encoder.encode();//<- finalize encoding by invoking encode() without arguments
 
+//get the encoded data:
 const encData = encoder.getSamples();
 const metadata = encoder.metadata;
 
@@ -570,6 +573,10 @@ encoder.destroy();
 // or encoder.reset() for reusing the encoder instance
 
 // -> do something with the encoded FLAC data encData and metadata
+
+//    e.g. update header with final metadata & create FLAC file Blob
+const exportFlacFile = require('libflacjs/lib/utils').exportFlacFile;
+const flacBlob = exportFlacFile(encData, metadata, /* if encode in OGG container: */ false);
 ```
 
 
@@ -802,15 +809,20 @@ if(decodingMode === 'single'){
   decoder.decodeChunk();
 }
 
-const decData = decoder.getSamples(/* return interleaved samples? */ true);// <- returns Uint8Array
-//or: non-interleaved samples, i.e. array of channels data:
-// const decData = decoder.getSamples(false);// <- returns Uint8Array[]
+//get data as non-interleaved samples, i.e. array of channels data:
+const decData = decoder.getSamples(/* return interleaved samples? */ false);// <- returns Uint8Array[]
+//or: get decoded data as interleaved samples:
+// const decData = decoder.getSamples(/* return interleaved samples? */ true);// <- returns Uint8Array
 const metadata = decoder.metadata;
 
 decoder.destroy();
 // or decoder.reset() for reusing the decoder instance
 
 // -> do something with the decoded PCM audio data decData and metadata
+
+//    e.g. create WAV file Blob:
+const exportWavFile = require('libflacjs/lib/utils').exportWavFile;
+const wavBlob = exportWavFile(encData, metadata.sampleRate, metadata.channels, metadata.bitsPerSample);
 ```
 
 
@@ -1071,7 +1083,7 @@ Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 5);
 
 //or enable only all picture metadata:
 Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 6);
-// example vorbis comment metadata:
+// example picture metadata:
 // {
 //   type: 3,            // image type (see docs FLAC__StreamMetadata_Picture_Type)
 //   mime_type: "image/jpeg",  //the mime type
