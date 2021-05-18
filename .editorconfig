@@ -25,6 +25,6 @@ indent_style = space
 indent_size = 2
 
 [{package*,typedoc}.json]
-insert_final_newline = false
+insert_final_newline = unset
 indent_style = space
 indent_size = 2
