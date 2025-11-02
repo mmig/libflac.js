@@ -58,26 +58,69 @@ function getJsonConfig(fileName) {
 	return JSON.parse(fs.readFileSync(filePath));
 }
 
-function writeJsDocJsonToFile(callback){
+function writeJsDocJsonToFile(process, callback){
 	var jsonData = [];
 	var handleJsonOutput = function(data){
 		jsonData.push(data);
 	};
 	var writeJsonOutput = function(dataList, cb){
+		
 		var filePath = path.resolve(getFlacJoinedWrapperPath(), flacJsDocJsonFile);
 		var ws = fs.createWriteStream(filePath);
 		ws.on('finish', cb);
 		ws.on('error', cb);
-		var d;
+		var d, len = 0;
 		for(var i=0, size = dataList.length; i < size; ++i){
-			d = dataList[i]
+			d = dataList[i];
 			try {
+				// HACK: even with disabled color, some debug output with ANSI color codes may be present in output
+				// currently known patter:
+				// '[' + '\x1B[90m' + <time e.g. 23:29:56> + '\x1B[39m* +']'
+				// -> try to remove these patterns, i.e. ~ "[<color><anything><color>]"
+				d = d.replace(/\[\x1B\[[0-9;]+m[^\x1B]*\x1B\[[0-9;]+m\]/g, '');
+				
 				//NOTE jsdoc prints the JSON to stdout, so only write data that
-				//    is parseble as JSON to file, otherwise just ignore
+				//    is parsable as JSON to file, otherwise just ignore
 				JSON.parse(d);
+				
+				len += d.length;// <- for detecting, if we successfully wrote the JSON data to the file
 				ws.write(d);
 			} catch(e){}
 		}
+
+		// FIX: the JSON output get disrupted by log-output, so that its chunks are not valid JSON individually
+		// HACK: if nothing was printed yet, try to detect start ("[<newline>") and end ("<newline>]") of JSON data, and print everything in between
+		// TODO: should run jsdoc in separate subprocess without gulp, so that it does not interfere with log output!
+		if(len === 0){
+			var isJson = false;
+			// console.log('-------------- FALLBACK -----------------');
+			for(var i=0, size = dataList.length; i < size; ++i){
+				d = dataList[i];
+				// HACK: remove log-output (see DEV comment above)
+				d = d.replace(/\[\x1B\[[0-9;]+m[^\x1B]*\x1B\[[0-9;]+m\]/g, '');
+
+				if(!isJson && /^\[\s*$/m.test(d)){
+					isJson = true;
+				}
+
+				if(!isJson){
+					// console.log('    IGNORING: ', [d.substring(0, Math.max(500, d.length-500))], '\n...\n', [d.substring(Math.max(500, d.length-500))]);
+					continue;
+				}
+				
+				// console.log('    WRITING: ', [d.substring(0, Math.max(500, d.length-500))], '\n...\n', [d.substring(Math.max(500, d.length-500))]);
+
+				len += d.length;
+				ws.write(d);
+
+				// check if all JSON data has ended:
+				if(/\r?\n\]\s*$/.test(d)){
+					// console.log('    BREAKING: ');
+					break;
+				}
+			}
+		}
+
 		ws.end();
 	};
 
@@ -158,13 +201,14 @@ function genJsDoc(includePrivate, generateJsonOutput, callback) {
 	config.opts.template = templatePath;
 	config.opts.readme = readmeFile;
 	config.opts.explain = !!generateJsonOutput;
+	config.opts.nocolor = !!generateJsonOutput;
 	// config.opts.package = packageJsonFile;//DISABLED: will force writing to directory hierarchy <package name>/<version>/<docs>
 
 	config.templates.openGraph.title += ' ' + pkgInfo.version;
 	config.templates.meta.title += ' ' + pkgInfo.version;
 
 	if(generateJsonOutput){
-		callback = writeJsDocJsonToFile(callback);
+		callback = writeJsDocJsonToFile(process, callback);
 	}
 
 	var srcDocFile = path.resolve(getFlacJoinedWrapperPath(), flacJoinedWrapperFile);
