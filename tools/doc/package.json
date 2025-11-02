@@ -25,7 +25,7 @@
   "scripts": {
     "build": "gulp jsdoc_and_ts",
     "doc": "gulp",
-    "doc:json": "gulp jsdoc_json",
+    "doc:json": "gulp jsdoc_and_json",
     "doc:all": "gulp jsdoc_all",
     "doc:clean": "gulp clean_jsdoc",
     "build:ts": "gulp ts_all",
