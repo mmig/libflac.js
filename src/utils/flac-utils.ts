@@ -2,7 +2,7 @@
 import { StreamMetadata } from '../../index.d';
 import { getLength , mergeBuffers } from './data-utils';
 
-export function exportFlacData(recBuffers: Uint8Array[], metaData: StreamMetadata, isOgg: boolean) : Promise<Uint8Array> {
+export function exportFlacData(recBuffers: Uint8Array[], metaData: StreamMetadata, isOgg: boolean) : Promise<Uint8Array<ArrayBuffer>> {
 	var recLength = getLength(recBuffers);
 	if(metaData){
 		addFLACMetaData(recBuffers, metaData, isOgg);

@@ -6,7 +6,7 @@ import { getLengthFor } from './data-utils';
  *  converts the PCM data of the wav file (each sample stored as 8 or 16 or 24 bit value) into
  *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
  */
-export function wav_file_processing_convert_to32bitdata(arraybuffer: ArrayBuffer, bps: number): Int32Array | undefined {
+export function wav_file_processing_convert_to32bitdata(arraybuffer: ArrayBuffer, bps: number): Int32Array<ArrayBuffer> | undefined {
 
 	var decFunc;
 	switch(bps){
@@ -69,7 +69,7 @@ function convert_24bitdata_to32bitdata(dataView: DataView, i: number) : number {
 	return b;
 }
 
-export function interleave(recBuffers: Uint8Array[][], channels: number, bitsPerSample: number): Uint8Array {
+export function interleave(recBuffers: Uint8Array[][], channels: number, bitsPerSample: number): Uint8Array<ArrayBuffer> {
 
 	let byteLen = bitsPerSample / 8;
 
@@ -150,7 +150,7 @@ export function interleave(recBuffers: Uint8Array[][], channels: number, bitsPer
  *
  * @returns the WAV data incl. header
  */
-export function encodeWAV(samples: Uint8Array, sampleRate: number, channels: number, bitsPerSample: number): DataView {
+export function encodeWAV(samples: Uint8Array, sampleRate: number, channels: number, bitsPerSample: number): DataView<ArrayBuffer> {
 
 	var bytePerSample = bitsPerSample / 8;
 	var length = samples.length * samples.BYTES_PER_ELEMENT;
