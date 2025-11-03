@@ -4,109 +4,28 @@
  * <libflacjs>/src/util/*.ts
  */
 
-(function(e, a) { for(var i in a) e[i] = a[i]; }(window, /******/ (function(modules) { // webpackBootstrap
-/******/ 	// The module cache
-/******/ 	var installedModules = {};
-/******/
-/******/ 	// The require function
-/******/ 	function __webpack_require__(moduleId) {
-/******/
-/******/ 		// Check if module is in cache
-/******/ 		if(installedModules[moduleId]) {
-/******/ 			return installedModules[moduleId].exports;
-/******/ 		}
-/******/ 		// Create a new module (and put it into the cache)
-/******/ 		var module = installedModules[moduleId] = {
-/******/ 			i: moduleId,
-/******/ 			l: false,
-/******/ 			exports: {}
-/******/ 		};
-/******/
-/******/ 		// Execute the module function
-/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-/******/
-/******/ 		// Flag the module as loaded
-/******/ 		module.l = true;
-/******/
-/******/ 		// Return the exports of the module
-/******/ 		return module.exports;
-/******/ 	}
-/******/
-/******/
-/******/ 	// expose the modules object (__webpack_modules__)
-/******/ 	__webpack_require__.m = modules;
-/******/
-/******/ 	// expose the module cache
-/******/ 	__webpack_require__.c = installedModules;
-/******/
-/******/ 	// define getter function for harmony exports
-/******/ 	__webpack_require__.d = function(exports, name, getter) {
-/******/ 		if(!__webpack_require__.o(exports, name)) {
-/******/ 			Object.defineProperty(exports, name, { enumerable: true, get: getter });
-/******/ 		}
-/******/ 	};
-/******/
-/******/ 	// define __esModule on exports
-/******/ 	__webpack_require__.r = function(exports) {
-/******/ 		if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
-/******/ 			Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
-/******/ 		}
-/******/ 		Object.defineProperty(exports, '__esModule', { value: true });
-/******/ 	};
-/******/
-/******/ 	// create a fake namespace object
-/******/ 	// mode & 1: value is a module id, require it
-/******/ 	// mode & 2: merge all properties of value into the ns
-/******/ 	// mode & 4: return value when already ns object
-/******/ 	// mode & 8|1: behave like require
-/******/ 	__webpack_require__.t = function(value, mode) {
-/******/ 		if(mode & 1) value = __webpack_require__(value);
-/******/ 		if(mode & 8) return value;
-/******/ 		if((mode & 4) && typeof value === 'object' && value && value.__esModule) return value;
-/******/ 		var ns = Object.create(null);
-/******/ 		__webpack_require__.r(ns);
-/******/ 		Object.defineProperty(ns, 'default', { enumerable: true, value: value });
-/******/ 		if(mode & 2 && typeof value != 'string') for(var key in value) __webpack_require__.d(ns, key, function(key) { return value[key]; }.bind(null, key));
-/******/ 		return ns;
-/******/ 	};
-/******/
-/******/ 	// getDefaultExport function for compatibility with non-harmony modules
-/******/ 	__webpack_require__.n = function(module) {
-/******/ 		var getter = module && module.__esModule ?
-/******/ 			function getDefault() { return module['default']; } :
-/******/ 			function getModuleExports() { return module; };
-/******/ 		__webpack_require__.d(getter, 'a', getter);
-/******/ 		return getter;
-/******/ 	};
-/******/
-/******/ 	// Object.prototype.hasOwnProperty.call
-/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
-/******/
-/******/ 	// __webpack_public_path__
-/******/ 	__webpack_require__.p = "";
-/******/
-/******/
-/******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 0);
-/******/ })
-/************************************************************************/
-/******/ ([
+/******/ (() => { // webpackBootstrap
+/******/ 	"use strict";
+/******/ 	var __webpack_modules__ = ([
 /* 0 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
 }) : (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
 }));
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
-Object.defineProperty(exports, "__esModule", { value: true });
+Object.defineProperty(exports, "__esModule", ({ value: true }));
 __exportStar(__webpack_require__(1), exports);
 __exportStar(__webpack_require__(2), exports);
 __exportStar(__webpack_require__(3), exports);
@@ -115,12 +34,13 @@ __exportStar(__webpack_require__(4), exports);
 
 /***/ }),
 /* 1 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ ((__unused_webpack_module, exports) => {
 
-"use strict";
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getLengthFor = exports.mergeBuffers = exports.getLength = void 0;
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getLength = getLength;
+exports.mergeBuffers = mergeBuffers;
+exports.getLengthFor = getLengthFor;
 function getLength(recBuffers) {
     var recLength = 0;
     for (var i = recBuffers.length - 1; i >= 0; --i) {
@@ -128,7 +48,6 @@ function getLength(recBuffers) {
     }
     return recLength;
 }
-exports.getLength = getLength;
 function mergeBuffers(channelBuffer, recordingLength) {
     var result = new Uint8Array(recordingLength);
     var offset = 0;
@@ -140,7 +59,6 @@ function mergeBuffers(channelBuffer, recordingLength) {
     }
     return result;
 }
-exports.mergeBuffers = mergeBuffers;
 function getLengthFor(recBuffers, index, sampleBytes, bytePadding) {
     var recLength = 0, blen;
     var decrFac = bytePadding > 0 ? bytePadding / sampleBytes : 0; //<- factor do decrease size in case of padding bytes
@@ -155,27 +73,27 @@ function getLengthFor(recBuffers, index, sampleBytes, bytePadding) {
     }
     return recLength;
 }
-exports.getLengthFor = getLengthFor;
 
 
 /***/ }),
 /* 2 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
-"use strict";
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.exportFlacFile = exports.writeMd5 = exports.addFLACMetaData = exports.exportFlacData = void 0;
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.exportFlacData = exportFlacData;
+exports.addFLACMetaData = addFLACMetaData;
+exports.writeMd5 = writeMd5;
+exports.exportFlacFile = exportFlacFile;
 const data_utils_1 = __webpack_require__(1);
 function exportFlacData(recBuffers, metaData, isOgg) {
-    var recLength = data_utils_1.getLength(recBuffers);
+    var recLength = (0, data_utils_1.getLength)(recBuffers);
     if (metaData) {
         addFLACMetaData(recBuffers, metaData, isOgg);
     }
     //convert buffers into one single buffer
-    return Promise.resolve(data_utils_1.mergeBuffers(recBuffers, recLength));
+    return Promise.resolve((0, data_utils_1.mergeBuffers)(recBuffers, recLength));
 }
-exports.exportFlacData = exportFlacData;
 function addFLACMetaData(chunks, metadata, isOgg) {
     var offset = 4;
     var dataIndex = 0;
@@ -228,7 +146,6 @@ function addFLACMetaData(chunks, metadata, isOgg) {
     view.setUint8(21 + offset, metadata.total_samples); //36 bit
     writeMd5(view, 22 + offset, metadata.md5sum); //16 * 8 bit
 }
-exports.addFLACMetaData = addFLACMetaData;
 function writeMd5(view, offset, str) {
     var index;
     for (var i = 0; i < str.length / 2; ++i) {
@@ -236,30 +153,32 @@ function writeMd5(view, offset, str) {
         view.setUint8(i + offset, parseInt(str.substring(index, index + 2), 16));
     }
 }
-exports.writeMd5 = writeMd5;
 /**
  *  creates blob element from libflac-encoder output
  */
 function exportFlacFile(recBuffers, metaData, isOgg) {
-    const recLength = data_utils_1.getLength(recBuffers);
+    const recLength = (0, data_utils_1.getLength)(recBuffers);
     if (metaData) {
         addFLACMetaData(recBuffers, metaData, isOgg);
     }
     //convert buffers into one single buffer
-    const samples = data_utils_1.mergeBuffers(recBuffers, recLength);
+    const samples = (0, data_utils_1.mergeBuffers)(recBuffers, recLength);
     return new Blob([samples], { type: isOgg ? 'audio/ogg' : 'audio/flac' });
 }
-exports.exportFlacFile = exportFlacFile;
 
 
 /***/ }),
 /* 3 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
-"use strict";
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.exportWavFile = exports.writeData = exports.writeString = exports.encodeWAV = exports.interleave = exports.wav_file_processing_convert_to32bitdata = void 0;
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.wav_file_processing_convert_to32bitdata = wav_file_processing_convert_to32bitdata;
+exports.interleave = interleave;
+exports.encodeWAV = encodeWAV;
+exports.writeString = writeString;
+exports.writeData = writeData;
+exports.exportWavFile = exportWavFile;
 const data_utils_1 = __webpack_require__(1);
 /**
  *  converts the PCM data of the wav file (each sample stored as 8 or 16 or 24 bit value) into
@@ -295,7 +214,6 @@ function wav_file_processing_convert_to32bitdata(arraybuffer, bps) {
     }
     return buffer_i32;
 }
-exports.wav_file_processing_convert_to32bitdata = wav_file_processing_convert_to32bitdata;
 /**
  *  converts the PCM data of the wav file (each sample stored as 8 bit value) into
  *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
@@ -334,7 +252,7 @@ function interleave(recBuffers, channels, bitsPerSample) {
     //calculate total length for interleaved data
     let dataLength = 0;
     for (let i = 0; i < channels; ++i) {
-        dataLength += data_utils_1.getLengthFor(recBuffers, i, byteLen, pad8);
+        dataLength += (0, data_utils_1.getLengthFor)(recBuffers, i, byteLen, pad8);
     }
     const result = new Uint8Array(dataLength);
     let buff, buffLen = 0, index = 0, inputIndex = 0, ch_i = 0, b_i = 0, pad_i = false, ord = false;
@@ -380,7 +298,6 @@ function interleave(recBuffers, channels, bitsPerSample) {
     }
     return result;
 }
-exports.interleave = interleave;
 /**
  * write PCM data to a WAV file, incl. header
  *
@@ -425,19 +342,16 @@ function encodeWAV(samples, sampleRate, channels, bitsPerSample) {
     writeData(view, 44, samples);
     return view;
 }
-exports.encodeWAV = encodeWAV;
 function writeString(view, offset, str) {
     for (var i = 0; i < str.length; i++) {
         view.setUint8(offset + i, str.charCodeAt(i));
     }
 }
-exports.writeString = writeString;
 function writeData(view, offset, input) {
     for (var i = 0; i < input.length; ++i, ++offset) {
         view.setUint8(offset, input[i]);
     }
 }
-exports.writeData = writeData;
 /**
  * creates blob element PCM audio data incl. WAV header
  *
@@ -456,17 +370,18 @@ function exportWavFile(recBuffers, sampleRate, channels, bitsPerSample) {
     const dataView = encodeWAV(samples, sampleRate, channels, bitsPerSample);
     return new Blob([dataView], { type: 'audio/wav' });
 }
-exports.exportWavFile = exportWavFile;
 
 
 /***/ }),
 /* 4 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ ((__unused_webpack_module, exports) => {
 
-"use strict";
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.wav_file_processing_read_parameters = exports.to_string = exports.flac_file_processing_check_flac_format = exports.wav_file_processing_check_wav_format = void 0;
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.wav_file_processing_check_wav_format = wav_file_processing_check_wav_format;
+exports.flac_file_processing_check_flac_format = flac_file_processing_check_flac_format;
+exports.to_string = to_string;
+exports.wav_file_processing_read_parameters = wav_file_processing_read_parameters;
 /**
  *  checks if the given ui8_data (ui8array) is of a wav-file
  */
@@ -481,7 +396,6 @@ function wav_file_processing_check_wav_format(ui8_data) {
     }
     return true;
 }
-exports.wav_file_processing_check_wav_format = wav_file_processing_check_wav_format;
 /**
  *  checks if the given ui8_data (ui8array) is of a flac-file
  */
@@ -509,11 +423,9 @@ function flac_file_processing_check_flac_format(ui8_data, isOgg) {
     }
     return true;
 }
-exports.flac_file_processing_check_flac_format = flac_file_processing_check_flac_format;
 function to_string(ui8_data, start, end) {
     return String.fromCharCode.apply(null, ui8_data.subarray(start, end));
 }
-exports.to_string = to_string;
 /**
  *  reads the paramaters of a wav-file - stored in a ui8array
  */
@@ -533,8 +445,44 @@ function wav_file_processing_read_parameters(ui8_data) {
         block_align: block_align
     };
 }
-exports.wav_file_processing_read_parameters = wav_file_processing_read_parameters;
 
 
 /***/ })
-/******/ ])));
+/******/ 	]);
+/************************************************************************/
+/******/ 	// The module cache
+/******/ 	var __webpack_module_cache__ = {};
+/******/ 	
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/ 		// Check if module is in cache
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		if (cachedModule !== undefined) {
+/******/ 			return cachedModule.exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = __webpack_module_cache__[moduleId] = {
+/******/ 			// no module.id needed
+/******/ 			// no module.loaded needed
+/******/ 			exports: {}
+/******/ 		};
+/******/ 	
+/******/ 		// Execute the module function
+/******/ 		__webpack_modules__[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/ 	
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/ 	
+/************************************************************************/
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __webpack_require__(0);
+/******/ 	var __webpack_export_target__ = window;
+/******/ 	for(var __webpack_i__ in __webpack_exports__) __webpack_export_target__[__webpack_i__] = __webpack_exports__[__webpack_i__];
+/******/ 	if(__webpack_exports__.__esModule) Object.defineProperty(__webpack_export_target__, "__esModule", { value: true });
+/******/ 	
+/******/ })()
+;

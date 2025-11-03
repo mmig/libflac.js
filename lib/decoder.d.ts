@@ -33,7 +33,7 @@ export declare class Decoder {
     /**
      * cache for the decoded data
      */
-    protected data: Uint8Array[][];
+    protected data: Uint8Array<ArrayBuffer>[][];
     /**
      * metadata for the decoded data
      */
@@ -51,7 +51,7 @@ export declare class Decoder {
     get initialized(): boolean;
     get finished(): boolean;
     get metadata(): StreamMetadata | undefined;
-    get rawData(): Uint8Array[][];
+    get rawData(): Uint8Array<ArrayBuffer>[][];
     get isWaitOnReady(): boolean;
     constructor(Flac: Flac, _options?: DecoderOptions);
     private _init;
@@ -68,7 +68,7 @@ export declare class Decoder {
      * @param  flacData the (complete) FLAC data to decode
      * @return `true` if encoding was successful
      */
-    decode(flacData: Uint8Array): boolean;
+    decode(flacData: Uint8Array<ArrayBuffer>): boolean;
     /** finish decoding */
     decodeChunk(): boolean;
     /**
@@ -80,27 +80,27 @@ export declare class Decoder {
      *                    if omitted, will finish the decoding (any cached data will be flushed).
      * @return `true` if encoding was successful
      */
-    decodeChunk(flacData: Uint8Array): boolean;
+    decodeChunk(flacData: Uint8Array<ArrayBuffer>): boolean;
     /**
      * get non-interleaved (WAV) samples:
      * the returned array length corresponds to the number of channels
      */
-    getSamples(): Uint8Array[];
+    getSamples(): Uint8Array<ArrayBuffer>[];
     /**
      * get non-interleaved (raw PCM) samples:
      * the returned array length corresponds to the number of channels
      */
-    getSamples(isInterleaved: false): Uint8Array[];
+    getSamples(isInterleaved: false): Uint8Array<ArrayBuffer>[];
     /**
      * get interleaved samples:
      * the returned array contains the data of all channels interleaved
      */
-    getSamples(isInterleaved: true): Uint8Array;
+    getSamples(isInterleaved: true): Uint8Array<ArrayBuffer>;
     getState(): FLAC__StreamDecoderState | -1;
     destroy(): void;
-    protected addData(decData: Uint8Array[]): void;
+    protected addData(decData: Uint8Array<ArrayBuffer>[]): void;
     protected clearData(): void;
-    protected mapData(mapFunc: (val: Uint8Array[], index: number, list: Uint8Array[][]) => Uint8Array): Uint8Array[];
+    protected mapData(mapFunc: (val: Uint8Array<ArrayBuffer>[], index: number, list: Uint8Array<ArrayBuffer>[][]) => Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>[];
     private _isAnalyse;
     private _finish;
     private _createReadFunc;

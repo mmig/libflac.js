@@ -23,7 +23,7 @@ export declare class Encoder {
     /**
      * cache for the encoded data
      */
-    protected data: Uint8Array[];
+    protected data: Uint8Array<ArrayBuffer>[];
     /**
      * metadata for the encoded data
      */
@@ -34,7 +34,7 @@ export declare class Encoder {
     get initialized(): boolean;
     get finished(): boolean;
     get metadata(): StreamMetadata | undefined;
-    get rawData(): Uint8Array[];
+    get rawData(): Uint8Array<ArrayBuffer>[];
     get isWaitOnReady(): boolean;
     constructor(Flac: Flac, _options: EncoderOptions);
     private _init;
@@ -53,7 +53,7 @@ export declare class Encoder {
      *
      * @throws Error in case non-interleaved encoding data did not match the number of expected channels
      */
-    encode(pcmData: Int32Array[], numberOfSamples?: number): boolean;
+    encode(pcmData: Int32Array<ArrayBuffer>[], numberOfSamples?: number): boolean;
     /**
      * encode PCM data as an array of channels to FLAC
      * @param  pcmData the PCM data (array of the channels)
@@ -63,7 +63,7 @@ export declare class Encoder {
      *
      * @throws Error in case non-interleaved encoding data did not match the number of expected channels
      */
-    encode(pcmData: Int32Array[], numberOfSamples: number | undefined, isInterleaved: false): boolean;
+    encode(pcmData: Int32Array<ArrayBuffer>[], numberOfSamples: number | undefined, isInterleaved: false): boolean;
     /**
      * encode interleaved PCM data to FLAC
      * @param  pcmData the PCM data (interleaved: one sample for each channel)
@@ -72,7 +72,7 @@ export declare class Encoder {
      *
      * @throws Error in case non-interleaved encoding data did not match the number of expected channels
      */
-    encode(pcmData: Int32Array, numberOfSamples?: number): boolean;
+    encode(pcmData: Int32Array<ArrayBuffer>, numberOfSamples?: number): boolean;
     /**
      * encode interleaved PCM data to FLAC
      * @param  pcmData the PCM data (interleaved: one sample for each channel)
@@ -82,11 +82,11 @@ export declare class Encoder {
      *
      * @throws Error in case non-interleaved encoding data did not match the number of expected channels
      */
-    encode(pcmData: Int32Array, numberOfSamples: number | undefined, isInterleaved: true): boolean;
-    getSamples(): Uint8Array;
+    encode(pcmData: Int32Array<ArrayBuffer>, numberOfSamples: number | undefined, isInterleaved: true): boolean;
+    getSamples(): Uint8Array<ArrayBuffer>;
     getState(): FLAC__StreamEncoderState | -1;
     destroy(): void;
-    protected addData(decData: Uint8Array): void;
+    protected addData(decData: Uint8Array<ArrayBuffer>): void;
     protected clearData(): void;
     private _finish;
     private _handleBeforeReady;

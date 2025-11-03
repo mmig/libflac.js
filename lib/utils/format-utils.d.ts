@@ -7,7 +7,7 @@ export declare function wav_file_processing_check_wav_format(ui8_data: Uint8Arra
  */
 export declare function flac_file_processing_check_flac_format(ui8_data: Uint8Array, isOgg?: boolean): boolean;
 export declare function to_string(ui8_data: Uint8Array, start: number, end: number): string;
-export declare type WavHeader = {
+export type WavHeader = {
     sample_rate: number;
     channels: number;
     bps: number;
