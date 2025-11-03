@@ -17,7 +17,6 @@ describe("encode/decode", function() {
 	describe("round trip encode/decode", function() {
 
 		const files: string[] = getTestWavFilesSync();
-		const timeout = 3000;
 
 		describe("should create same wav data", function () {
 
@@ -40,7 +39,6 @@ describe("encode/decode", function() {
 
 					it(`using ${variant} for test file ${basename(inFile)}`, function (cb) {
 
-						this.timeout(timeout);
 						runEncodeDecode(Flac, inFile, encode, decode2Interleaved, (fileWavData, binWavData) => {
 							const result = compareBuffers(fileWavData, binWavData, 44, 0);
 							assert.isUndefined(result, result);
@@ -76,7 +74,6 @@ describe("encode/decode", function() {
 
 						it(`for test file ${basename(inFile)} when encoding ${interleaveMode} and decoding ${decodeMode}`, function (cb) {
 
-							this.timeout(timeout);
 							runEncodeDecode(Flac, inFile, encode, decode2Interleaved, (fileWavData, binWavData) => {
 								const result = compareBuffers(fileWavData, binWavData, 44, 0);
 								assert.isUndefined(result, result);

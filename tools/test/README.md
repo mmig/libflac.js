@@ -5,7 +5,7 @@ libFLAC.js encoder/decoder test
 # Generate WAV Input Files
 
 Put a least one WAV-file into directory (recommended format: 96 kHz sampling rate, 24-bit):
-```bash
+```
 <this_directory>/data/wav_src_files/*.wav
 ```
 
@@ -19,7 +19,7 @@ This will create for each source-file
  * WAV files with 8, 16, 20, 22.5, 32, 44.1, 48, 96 kHz sampling rate
 
 i.e. for each input file, 24 test files will be created in
-```bash
+```
 <this_directory>/temp/wav_test_files/*.wav
   # bits-per-sample: [8, 16, 24]
   # sampling-rates (Hz): [8000, 16000, 20000, 22500, 32000, 44100, 48000, 96000]
@@ -45,6 +45,16 @@ the test fails:
     for-each(test-file.wav in dir):
       test-file.wav == decode( encode( test-file.wav ))
 
+
+## Failed Tests Due To Timeout
+
+If tests fail due to `timeout`, you can try to increase the `timeout` setting (in `ms`) for tests in
+[unit/.mocharc.json](./unit/.mocharc.json)
+```json
+	"timeout": 30000
+```
+
+> set `timeout` to `0` to disable it
 
 # DEV NOTES
 

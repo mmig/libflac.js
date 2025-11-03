@@ -18,7 +18,6 @@ describe("encode/decode with utility classes", function() {
 	describe("round trip encode/decode with utility classes", function() {
 
 		const files: string[] = getTestWavFilesSync();
-		const timeout = 3000;
 		const libVariant = 'wasm.min';
 
 		let Flac: Flac;
@@ -35,7 +34,6 @@ describe("encode/decode with utility classes", function() {
 
 				it(`for test file ${basename(inFile)}`, function (cb) {
 
-					this.timeout(timeout);
 					runEncodeDecode(Flac, inFile, encode, decode, (fileWavData, binWavData) => {
 						const result = compareBuffers(fileWavData, binWavData, 44, 0);
 						assert.isUndefined(result, result);
@@ -58,7 +56,6 @@ describe("encode/decode with utility classes", function() {
 
 					it(`for test file ${basename(inFile)} when encoding ${interleaveMode} and decoding ${decodeMode}`, function (cb) {
 
-						this.timeout(timeout);
 						runEncodeDecode(Flac, inFile, encode, decode, (fileWavData, binWavData) => {
 							const result = compareBuffers(fileWavData, binWavData, 44, 0);
 							assert.isUndefined(result, result);

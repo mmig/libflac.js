@@ -1,3 +1,4 @@
 {
-	"require": ["ts-node/register", "choma"]
+	"require": ["ts-node/register", "choma"],
+	"timeout": 5000
 }
