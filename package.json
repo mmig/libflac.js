@@ -27,5 +27,13 @@
     "emscripten",
     "stream",
     "metadata"
-  ]
+  ],
+  "typesVersions": {
+      "<5.7": {
+          "*": ["types-compat/ts-5.6/*"]
+      },
+      "<3.6": {
+          "*": ["types-compat/ts-3.4/*"]
+      }
+  }
 }
