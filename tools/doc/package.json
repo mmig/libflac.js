@@ -1,6 +1,6 @@
 {
   "name": "libflacjs-doc",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "API doc generation for libFLAC.js",
   "keywords": [
     "documentation",
