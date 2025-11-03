@@ -28,7 +28,7 @@ describe("encode/decode", function() {
 
 				beforeEach(function () {
 					Flac = libFactory(variant);
-					const init = new Promise(resolve => {
+					const init = new Promise<void>(resolve => {
 						Flac.onready = () => resolve();
 					});
 
@@ -59,7 +59,7 @@ describe("encode/decode", function() {
 				let Flac: Flac;
 				before(function () {
 					Flac = libFactory(variant);
-					return new Promise(resolve => {
+					return new Promise<void>(resolve => {
 						Flac.onready = () => resolve();
 					});
 				});

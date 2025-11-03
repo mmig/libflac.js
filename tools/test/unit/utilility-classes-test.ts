@@ -24,7 +24,7 @@ describe("encode/decode with utility classes", function() {
 		let Flac: Flac;
 		before(function () {
 			Flac = libFactory(libVariant);
-			return new Promise(resolve => {
+			return new Promise<void>(resolve => {
 				Flac.onready = () => resolve();
 			});
 		});
@@ -72,7 +72,7 @@ describe("encode/decode with utility classes", function() {
 	})
 });
 
-function encode(flac: Flac, sampleRate: number, channels: number, bps: number, compressionLevel: CompressionLevel, data: Int32Array, cb: (data: Uint8Array[], metadata: StreamMetadata) => void, encodeInterleaved: boolean): void {
+function encode(flac: Flac, sampleRate: number, channels: number, bps: number, compressionLevel: CompressionLevel, data: Int32Array<ArrayBuffer>, cb: (data: Uint8Array<ArrayBuffer>[], metadata: StreamMetadata) => void, encodeInterleaved: boolean): void {
 
 	const encoder = new Encoder(flac, {
 		sampleRate: sampleRate,
@@ -89,7 +89,7 @@ function encode(flac: Flac, sampleRate: number, channels: number, bps: number, c
 	} else {
 
 		//de-interleave data into channels-array:
-		const list: Int32Array[] = deinterleave(data, channels);
+		const list: Int32Array<ArrayBuffer>[] = deinterleave(data, channels);
 		encoder.encode(list);
 	}
 	encoder.encode();
@@ -102,7 +102,7 @@ function encode(flac: Flac, sampleRate: number, channels: number, bps: number, c
 	cb([encData], metadata as unknown as StreamMetadata);
 }
 
-function decode(flac: Flac, binData: Uint8Array, cb: (data: Uint8Array) => void, decodePartial: boolean){
+function decode(flac: Flac, binData: Uint8Array<ArrayBuffer>, cb: (data: Uint8Array<ArrayBuffer>) => void, decodePartial: boolean){
 
 	const decoder = new Decoder(flac, {verify: true});
 	if(!decodePartial){
