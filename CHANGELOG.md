@@ -1,5 +1,11 @@
 
-# Version 5.5.0
+
+# Version 5.5.1
+ 
+ * fix: do add compatibility versions in `types-compat/**` for typings reference in package root
+
+
+# Version 5.5.0 (unpublished)
 
  * fix: typing incompatibility for `TypedArrays` since TypeScript version 5.9
    since TypeScript version 5.7 `TypedArrays` have a type parameter that defaults to `ArrayBufferLike`
@@ -21,6 +27,7 @@
 
  * docs: fix typos & improve documentation
  * refactor(examples): minor refactoring and improvements for example pages & code
+
 
 # Version 5.4.0
 
