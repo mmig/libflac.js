@@ -1,6 +1,10 @@
 
+# Version 5.5.2
 
-# Version 5.5.1
+ * docs: update docs
+
+
+# Version 5.5.1 (unpublished)
  
  * fix: do add compatibility versions in `types-compat/**` for typings reference in package root
 
