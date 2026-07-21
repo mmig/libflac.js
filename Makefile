@@ -36,14 +36,14 @@ PREFILE:=libflac_pre.js
 POSTFILE:=libflac_post.js
 
 LIB_VERSION:=4
-FLAC_VERSION:=1.3.3
+FLAC_VERSION:=1.3.4
 FLAC:=flac-$(FLAC_VERSION)
 FLAC_URL:="http://downloads.xiph.org/releases/flac/$(FLAC).tar.xz"
 FLAC_MAKEFILE:=$(FLAC)/Makefile
 FLAC_LIB_SRC:=$(FLAC)/src/libFLAC
 FLAC_LIB:=$(FLAC_LIB_SRC)/.libs/libFLAC-static.a
 
-OGG_VERSION:=1.3.4
+OGG_VERSION:=1.3.6
 OGG:=libogg-$(OGG_VERSION)
 OGG_URL:="https://ftp.osuosl.org/pub/xiph/releases/ogg/$(OGG).tar.xz"
 OGG_MAKEFILE:=$(OGG)/Makefile
@@ -92,7 +92,7 @@ $(OGG): $(OGG).tar.xz
 
 $(OGG_MAKEFILE): $(OGG)
 	cd $(OGG) && \
-	$(EMCONFIGURE) ./configure
+	$(EMCONFIGURE) ./configure --host=asmjs
 
 $(OGG_LIB): $(OGG_MAKEFILE)
 	cd $(OGG) && \
