@@ -45,11 +45,11 @@ export function compareBuffers(buff1: Uint8Array, buff2: Uint8Array, offset1?: n
 	return undefined;
 }
 
-export type EncodeDecodeCallback = (wavFileBin: Uint8Array, decodedWavData: Uint8Array) => void;
-export type EncodeCallback = (data: Uint8Array[], metadata: StreamMetadata) => void;
-export type TestEncodeFunc = (flac: Flac, sampleRate: number, channels: number, bps: number, compressionLevel: CompressionLevel, data: Int32Array, cb: EncodeCallback, encodeInterleaved: boolean) => void;
-export type DecodeCallback = (data: Uint8Array) => void;
-export type TestDecodeFunc = (flac: Flac, binData: Uint8Array, cb: DecodeCallback, decodePartial: boolean) => void;
+export type EncodeDecodeCallback = (wavFileBin: Uint8Array<ArrayBuffer>, decodedWavData: Uint8Array<ArrayBuffer>) => void;
+export type EncodeCallback = (data: Uint8Array<ArrayBuffer>[], metadata: StreamMetadata) => void;
+export type TestEncodeFunc = (flac: Flac, sampleRate: number, channels: number, bps: number, compressionLevel: CompressionLevel, data: Int32Array<ArrayBuffer>, cb: EncodeCallback, encodeInterleaved: boolean) => void;
+export type DecodeCallback = (data: Uint8Array<ArrayBuffer>) => void;
+export type TestDecodeFunc = (flac: Flac, binData: Uint8Array<ArrayBuffer>, cb: DecodeCallback, decodePartial: boolean) => void;
 
 export function runEncodeDecode(Flac: Flac, inFile: string, encFunc: TestEncodeFunc, decFunc: TestDecodeFunc, cb: EncodeDecodeCallback, useInterleavedEncoding: boolean, usePartialDecoding: boolean): void {
 
@@ -59,14 +59,14 @@ export function runEncodeDecode(Flac: Flac, inFile: string, encFunc: TestEncodeF
 
 		// TODO WavFile returns incorrect data for 8-bit depth(?)
 		const b32 = fmt.bitsPerSample !== 8?
-			wav.getSamples(true, Int32Array) as unknown as Int32Array :
-			wav_file_processing_convert_to32bitdata(data.buffer, fmt.bitsPerSample) as unknown as Int32Array;
+			wav.getSamples(true, Int32Array) as unknown as Int32Array<ArrayBuffer> :
+			wav_file_processing_convert_to32bitdata(data.buffer as ArrayBuffer, fmt.bitsPerSample) as Int32Array<ArrayBuffer>;
 
 		// console.log(wav.fmt)
 		// console.log(wav.data)
 		// console.log(b32)
 
-		encFunc(Flac, fmt.sampleRate, fmt.numChannels, fmt.bitsPerSample, 5, b32, (encData: Uint8Array[], metadata: StreamMetadata) => {
+		encFunc(Flac, fmt.sampleRate, fmt.numChannels, fmt.bitsPerSample, 5, b32, (encData: Uint8Array<ArrayBuffer>[], metadata: StreamMetadata) => {
 
 			// console.log('encoded flac: ', metadata)
 
@@ -77,7 +77,7 @@ export function runEncodeDecode(Flac: Flac, inFile: string, encFunc: TestEncodeF
 
 				decFunc(Flac, flacData, binWavData => {
 					// writeFile(inFile+'__TEST.wav', encodeWAV(binWavData, fmt.sampleRate, fmt.numChannels, fmt.bitsPerSample));
-					cb(data, binWavData);
+					cb(data as Uint8Array<ArrayBuffer>, binWavData);
 				}, usePartialDecoding);
 			});
 		}, useInterleavedEncoding);

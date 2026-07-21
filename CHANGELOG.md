@@ -1,4 +1,38 @@
 
+# Version 5.5.2
+
+ * docs: update docs
+
+
+# Version 5.5.1 (unpublished)
+ 
+ * fix: do add compatibility versions in `types-compat/**` for typings reference in package root
+
+
+# Version 5.5.0 (unpublished)
+
+ * fix: typing incompatibility for `TypedArrays` since TypeScript version 5.9
+   since TypeScript version 5.7 `TypedArrays` have a type parameter that defaults to `ArrayBufferLike`
+   since TypeScript version 5.9 the sub-types `ArrayBuffer` and `SharedArrayBuffer` have become 
+   incompatible with each other which can introduce typing errors when default `ArrayBufferLike` is
+   used for `TypedArrays`  
+   for more details, see
+   https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html#libdts-changes
+   and
+   https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-7.html#support-for---target-es2024-and---lib-es2024
+
+ * build: update build & test dependencies
+
+ * test: configure timeout via [tools/test/unit/.mocharc.json](./tools/test/unit/.mocharc.json) instead of in test case code
+
+
+
+# Version 5.4.1-beta1 (unpublished)
+
+ * docs: fix typos & improve documentation
+ * refactor(examples): minor refactoring and improvements for example pages & code
+
+
 # Version 5.4.0
 
  * added tests in `tools/test`

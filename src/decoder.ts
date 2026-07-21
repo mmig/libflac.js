@@ -24,7 +24,7 @@ export class Decoder {
 	/**
 	 * input cache for decoding-chunk modus
 	 */
-	private _inputCache: Uint8Array[] = [];
+	private _inputCache: Uint8Array<ArrayBuffer>[] = [];
 	/**
 	 * the current reading offset within the current input chache chunk
 	 */
@@ -43,7 +43,7 @@ export class Decoder {
 	/**
 	 * cache for the decoded data
 	 */
-	protected data: Uint8Array[][] = [];
+	protected data: Uint8Array<ArrayBuffer>[][] = [];
 	/**
 	 * metadata for the decoded data
 	 */
@@ -72,7 +72,7 @@ export class Decoder {
 		return this._metadata;
 	}
 
-	public get rawData(): Uint8Array[][] {
+	public get rawData(): Uint8Array<ArrayBuffer>[][] {
 		return this.data;
 	}
 
@@ -103,7 +103,7 @@ export class Decoder {
 			return {buffer: undefined, readDataLength: 0, error: true};
 		}
 
-		this._onWrite = (data: Uint8Array[]) => {
+		this._onWrite = (data: Uint8Array<ArrayBuffer>[]) => {
 			this.addData(data);
 		};
 
@@ -186,7 +186,7 @@ export class Decoder {
 	 * @param  flacData the (complete) FLAC data to decode
 	 * @return `true` if encoding was successful
 	 */
-	public decode(flacData: Uint8Array): boolean {
+	public decode(flacData: Uint8Array<ArrayBuffer>): boolean {
 		if(this._id && this._isInitialized && !this._isFinished){
 			this._onReadData = this._createReadFunc(flacData);
 			if(!!this.Flac.FLAC__stream_decoder_process_until_end_of_stream(this._id)){
@@ -208,7 +208,7 @@ export class Decoder {
 	 *                    if omitted, will finish the decoding (any cached data will be flushed).
 	 * @return `true` if encoding was successful
 	 */
-	public decodeChunk(flacData: Uint8Array): boolean;
+	public decodeChunk(flacData: Uint8Array<ArrayBuffer>): boolean;
 	/**
 	 * decode next chunk of data:
 	 * if not enough data for decoding is cached, will pause until enough data
@@ -221,7 +221,7 @@ export class Decoder {
 	 * @param  [flushCache] flush the cached data and finalize decoding
 	 * @return `true` if encoding was successful
 	 */
-	public decodeChunk(flacData?: Uint8Array, flushCache?: boolean): boolean {
+	public decodeChunk(flacData?: Uint8Array<ArrayBuffer>, flushCache?: boolean): boolean {
 		if (this._id && this._isInitialized && !this._isFinished) {
 
 			if (!this._onReadData) {
@@ -274,17 +274,17 @@ export class Decoder {
 	 * get non-interleaved (WAV) samples:
 	 * the returned array length corresponds to the number of channels
 	 */
-	public getSamples(): Uint8Array[];
+	public getSamples(): Uint8Array<ArrayBuffer>[];
 	/**
 	 * get non-interleaved (raw PCM) samples:
 	 * the returned array length corresponds to the number of channels
 	 */
-	public getSamples(isInterleaved: false): Uint8Array[];
+	public getSamples(isInterleaved: false): Uint8Array<ArrayBuffer>[];
 	/**
 	 * get interleaved samples:
-	 * the returned array length corresponds to the number of channels
+	 * the returned array contains the data of all channels interleaved
 	 */
-	public getSamples(isInterleaved: true): Uint8Array;
+	public getSamples(isInterleaved: true): Uint8Array<ArrayBuffer>;
 	/**
 	 * get the decoded samples
 	 * @param  isInterleaved if `true` interleaved WAV samples are returned,
@@ -293,7 +293,7 @@ export class Decoder {
 	 * @return the samples: either interleaved as `Uint8Array` or non-interleaved
 	 *         as `Uint8Array[]` with the array's length corresponding to the number of channels
 	 */
-	public getSamples(isInterleaved?: boolean): Uint8Array[] | Uint8Array {
+	public getSamples(isInterleaved?: boolean): Uint8Array<ArrayBuffer>[] | Uint8Array<ArrayBuffer> {
 		if(this.metadata){
 			isInterleaved = !!isInterleaved;
 			const channels = this.metadata.channels;
@@ -302,7 +302,7 @@ export class Decoder {
 				return interleave(this.data, channels, this.metadata.bitsPerSample);
 			}
 
-			const data: Uint8Array[] = new Array(channels);
+			const data: Uint8Array<ArrayBuffer>[] = new Array(channels);
 			for(let i=channels-1; i >= 0; --i){
 				const chData = this.mapData(d => d[i]);
 				data[i] = mergeBuffers(chData, getLength(chData));
@@ -329,7 +329,7 @@ export class Decoder {
 		this._inputCache.splice(0);
 	}
 
-	protected addData(decData: Uint8Array[]): void {
+	protected addData(decData: Uint8Array<ArrayBuffer>[]): void {
 		this.data.push(decData);
 	}
 
@@ -337,7 +337,7 @@ export class Decoder {
 		this.data.splice(0);
 	}
 
-	protected mapData(mapFunc: (val: Uint8Array[], index: number, list: Uint8Array[][]) => Uint8Array): Uint8Array[] {
+	protected mapData(mapFunc: (val: Uint8Array<ArrayBuffer>[], index: number, list: Uint8Array<ArrayBuffer>[][]) => Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer>[] {
 		return this.data.map(mapFunc);
 	}
 
@@ -355,7 +355,7 @@ export class Decoder {
 		return false;
 	}
 
-	private _createReadFunc(binData: Uint8Array): decoder_read_callback_fn {
+	private _createReadFunc(binData: Uint8Array<ArrayBuffer>): decoder_read_callback_fn {
 		this._resetInputCache();
 		const size = binData.buffer.byteLength;
 		let currentDataOffset: number = 0;
@@ -376,7 +376,7 @@ export class Decoder {
 		}
 	}
 
-	private _addInputChunk(data: Uint8Array): void {
+	private _addInputChunk(data: Uint8Array<ArrayBuffer>): void {
 		this._inputCache.push(data)
 	}
 
@@ -413,7 +413,7 @@ export class Decoder {
 			const start = this._currentInputCacheOffset;
 			const end = start === size ? -1 : Math.min(start + bufferSize, size);
 
-			let _buffer: Uint8Array | undefined;
+			let _buffer: Uint8Array<ArrayBuffer> | undefined;
 			let numberOfReadBytes: number;
 			if (end !== -1) {
 
@@ -442,7 +442,7 @@ export class Decoder {
 
 			// console.log('_readChunk: returning ', numberOfReadBytes, _buffer);
 			return {
-				buffer: _buffer as unknown as Uint8Array,
+				buffer: _buffer as unknown as Uint8Array<ArrayBuffer>,
 				readDataLength: numberOfReadBytes,
 				error: false
 			};

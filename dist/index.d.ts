@@ -73,7 +73,7 @@ export interface CodingOptions {
  * @property {boolean} isLast  if it is the last block of metadata
  * @property {number} length  the length of the metadata block (bytes)
  * @property {StreamMetadata | PaddingMetadata | ApplicationMetadata | SeekTableMetadata | CueSheetMetadata | PictureMetadata} [data]  the metadata (omitted for unknown metadata types)
- * @property {Uint8Array} [raw]  raw metadata (for debugging: enable via {@link Flac#setOptions})
+ * @property {Uint8Array<ArrayBuffer>} [raw]  raw metadata (for debugging: enable via {@link Flac#setOptions})
  */
 export interface MetadataBlock {
   /**
@@ -95,7 +95,7 @@ export interface MetadataBlock {
   /**
    * raw metadata (for debugging: enable via {@link Flac#setOptions})
    */
-  raw?: Uint8Array;
+  raw?: Uint8Array<ArrayBuffer>;
 }
 /**
  * FLAC padding metadata block
@@ -306,7 +306,7 @@ export interface CueSheetTracIndex {
  * @property {number} depth  Picture's color depth in bits-per-pixel.
  * @property {number} colors  For indexed palettes (like GIF), picture's number of colors (the number of palette entries), or 0 for non-indexed (i.e. 2^depth).
  * @property {number} data_length  Length of binary picture data in bytes.
- * @property {Uint8Array} data  Binary picture data.
+ * @property {Uint8Array<ArrayBuffer>} data  Binary picture data.
  */
 export interface PictureMetadata {
   /**
@@ -344,7 +344,7 @@ export interface PictureMetadata {
   /**
    * Binary picture data.
    */
-  data: Uint8Array;
+  data: Uint8Array<ArrayBuffer>;
 }
 /**
  * An enumeration of the PICTURE types (see FLAC__StreamMetadataPicture and id3 v2.4 APIC tag).
@@ -710,14 +710,14 @@ export function init_libflac_decoder(): void;
 /**
  * The callback for writing the encoded FLAC data.
  * 
- * @param {Uint8Array} data  the encoded FLAC data
+ * @param {Uint8Array<ArrayBuffer>} data  the encoded FLAC data
  * @param {number} numberOfBytes  the number of bytes in data
  * @param {number} samples  the number of samples encoded in data
  * @param {number} currentFrame  the number of the (current) encoded frame in data
  * @returns {void | false}  returning <code>false</code> indicates that an
  * 								unrecoverable error occurred and decoding should be aborted
  */
-export type encoder_write_callback_fn = (data: Uint8Array, numberOfBytes: number, samples: number, currentFrame: number) => void | false;
+export type encoder_write_callback_fn = (data: Uint8Array<ArrayBuffer>, numberOfBytes: number, samples: number, currentFrame: number) => void | false;
 /**
  * The callback for the metadata of the encoded/decoded Flac data.
  * 
@@ -892,10 +892,10 @@ export type decoder_read_callback_fn = (numberOfBytes: number) => ReadResult | C
 /**
  * The callback for writing the decoded FLAC data.
  * 
- * @param {Array<Uint8Array>} data  array of the channels with the decoded PCM data as <code>Uint8Array</code>s
+ * @param {Array<Uint8Array<ArrayBuffer>>} data  array of the channels with the decoded PCM data as <code>Uint8Array</code>s
  * @param {BlockMetadata} frameInfo  the metadata information for the decoded data
  */
-export type decoder_write_callback_fn = (data: Array<Uint8Array>, frameInfo: BlockMetadata) => void;
+export type decoder_write_callback_fn = (data: Array<Uint8Array<ArrayBuffer>>, frameInfo: BlockMetadata) => void;
 /**
  * The callback for reporting decoding errors.
  * 
@@ -1428,11 +1428,11 @@ export interface PointerInfo {
  * 
  * NOTE: afer use, the allocated buffers on the heap need be freed, see {@link Flac#_destroy_pointer_array|_destroy_pointer_array}.
  * 
- * @param {Array<Uint8Array>} bufferArray  the buffer for which to create
+ * @param {Array<Uint8Array<ArrayBuffer>>} bufferArray  the buffer for which to create
  * @returns {PointerInfo}  <code>false</code> if the decoder is already initialized, else <code>true</code>
  * @see Flac#_destroy_pointer_array
  */
-export function _create_pointer_array(bufferArray: Array<Uint8Array>): PointerInfo;
+export function _create_pointer_array(bufferArray: Array<Uint8Array<ArrayBuffer>>): PointerInfo;
 /**
  * Helper function for destroying/freeing a previously created pointer (and allocating the data) of an array of buffers on the (memory) heap.
  * 
@@ -1508,4 +1508,4 @@ export function FLAC__stream_encoder_delete(encoder: number): void;
  */
 export function FLAC__stream_decoder_delete(decoder: number): void;
 
-export type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array;
+export type TypedArray = Int8Array<ArrayBuffer> | Uint8Array<ArrayBuffer> | Uint8ClampedArray<ArrayBuffer> | Int16Array<ArrayBuffer> | Uint16Array<ArrayBuffer> | Int32Array<ArrayBuffer> | Uint32Array<ArrayBuffer> | Float32Array<ArrayBuffer> | Float64Array<ArrayBuffer>;

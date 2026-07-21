@@ -1,9 +1,11 @@
 /.project
-/flac-1.*/
-/libogg-1.*/
+/.history
+/flac-1.*
+/libogg-1.*
 /dist_*/
 /example_*/
 /test*
+/temp
 /tools/temp/
 /tools/bkp_*
 /tools/flac-1.*/

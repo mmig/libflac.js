@@ -126,7 +126,7 @@ function decodeFlac(binData, decData, isVerify, isOgg, isAllMetadata){
 	Flac.FLAC__stream_decoder_delete(flac_decoder);
 
 	if(all_meta_data){
-		meta_data.rawMetadata = all_meta_data;
+		meta_data.extractedMetadata = all_meta_data;
 	}
 
 	return {metaData: meta_data, status: flac_ok};

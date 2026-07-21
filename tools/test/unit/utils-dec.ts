@@ -2,10 +2,10 @@
 import { Flac , StreamMetadata } from '../../../index.d';
 import { interleave } from '../../../src/utils/wav-utils';
 
-export function decode(flac: Flac, binData: Uint8Array, cb: (data: Uint8Array[][], metadata: StreamMetadata) => void, isDecPartial: boolean){
+export function decode(flac: Flac, binData: Uint8Array<ArrayBuffer>, cb: (data: Uint8Array<ArrayBuffer>[][], metadata: StreamMetadata) => void, isDecPartial: boolean){
 
 	const dec = flac.create_libflac_decoder(true);
-	const wdata: Uint8Array[][] = [];
+	const wdata: Uint8Array<ArrayBuffer>[][] = [];
 	let metadata: StreamMetadata | undefined= undefined;
 
 	const size = binData.buffer.byteLength;
@@ -58,7 +58,7 @@ export function decode(flac: Flac, binData: Uint8Array, cb: (data: Uint8Array[][
 }
 
 
-export function decode2Interleaved(flac: Flac, binData: Uint8Array, cb: (data: Uint8Array, metadata: StreamMetadata) => void, isDecPartial: boolean){
+export function decode2Interleaved(flac: Flac, binData: Uint8Array<ArrayBuffer>, cb: (data: Uint8Array<ArrayBuffer>, metadata: StreamMetadata) => void, isDecPartial: boolean){
 	decode(flac, binData, (data, metadata) => {
 		cb(interleave(data, metadata.channels, metadata.bitsPerSample), metadata);
 	}, isDecPartial);

@@ -75,6 +75,10 @@
 			content: ' ? ';
 			margin-left: 0.25em;
 		}
+		.hint.info:before {
+			content: ' i ';
+			margin-left: 0.25em;
+		}
 	</style>
 
 	</head>
@@ -169,7 +173,7 @@
 	<input type="checkbox" id="check_verify" checked>Verify&nbsp;<div class="hint" title="Checksum verification during decoding
 (disable for faster decoding)"></div>
 	<input type="checkbox" id="check_ogg">OGG&nbsp;<div class="hint" title="force treating source as OGG container file (otherwise detect from file extension)"></div>
-	<input type="checkbox" id="check_raw_metadata">Extract Metadata&nbsp;<div class="hint" title="extract metadata blocks"></div>
+	<input type="checkbox" id="check_extract_metadata">Extract Metadata&nbsp;<div class="hint" title="extract metadata blocks"></div>
 
 	<!--input type="button" id="files_button" value="process file"-->
 	<output id="list"></output>

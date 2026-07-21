@@ -2,8 +2,8 @@
  *  converts the PCM data of the wav file (each sample stored as 8 or 16 or 24 bit value) into
  *  a format expected by the libflac-encoder method (each sample stored as 32 bit value in a 32-bit array)
  */
-export declare function wav_file_processing_convert_to32bitdata(arraybuffer: ArrayBuffer, bps: number): Int32Array | undefined;
-export declare function interleave(recBuffers: Uint8Array[][], channels: number, bitsPerSample: number): Uint8Array;
+export declare function wav_file_processing_convert_to32bitdata(arraybuffer: ArrayBuffer, bps: number): Int32Array<ArrayBuffer> | undefined;
+export declare function interleave(recBuffers: Uint8Array[][], channels: number, bitsPerSample: number): Uint8Array<ArrayBuffer>;
 /**
  * write PCM data to a WAV file, incl. header
  *
@@ -14,7 +14,7 @@ export declare function interleave(recBuffers: Uint8Array[][], channels: number,
  *
  * @returns the WAV data incl. header
  */
-export declare function encodeWAV(samples: Uint8Array, sampleRate: number, channels: number, bitsPerSample: number): DataView;
+export declare function encodeWAV(samples: Uint8Array, sampleRate: number, channels: number, bitsPerSample: number): DataView<ArrayBuffer>;
 export declare function writeString(view: DataView, offset: number, str: string): void;
 export declare function writeData(view: DataView, offset: number, input: Uint8Array): void;
 /**

@@ -7,7 +7,7 @@ export function getLength(recBuffers: Uint8Array[]) : number {
 	return recLength;
 }
 
-export function mergeBuffers(channelBuffer: Uint8Array[], recordingLength: number): Uint8Array {
+export function mergeBuffers(channelBuffer: Uint8Array[], recordingLength: number): Uint8Array<ArrayBuffer> {
 	var result = new Uint8Array(recordingLength);
 	var offset = 0;
 	var lng = channelBuffer.length;

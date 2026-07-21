@@ -1,12 +1,12 @@
 
 import { Flac , StreamMetadata, CompressionLevel } from '../../../index.d';
 
-export function encode(flac: Flac, sampleRate: number, channels: number, bps: number, compressionLevel: CompressionLevel, data: Int32Array, cb: (data: Uint8Array[], metadata: StreamMetadata) => void, encodeInterleaved: boolean): void {
+export function encode(flac: Flac, sampleRate: number, channels: number, bps: number, compressionLevel: CompressionLevel, data: Int32Array<ArrayBuffer>, cb: (data: Uint8Array<ArrayBuffer>[], metadata: StreamMetadata) => void, encodeInterleaved: boolean): void {
 
 	const enc = flac.create_libflac_encoder(sampleRate, channels, bps, compressionLevel);
-	const fdata: Uint8Array[] = [];
+	const fdata: Uint8Array<ArrayBuffer>[] = [];
 	let metadata: StreamMetadata | null = null;
-	flac.init_encoder_stream(enc, (data: Uint8Array) => {
+	flac.init_encoder_stream(enc, (data: Uint8Array<ArrayBuffer>) => {
 		// console.log('write data: ', data);
 		fdata.push(data);
 	}, (m?: StreamMetadata) => {
@@ -18,7 +18,7 @@ export function encode(flac: Flac, sampleRate: number, channels: number, bps: nu
 	if(!encodeInterleaved){
 
 		// separate interleaved data into channels
-		const list: Int32Array[] = deinterleave(data, channels);
+		const list: Int32Array<ArrayBuffer>[] = deinterleave(data, channels);
 		flac.FLAC__stream_encoder_process(enc, list, data.length/channels);
 
 	} else {
@@ -32,11 +32,11 @@ export function encode(flac: Flac, sampleRate: number, channels: number, bps: nu
 	cb(fdata, metadata as unknown as StreamMetadata);
 }
 
-export function deinterleave(data: Int32Array, channels: number): Int32Array[] {
+export function deinterleave(data: Int32Array<ArrayBuffer>, channels: number): Int32Array<ArrayBuffer>[] {
 
 	const len = data.length;
 	const samples = len / channels;
-	const list: Int32Array[] = new Array(channels).fill(null).map(() => new Int32Array(samples));
+	const list: Int32Array<ArrayBuffer>[] = new Array(channels).fill(null).map(() => new Int32Array(samples));
 	for(var i=0; i < len; i+=channels){
 		for(var j=0; j < channels; ++j){
 			list[j][i/channels] = data[i+j];

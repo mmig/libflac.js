@@ -1,7 +1,7 @@
 
 var fs = require('fs');
 
-var typeArrayStr = 'Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array';// | BigInt64Array | BigUint64Array';
+var typeArrayStr = 'Int8Array<ArrayBuffer> | Uint8Array<ArrayBuffer> | Uint8ClampedArray<ArrayBuffer> | Int16Array<ArrayBuffer> | Uint16Array<ArrayBuffer> | Int32Array<ArrayBuffer> | Uint32Array<ArrayBuffer> | Float32Array<ArrayBuffer> | Float64Array<ArrayBuffer>';// | BigInt64Array | BigUint64Array';
 
 /**
  * used newline character(s) for generated typings
@@ -414,7 +414,7 @@ function toTypeStr(type){
 	// if(type === 'TypedArray'){
 	// 	return 'FlacClass.TypedArray';
 	// }
-	return type.replace(/\bFlac[#~.](event:)?\b/, '').replace(/^Array\.</,'Array<');
+	return type.replace(/\bFlac[#~.](event:)?\b/g, '').replace(/Array\.</g,'Array<');
 }
 
 function indentStr(indent){

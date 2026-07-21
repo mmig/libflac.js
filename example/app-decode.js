@@ -15,7 +15,7 @@ function onFlacLoad(evt) {
 
 	var isOgg = /\.og(g|a)$/i.test(evt.fileName);
 	var decData = [];
-	var result = decodeFlac(arrayBuffer, decData, isVerify(), isOgg || isUseOgg(), isRawMetadata());
+	var result = decodeFlac(arrayBuffer, decData, isVerify(), isOgg || isUseOgg(), isExtractMetadata());
 	console.log('decoded data array: ', decData);
 
 	if(result.error){
@@ -101,14 +101,14 @@ function fileInfoItemToStr(val, linkList){
 
 		//create tooltip with the metadata's JSON
 		var jsonStr = JSON.stringify(val.data || val, null, 2);
-		label +=  '&nbsp;<span class="hint" title=\''+jsonStr+'\'></span>'
+		label +=  '&nbsp;<span class="hint info" title=\''+jsonStr+'\'></span>'
 
 		return '<span>'+label+'</span>';
 	}).join(', ');
 }
 
-function isRawMetadata(){
-	return document.getElementById('check_raw_metadata').checked;
+function isExtractMetadata(){
+	return document.getElementById('check_extract_metadata').checked;
 }
 
 //initialize

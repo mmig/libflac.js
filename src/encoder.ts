@@ -36,7 +36,7 @@ export class Encoder {
 	/**
 	 * cache for the encoded data
 	 */
-	protected data: Uint8Array[] = [];
+	protected data: Uint8Array<ArrayBuffer>[] = [];
 	/**
 	 * metadata for the encoded data
 	 */
@@ -58,7 +58,7 @@ export class Encoder {
 		return this._metadata;
 	}
 
-	public get rawData(): Uint8Array[] {
+	public get rawData(): Uint8Array<ArrayBuffer>[] {
 		return this.data;
 	}
 
@@ -81,7 +81,7 @@ export class Encoder {
 		};
 		Flac.on('destroyed', this._onDestroyed);
 
-		this._onWrite = (data: Uint8Array) => {
+		this._onWrite = (data: Uint8Array<ArrayBuffer>) => {
 			this.addData(data);
 		};
 
@@ -183,7 +183,7 @@ export class Encoder {
 	 *
 	 * @throws Error in case non-interleaved encoding data did not match the number of expected channels
 	 */
-	public encode(pcmData: Int32Array[], numberOfSamples?: number): boolean;
+	public encode(pcmData: Int32Array<ArrayBuffer>[], numberOfSamples?: number): boolean;
 	/**
 	 * encode PCM data as an array of channels to FLAC
 	 * @param  pcmData the PCM data (array of the channels)
@@ -193,7 +193,7 @@ export class Encoder {
 	 *
 	 * @throws Error in case non-interleaved encoding data did not match the number of expected channels
 	 */
-	public encode(pcmData: Int32Array[], numberOfSamples: number | undefined, isInterleaved: false): boolean;
+	public encode(pcmData: Int32Array<ArrayBuffer>[], numberOfSamples: number | undefined, isInterleaved: false): boolean;
 	/**
 	 * encode interleaved PCM data to FLAC
 	 * @param  pcmData the PCM data (interleaved: one sample for each channel)
@@ -202,7 +202,7 @@ export class Encoder {
 	 *
 	 * @throws Error in case non-interleaved encoding data did not match the number of expected channels
 	 */
-	public encode(pcmData: Int32Array, numberOfSamples?: number): boolean;
+	public encode(pcmData: Int32Array<ArrayBuffer>, numberOfSamples?: number): boolean;
 	/**
 	 * encode interleaved PCM data to FLAC
 	 * @param  pcmData the PCM data (interleaved: one sample for each channel)
@@ -212,7 +212,7 @@ export class Encoder {
 	 *
 	 * @throws Error in case non-interleaved encoding data did not match the number of expected channels
 	 */
-	public encode(pcmData: Int32Array, numberOfSamples: number | undefined, isInterleaved: true): boolean;
+	public encode(pcmData: Int32Array<ArrayBuffer>, numberOfSamples: number | undefined, isInterleaved: true): boolean;
 	/**
 	 * encode PCM data to FLAC
 	 * @param  pcmData the PCM data: either interleaved, or an array of the channels
@@ -222,7 +222,7 @@ export class Encoder {
 	 *
 	 * @throws Error in case non-interleaved encoding data did not match the number of expected channels
 	 */
-	public encode(pcmData?: Int32Array | Int32Array[], numberOfSamples?: number, isInterleaved?: boolean): boolean {
+	public encode(pcmData?: Int32Array<ArrayBuffer> | Int32Array<ArrayBuffer>[], numberOfSamples?: number, isInterleaved?: boolean): boolean {
 		if(this._id && this._isInitialized && !this._isFinished){
 
 			// console.log('encoding with ', this._options, pcmData);
@@ -241,26 +241,26 @@ export class Encoder {
 			if(typeof numberOfSamples === 'undefined'){
 				// console.log('calculating numberOfSamples...');
 				// const byteNum = this._options.bitsPerSample / 8;
-				const buff = isInterleaved? (pcmData as Int32Array) : (pcmData as Int32Array[])[0];
+				const buff = isInterleaved? (pcmData as Int32Array<ArrayBuffer>) : (pcmData as Int32Array<ArrayBuffer>[])[0];
 				// console.log('calculating numberOfSamples: byteNum='+byteNum+' for buffer ', buff);
 				numberOfSamples = (buff.byteLength - buff.byteOffset) / ((isInterleaved? this._options.channels : 1) * buff.BYTES_PER_ELEMENT);// * byteNum);
 			}
 
 			if(isInterleaved){
 				// console.log('encoding interleaved ('+numberOfSamples+' samples)...');
-				return !!this.Flac.FLAC__stream_encoder_process_interleaved(this._id, pcmData as Int32Array, numberOfSamples);
+				return !!this.Flac.FLAC__stream_encoder_process_interleaved(this._id, pcmData as Int32Array<ArrayBuffer>, numberOfSamples);
 			}
 			// ASSERT encode non-interleaved
 			if(this._options.channels !== pcmData.length){
 				throw new Error(`Wrong number of channels: expected ${this._options.channels} but got ${pcmData.length}`)
 			}
 			// console.log('encoding non-interleaved ('+numberOfSamples+' samples)...');
-			return !!this.Flac.FLAC__stream_encoder_process(this._id, pcmData as Int32Array[], numberOfSamples);
+			return !!this.Flac.FLAC__stream_encoder_process(this._id, pcmData as Int32Array<ArrayBuffer>[], numberOfSamples);
 		}
 		return this._handleBeforeReady('encode', arguments);
 	}
 
-	public getSamples(): Uint8Array {
+	public getSamples(): Uint8Array<ArrayBuffer> {
 		return mergeBuffers(this.data, getLength(this.data));
 	}
 
@@ -280,7 +280,7 @@ export class Encoder {
 		this.clearData();
 	}
 
-	protected addData(decData: Uint8Array): void {
+	protected addData(decData: Uint8Array<ArrayBuffer>): void {
 		this.data.push(decData);
 	}
 

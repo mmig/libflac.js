@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>libflac.js 5.4.0</title>
+    <title>libflac.js 5.5.2</title>
     
     
     
@@ -11,7 +11,7 @@
     
     
     
-    <meta property="og:title" content="libflac.js API 5.4.0"/>
+    <meta property="og:title" content="libflac.js API 5.5.2"/>
     <meta property="og:type" content="website"/>
     <meta property="og:image" content=""/>
     <meta property="og:site_name" content="libflac.js"/>
@@ -29,7 +29,7 @@
 
     
     <script>
-    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.4.0","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.4.0","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
+    var config = {"monospaceLinks":true,"cleverLinks":true,"default":{"outputSourceFiles":false,"includeDate":false},"navType ":"inline","linenums":true,"theme":"cerulean","copyright":"<a target='_blank' href='https://github.com/mmig/libflac.js'>libflac.js</a>","applicationName":"libflac.js","disqus":"","googleAnalytics":"","openGraph":{"title":"libflac.js API 5.5.2","type":"website","site_name":"libflac.js","url":"https://github.com/mmig/libflac.js"},"meta":{"title":"libflac.js 5.5.2","description":"","keyword":"flac, javascript, emscripten"},"sourceLinks":false};
     </script>
     
 
@@ -1057,44 +1057,37 @@
 <a target='_blank' href="https://github.com/kripken/emscripten"><img src="https://img.shields.io/github/v/tag/emscripten-core/emscripten?color=green&amp;label=emscripten%40latest" alt="GitHub tag (latest SemVer)"></a>
 <a target='_blank' href="https://xiph.org/flac/"><img src="https://img.shields.io/badge/libFLAC-1.3.3-yellow" alt="libFLAC version"></a>
 <a target='_blank' href="https://xiph.org/ogg/"><img src="https://img.shields.io/badge/libogg-1.3.4-yellow" alt="libogg version"></a></p>
-<p><a target='_blank' href="https://xiph.org/flac/">FLAC</a> data stream encoder and decoder compiled in JavaScript using <em>emscripten</em>.</p>
+<p><a target='_blank' href="https://xiph.org/flac/">FLAC</a> data stream encoder and decoder compiled to JavaScript using <em>emscripten</em>.</p>
 <p><strong>Features</strong></p>
 <ul>
 <li>available as pure JavaScript, JavaScript+<em>binary</em>, JavaScript+WASM</li>
+<li>can be used in browsers as well as in <code>node.js</code></li>
 <li>encode/decode data all-at-once (~ <em>file</em>) or chunk-by-chunk (~ <em>stream</em>)</li>
-<li>supported container formats: native FLAC container (<code>*.flac</code>), OGG container (<code>*.ogg</code>)</li>
+<li>supported container formats: native FLAC container (<code>*.flac</code>), OGG container (<code>*.ogg</code>, <code>*.oga</code>)</li>
+<li>support for FLAC metadata extraction when decoding (STREAMINFO, VORBIS_COMMENT, PICTURE, CUESHEET, SEEKTABLE)</li>
 </ul>
-<p>For immediate use, the <code>/dist</code> sub-directory contains the compiled
-files for the <code>libflac.js</code> JavaScript library, as well as a minified version.</p>
 <blockquote>
 <p>Complied from <code>libFLAC</code> (static <code>C</code> library) version: 1.3.3<br>
 Used library <code>libogg</code> (static <code>C</code> library) version: 1.3.4<br>
 Used compiler <code>Emscripten</code> version: 1.39.19<br>
 Used compiler <code>Emscripten</code> toolchain: LLVM (upstream)</p>
 </blockquote>
-<p>In order to build <em>libflac.js</em>, make sure you have <em>emscripten</em> installed (with toolchain <code>LLVM/upstream</code>; default since version 1.39.x).</p>
-<p>On running <code>make</code>, the build process will download the sources for the
-FLAC and OGG libraries, extract them, and build the JavaScript version of libflac.</p>
 <hr>
 <blockquote>
-<p><strong>IMPORTANT</strong> changes for version <code>5.x</code>: simplified naming scheme and library location!</p>
-<ul>
-<li>removed version information from library file names, e.g.<br>
-<code>libflac4-1.3.2.min.js -&gt; libflac.min.js</code></li>
-<li>moved all library files directly into <code>dist/</code>, i.e. there are <em>no</em> sub-directories <code>dist/min/</code> and <code>dist/dev/</code> anymore</li>
-</ul>
+<p><strong>IMPORTANT</strong> changes for version <code>5.x</code>: simplified naming scheme and library location!<br>
+See details in 'CHANGELOG.md'.</p>
 </blockquote>
 <hr>
 <p><strong>Encoder Demo</strong><br>
 Try the <a target='_blank' href="https://mmig.github.io/libflac.js/example/encode.html">Encoding Demo</a> for encoding <code>*.wav</code> files to FLAC.
 Or try the <a target='_blank' href="https://github.com/mmig/speech-to-flac">speech-to-flac</a> <a target='_blank' href="https://mmig.github.io/speech-to-flac/">demo</a> that encodes the audio stream from a microphone to FLAC.</p>
 <p><strong>Decoder Demo</strong><br>
-Try the <a target='_blank' href="https://mmig.github.io/libflac.js/example/decode.html">Decoding Demo</a> for decoding <code>*.flac</code> files to <code>*.wav</code> files.
+Try the <a target='_blank' href="https://mmig.github.io/libflac.js/example/decode.html">Decoding Demo</a> for decoding <code>*.flac</code> files to <code>*.wav</code> files.<br>
 <em>TODO</em> example for decoding a FLAC audio stream (i.e. where data/size is not known beforehand).</p>
 <p><strong>API Documentation</strong><br>
 See <a target='_blank' href="https://mmig.github.io/libflac.js/doc/">doc/index.html</a> for the API documentation.</p>
 <hr>
-<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:0 orderedList:0 -->
+<!-- TOC depthFrom:2 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
 <ul>
 <li><a href="#usage">Usage</a>
 <ul>
@@ -1156,6 +1149,10 @@ See <a target='_blank' href="https://mmig.github.io/libflac.js/doc/">doc/index.h
 <h2>Usage</h2>
 <hr>
 <h3>Including libflac.js</h3>
+<p>For immediate use, the <code>/dist</code> sub-directory contains the compiled
+files for the <code>libflac.js</code> JavaScript library, as well as a <em>minified</em>
+version and a <em>development</em> (with additional/extend debug output) version.<br>
+For more details, see section <a href="#library-variants">Library Variants</a>.</p>
 <h4>Browser</h4>
 <p>Include the library file, e.g. if library file(s) <code>libflac.js</code> is in the same
 directory as the referencing HTML file:</p>
@@ -1198,7 +1195,7 @@ Flac.on('ready', function(event){
 can also be <code>require</code>d directly:</p>
 <pre class="prettyprint source lang-javascript"><code>// for example:
 var Flac = require('libflacjs/dist/libflac.js');
-// or
+// or e.g. the WASM variant:
 var Flac = require('libflacjs/dist/libflac.wasm.js');
 </code></pre>
 <h4>React/webpack</h4>
@@ -1206,20 +1203,20 @@ var Flac = require('libflacjs/dist/libflac.wasm.js');
 install with <code>npm</code> (see above), and <code>require()</code> the library file directly, like</p>
 <pre class="prettyprint source lang-javascript"><code>// for example:
 var Flac = require('libflacjs/dist/libflac.js');
-// or
+// or e.g. the WASM variant:
 var Flac = require('libflacjs/dist/libflac.wasm.js');
 </code></pre>
 <blockquote>
 <p>NOTE <code>min</code> and <code>wasm</code> variants will most likely require
 additional configuration of the build system, see also
-section about <code>webpack</code> integration</p>
+section about <a href="#async-initialization-with-webpack">async <code>webpack</code> integration</a></p>
 </blockquote>
 <h4>Angular/webpack</h4>
 <p>For <code>Angular</code> (<code>TypeScript</code>):
 install with <code>npm</code> (see above), and <code>import</code> the library file directly, like</p>
 <pre class="prettyprint source lang-typescript"><code>// for example:
 import * as Flac from 'libflacjs/dist/libflac';
-// or
+// or e.g. the WASM variant:
 import * as Flac from 'libflacjs/dist/libflac.wasm';
 </code></pre>
 <p><strong>NOTE</strong> unfortunately, current typings do not allow to set <code>Flac.onready</code> when imported this way.
@@ -1361,12 +1358,6 @@ FLAC_SCRIPT_LOCATION = {
 <pre class="prettyprint source lang-javascript"><code>  process.env.FLAC_SCRIPT_LOCATION = './libs/';
   var Flac = require('./libs/libflac.js');
 </code></pre>
-<blockquote>
-<p>NOTE: setting <code>FLAC_UMD_MODE</code> has no effect since v5.0.1:
-automatic export to global namespace has been dropped in case of loading as AMD or CommonJS module,
-i.e. setting <code>process.env.FLAC_UMD_MODE = true</code> when running in Node.js will have no effect anymore,
-instead export manually to global namespace, e.g. with <code>global.Flac = require('libflacjs')()</code>.</p>
-</blockquote>
 <p>Example for specifying custom path and file-name via mapping (<code>originalFileName -&gt; &lt;newPath/newFileName&gt;</code>):<br>
 in this case, the file-name(s) of the additionally required files (e.g. <code>*.mem</code> or <code>.wasm</code> files)
 need to be mapped to the custom path/file-name(s), that is,
@@ -1398,7 +1389,7 @@ in the <code>module.rules</code> array add an entry, e.g. if the file name is <c
   },
 },
 </code></pre>
-<p><em>Alterantively to using the exact file name of the binary files, <code>FLAC_SCRIPT_LOCATION</code> could be configured to use the file name generated by <code>file-loader</code> plugin, see details above for configuring <code>FLAC_SCRIPT_LOCATION</code></em></p>
+<p><em>Alternatively to using the exact file name of the binary files, <code>FLAC_SCRIPT_LOCATION</code> could be configured to use the file name generated by <code>file-loader</code> plugin, see details above for configuring <code>FLAC_SCRIPT_LOCATION</code></em></p>
 <h3>Library Variants</h3>
 <h4><em>default</em> vs <code>min</code> vs <code>dev</code></h4>
 <p>There are multiple variants available for the library, that are compiled with different
@@ -1457,14 +1448,14 @@ including dynamically loaded libraries from a sub-path/location</li>
 <ul>
 <li>ASM.js Variant:
 <ul>
-<li><code>libflac.js</code></li>
+<li><code>libflac.js</code> (<strong>required</strong>)</li>
 </ul>
 </li>
 <li>WebAssembly variant <em>(dynamically loaded)</em>:
 <ul>
-<li><code>libflac.wasm.js</code></li>
+<li><code>libflac.wasm.js</code> (<strong>required</strong>)</li>
 <li><code>libflac.wasm.wasm</code> (<strong>required</strong>; will be loaded by the library)</li>
-<li><code>libflac.wasm.js.symbols</code> (optional; contains renaming information)</li>
+<li><code>libflac.wasm.js.symbols</code> (<em>optional</em>; contains renaming information)</li>
 </ul>
 </li>
 </ul>
@@ -1473,16 +1464,16 @@ including dynamically loaded libraries from a sub-path/location</li>
 <ul>
 <li>ASM.js Variant <em>(dynamically loaded)</em>:
 <ul>
-<li><code>libflac.min.js</code></li>
+<li><code>libflac.min.js</code> (<strong>required</strong>)</li>
 <li><code>libflac.min.js.mem</code> (<strong>required</strong>; will be loaded by the library)</li>
 <li><code>libflac.min.js.symbols</code> (optional; contains renaming information)</li>
 </ul>
 </li>
 <li>WebAssembly variant <em>(dynamically loaded)</em>:
 <ul>
-<li><code>libflac.min.wasm.js</code></li>
+<li><code>libflac.min.wasm.js</code> (<strong>required</strong>)</li>
 <li><code>libflac.min.wasm.wasm</code> (<strong>required</strong>; will be loaded by the library)</li>
-<li><code>libflac.min.wasm.js.symbols</code> (optional; contains renaming information)</li>
+<li><code>libflac.min.wasm.js.symbols</code> (<em>optional</em>; contains renaming information)</li>
 </ul>
 </li>
 </ul>
@@ -1491,16 +1482,16 @@ including dynamically loaded libraries from a sub-path/location</li>
 <ul>
 <li>ASM.js Variant:
 <ul>
-<li><code>libflac.dev.js</code></li>
-<li><s><code>libflac.dev.js.map</code> (optional; mapping to C code)</s> <em>currently not supported by LLVM toolchain</em></li>
-<li><code>libflac.dev.js.symbols</code> (optional; contains renaming information)</li>
+<li><code>libflac.dev.js</code> (<strong>required</strong>)</li>
+<li><s><code>libflac.dev.js.map</code> (<em>optional</em>; mapping to C code)</s> <em>currently not supported by LLVM toolchain</em></li>
+<li><code>libflac.dev.js.symbols</code> (<em>optional</em>; contains renaming information)</li>
 </ul>
 </li>
 <li>WebAssembly variant <em>(dynamically loaded)</em>:
 <ul>
-<li><code>libflac.dev.wasm.js</code></li>
+<li><code>libflac.dev.wasm.js</code> (<strong>required</strong>)</li>
 <li><code>libflac.dev.wasm.wasm</code> (<strong>required</strong>; will be loaded by the library)</li>
-<li><code>libflac.dev.wasm.js.map</code> (optional; mapping to C code)</li>
+<li><code>libflac.dev.wasm.js.map</code> (<em>optional</em>; mapping to C code)</li>
 </ul>
 </li>
 </ul>
@@ -1551,7 +1542,7 @@ const Encoder = require('libflacjs/lib/encoder').Encoder;
 //or as import:
 //import { Encoder } from 'libflacjs/lib/encoder';
 
-//helper function for converting interleaved audio to list of channel-audio
+//helper function for converting interleaved audio to list of channel-audio arrays
 //(for actual code, see example in tools/test/util/utils-enc.ts):
 //  function deinterleave(Int32Array, channels) => Int32Array[]
 
@@ -1562,13 +1553,13 @@ const data = new Int32Array(someAudioData);//&lt;- someAudioData: PCM audio data
 
 const encodingMode = 'interleaved';// &quot;interleaved&quot; | &quot;channels&quot;
 
-const encoder = new Encoder(flac, {
+const encoder = new Encoder(Flac, {
   sampleRate: sampleRate,         // number, e.g. 44100
   channels: channels,             // number, e.g. 1 (mono), 2 (stereo), ...
   bitsPerSample: bitsPerSample,   // number, e.g. 8 or 16 or 24
   compression: compressionLevel,  // number, value between [0, 8] from low to high compression
-  verify: true                    // boolean (OPTIONAL)
-  isOgg: false                    // boolean (OPTIONAL), if encode FLAC should be wrapped in OGG container
+  verify: true,                   // boolean (OPTIONAL)
+  isOgg: false                    // boolean (OPTIONAL), if encoded FLAC should be wrapped in OGG container
 });
 
 if(encodingMode === 'interleaved'){
@@ -1581,9 +1572,9 @@ if(encodingMode === 'interleaved'){
 
 } else {
 
-  //de-interleave data into channels-array
-  // i.e. a list/array of Int32Arrays (list.length corresponds to channels)
-  const list = deinterleave(data, channels);// returns an Int32Array which's length corresponds to channels
+  //if necessary, de-interleave data into channels-array
+  // i.e. a list/array of Int32Arrays, one for each channel (list.length corresponds to channels); see comments about function deinterleave above
+  const list = deinterleave(data, channels);// should return an list of Int32Arrays which's length corresponds to the number of channels
 
   //do encode to FLAC (call multiple times for multiple audio chunks, i.e. &quot;streaming&quot;)
   encoder.encode(list);
@@ -1591,8 +1582,9 @@ if(encodingMode === 'interleaved'){
   //NOTE if data was TypedArray other than Int32Array then optional argument numberOfSamples MUST be given:
   //encoder.encode(list, numberOfSamples);
 }
-encoder.encode();
+encoder.encode();//&lt;- finalize encoding by invoking encode() without arguments
 
+//get the encoded data:
 const encData = encoder.getSamples();
 const metadata = encoder.metadata;
 
@@ -1600,6 +1592,10 @@ encoder.destroy();
 // or encoder.reset() for reusing the encoder instance
 
 // -> do something with the encoded FLAC data encData and metadata
+
+//    e.g. update header with final metadata & create FLAC file Blob:
+const exportFlacFile = require('libflacjs/lib/utils').exportFlacFile;
+const flacBlob = exportFlacFile(encData, metadata, /* if encode in OGG container: */ false);
 </code></pre>
 <h4>Barebones Encoding Example</h4>
 <p>Encoding example using the library functions directly</p>
@@ -1812,32 +1808,37 @@ const binData = new Uint8Array(someFlacData);// &lt;- someFlacData: binary FLAC 
 const decodingMode = 'single';// &quot;single&quot; | &quot;chunked&quot;
 
 const decoder = new Decoder(Flac, {
-  verify: true    // boolean (OPTIONAL)
+  verify: true,   // boolean (OPTIONAL)
   isOgg: false    // boolean (OPTIONAL), if FLAC audio is wrapped in OGG container
 });
 
 if(decodingMode === 'single'){
 
-  //use as-single-chunk mode: invokce decode once with the complete FLAC data
+  //use as-single-chunk mode: invoke decode once with the complete FLAC data
   decoder.decode(binData);
 
 } else {
 
   //use multiple-chunks mode (&quot;streaming&quot;): invoke decodeChunk(...) for each chunk...
   decoder.decodeChunk(binData);
-  //... and finalize decoding by invoking decodeChunk() without arguments
+  //... and finalize decoding by invoking decodeChunk() without arguments:
   decoder.decodeChunk();
 }
 
-const decData = decoder.getSamples(/* return interleaved samples? */ true);// &lt;- returns Uint8Array
-//or: non-interleaved samples, i.e. array of channels data:
-// const decData = decoder.getSamples(false);// &lt;- returns Uint8Array[]
+//get data as non-interleaved samples, i.e. array of channels data:
+const decData = decoder.getSamples(/* return interleaved samples? */ false);// &lt;- returns Uint8Array[]
+//or: get decoded data as interleaved samples:
+// const decData = decoder.getSamples(/* return interleaved samples? */ true);// &lt;- returns Uint8Array
 const metadata = decoder.metadata;
 
 decoder.destroy();
 // or decoder.reset() for reusing the decoder instance
 
 // -> do something with the decoded PCM audio data decData and metadata
+
+//    e.g. create WAV file Blob:
+const exportWavFile = require('libflacjs/lib/utils').exportWavFile;
+const wavBlob = exportWavFile(encData, metadata.sampleRate, metadata.channels, metadata.bitsPerSample);
 </code></pre>
 <h4>Barebones Decoding Example</h4>
 <p>Decoding example using the library functions directly</p>
@@ -2029,7 +2030,7 @@ Flac.FLAC__stream_decoder_delete(flac_decoder);
 
 </code></pre>
 <h4>Decoding Metadata Example</h4>
-<p>Example for extracting the metadata while decoding FALC audio</p>
+<p>Example for extracting metadata when decoding FLAC audio</p>
 <pre class="prettyprint source lang-javascript"><code>
 // prerequisites: loaded & initialized Flac library
 
@@ -2054,9 +2055,9 @@ Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 3);
 Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 4);
 // example vorbis comment metadata:
 // {
-//   comments: [&quot;TRACKNUMBER=2/9&quot;],
-//   entry: &quot;reference libFLAC 1.3.3 20190804&quot;,
-//   num_comments: 1
+//   vendor_string: &quot;reference libFLAC 1.3.3 20190804&quot;,
+//   num_comments: 1,
+//   comments: [&quot;TRACKNUMBER=2/9&quot;]
 // }
 
 //or enable only cue sheet metadata:
@@ -2088,18 +2089,18 @@ Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 5);
 
 //or enable only all picture metadata:
 Flac.FLAC__stream_decoder_set_metadata_respond(flacDecoder, 6);
-// example vorbis comment metadata:
-{
-  type: 3,            // image type (see docs FLAC__StreamMetadata_Picture_Type)
-  mime_type: &quot;image/jpeg&quot;,  //the mime type
-  description: &quot;Cover image for the track&quot;,
-  width: 1144,        // the image width in pixel
-  height: 1144,       // the image height in pixel
-  depth: 24,          // the depth in bits
-  colors: 0,          // colors (e.g. for GIF images)
-  data_length: 45496, // the size of the binary image data (in bytes)
-  data: Uint8Array    // the binary image data
-}
+// example picture metadata:
+// {
+//   type: 3,            // image type (see docs FLAC__StreamMetadata_Picture_Type)
+//   mime_type: &quot;image/jpeg&quot;,  //the mime type
+//   description: &quot;Cover image for the track&quot;,
+//   width: 1144,        // the image width in pixel
+//   height: 1144,       // the image height in pixel
+//   depth: 24,          // the depth in bits
+//   colors: 0,          // colors (e.g. for GIF images)
+//   data_length: 45496, // the size of the binary image data (in bytes)
+//   data: Uint8Array    // the binary image data
+// }
 
 
 
@@ -2140,6 +2141,9 @@ FLAC_VERSION:=1.3.2
 ...
 </code></pre>
 <h3>Build *nix (libflac 1.3.0 or later)</h3>
+<p>In order to build <em>libflac.js</em>, make sure you have <em>emscripten</em> installed (with toolchain <code>LLVM/upstream</code>; default toolchain since version 1.39.x).</p>
+<p>When running <code>make</code>, the build process will download the sources for the
+<code>FLAC</code> and <code>OGG</code> libraries, extract them, and build the JavaScript version of libflac.</p>
 <p>If necessary, activate the appropriate <code>emscripten</code> toolchain (e.g. <code>llvm</code> or the older <code>fastcomp</code> toolchain; default is <code>llvm</code>)</p>
 <pre class="prettyprint source lang-bash"><code> # list versions
 emsdk list
@@ -2216,7 +2220,7 @@ the additional resources and wrapper-code of this project is published under the
         
 
         <footer>
-            Documentation generated by <a target='_blank' href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.4</a>
+            Documentation generated by <a target='_blank' href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.11</a>
         </footer>
     </div>
 </div>
