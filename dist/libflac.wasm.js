@@ -5026,7 +5026,7 @@ function _readMd5(p_md5){
  * HELPER: read frame data
  *
  * @param {POINTER} p_frame
- * @param {CodingOptions} [enc_opt]
+ * @param {Flac.CodingOptions} [enc_opt]
  * @returns FrameHeader
  */
 function _readFrameHdr(p_frame, enc_opt){
@@ -5561,7 +5561,7 @@ function _readPictureMetadata(p_picture_metadata){//-> FLAC__StreamMetadata.type
  *
  * @param {number} heapOffset
  * 				the offset for the data on HEAPU8
- * @param {Uint8Array} newBuffer
+ * @param {Uint8Array<ArrayBuffer>} newBuffer
  * 				the target buffer into which the data should be written -- with the correct (block) size
  * @param {boolean} applyFix
  * 				whether or not to apply the data repair heuristics
@@ -5777,7 +5777,7 @@ function _getOptions(p_coder){
  *
  * @param {Number} p_coder
  * 			the encoder/decoder pointer (ID)
- * @param {CodingOptions} options
+ * @param {Flac.CodingOptions} options
  * 			the coding options
  * @private
  * @memberOf Flac
@@ -6119,7 +6119,7 @@ var _exported = {
 	 * @property {boolean}  isLast if it is the last block of metadata
 	 * @property {number}  length the length of the metadata block (bytes)
 	 * @property {Flac.StreamMetadata | Flac.PaddingMetadata | Flac.ApplicationMetadata | Flac.SeekTableMetadata | Flac.CueSheetMetadata | Flac.PictureMetadata}  [data] the metadata (omitted for unknown metadata types)
-	 * @property {Uint8Array}  [raw] raw metadata (for debugging: enable via {@link Flac#setOptions})
+	 * @property {Uint8Array<ArrayBuffer>}  [raw] raw metadata (for debugging: enable via {@link Flac#setOptions})
 	 */
 	/**
 	 * FLAC padding metadata block
@@ -6240,7 +6240,7 @@ var _exported = {
 	 * @property {number}  depth Picture's color depth in bits-per-pixel.
 	 * @property {number}  colors For indexed palettes (like GIF), picture's number of colors (the number of palette entries), or 0 for non-indexed (i.e. 2^depth).
 	 * @property {number}  data_length Length of binary picture data in bytes.
-	 * @property {Uint8Array}  data Binary picture data.
+	 * @property {Uint8Array<ArrayBuffer>}  data Binary picture data.
 	 */
 	/**
 	 * An enumeration of the PICTURE types (see FLAC__StreamMetadataPicture and id3 v2.4 APIC tag).
@@ -6774,7 +6774,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * The callback for writing the encoded FLAC data.
 	 *
 	 * @callback Flac~encoder_write_callback_fn
-	 * @param {Uint8Array} data the encoded FLAC data
+	 * @param {Uint8Array<ArrayBuffer>} data the encoded FLAC data
 	 * @param {number} numberOfBytes the number of bytes in data
 	 * @param {number} samples the number of samples encoded in data
 	 * @param {number} currentFrame the number of the (current) encoded frame in data
@@ -6955,7 +6955,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 * The callback for writing the decoded FLAC data.
 	 *
 	 * @callback Flac~decoder_write_callback_fn
-	 * @param {Uint8Array[]} data array of the channels with the decoded PCM data as <code>Uint8Array</code>s
+	 * @param {Array<Uint8Array<ArrayBuffer>>} data array of the channels with the decoded PCM data as <code>Uint8Array</code>s
 	 * @param {Flac.BlockMetadata} frameInfo the metadata information for the decoded data
 	 */
 	/**
@@ -7573,7 +7573,7 @@ FLAC__bool 	FLAC__stream_decoder_skip_single_frame (FLAC__StreamDecoder *decoder
 	 *
 	 * NOTE: afer use, the allocated buffers on the heap need be freed, see {@link #_destroy_pointer_array}.
 	 *
-	 * @param {Uint8Array[]} bufferArray
+	 * @param {Array<Uint8Array<ArrayBuffer>>} bufferArray
 	 * 						the buffer for which to create
 	 *
 	 * @returns {Flac.PointerInfo} <code>false</code> if the decoder is already initialized, else <code>true</code>

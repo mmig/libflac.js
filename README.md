@@ -16,8 +16,8 @@ __Features__
  * supported container formats: native FLAC container (`*.flac`), OGG container (`*.ogg`, `*.oga`)
  * support for FLAC metadata extraction when decoding (STREAMINFO, VORBIS_COMMENT, PICTURE, CUESHEET, SEEKTABLE)
 
-> Complied from `libFLAC` (static `C` library) version: 1.3.3\
-> Used library `libogg` (static `C` library) version: 1.3.4\
+> Complied from `libFLAC` (static `C` library) version: 1.3.4\
+> Used library `libogg` (static `C` library) version: 1.3.6\
 > Used compiler `Emscripten` version: 1.39.19\
 > Used compiler `Emscripten` toolchain: LLVM (upstream)
 

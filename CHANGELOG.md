@@ -1,4 +1,11 @@
 
+
+# Version 5.6.0
+
+ * feat: updated `libFLAC` version `1.3.3` -> `1.3.4`
+ * feat: updated `libogg` version `1.3.4` -> `1.3.6`
+
+
 # Version 5.5.2
 
  * docs: update docs
